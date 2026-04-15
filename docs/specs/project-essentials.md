@@ -13,7 +13,7 @@ top-level `#` title — the wrapper provides it.
 
 **Python invocation — use `pyve run`:**
 - Canonical form: `pyve run python script.py`, `pyve run python -m learningfoundry ...`
-- `pyve run` guarantees the command executes within the project's virtual environment at the project root. This eliminates the need for editable installs (`pip install -e .`) — do not use them.
+- `pyve run` guarantees the command executes within the project's virtual environment at the project root. Do not use editable installs (`pip install -e .`) in the main project venv.
 - Never use bare `python ...` or `.venv/bin/python ...` — both bypass pyve's guarantees and may resolve to a different Python on `$PATH`.
 
 **Dev tool installation — use `pyve testenv`:**
@@ -21,6 +21,11 @@ top-level `#` title — the wrapper provides it.
 - Setup: `pyve testenv --init`, then `pyve testenv --install -r requirements-dev.txt`.
 - Run dev tools via: `pyve testenv run ruff check .`, `pyve testenv run mypy src/`.
 - Do not `pip install ruff mypy` into the project venv — that pollutes the runtime dependency graph.
+
+**Testenv editable install — required for tests to import the package:**
+- The testenv does not automatically see the project source. Bootstrap it once with: `pyve testenv run pip install -e .`
+- This is safe and correct — editable installs in the testenv are expected; it is only the main project venv where they are avoided.
+- `pyve testenv --install` only accepts a requirements file (`-r`), not raw pip arguments — use `pyve testenv run pip install ...` for one-off installs.
 
 **Test invocation — use `pyve test`:**
 - Canonical form: `pyve test`, `pyve test tests/test_parser.py -v`, `pyve test -k test_resolve`.

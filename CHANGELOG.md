@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-15
+
+### Added
+
+- `src/learningfoundry/exceptions.py` — full exception hierarchy: `LearningFoundryError`, `ConfigError`, `CurriculumVersionError`, `CurriculumValidationError`, `ContentResolutionError`, `IntegrationError`, `GenerationError`
+- `src/learningfoundry/logging_config.py` — `setup_logging(level, output)` using stdlib `logging`
+- `tests/test_exceptions.py` — 17 tests covering hierarchy, string representations, and logging setup
+
 ## [0.3.0] - 2026-04-15
 
 ### Added
