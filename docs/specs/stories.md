@@ -158,19 +158,19 @@ Resolve all content references in a parsed curriculum.
 
 ## Phase C: Pipeline and Orchestration
 
-### Story C.a: v0.11.0 Pipeline Orchestrator [Planned]
+### Story C.a: v0.11.0 Pipeline Orchestrator [Done]
 
 Wire parse → resolve → generate into a single pipeline.
 
-- [ ] Create `src/learningfoundry/pipeline.py` with `run_build()`, `run_validate()`, `run_preview()`
-- [ ] `run_build()`: parse → resolve → generate, log progress at each stage, fail fast on error
-- [ ] `run_validate()`: parse → resolve (validation only), report result
-- [ ] `run_preview()`: build → `pnpm install` → `pnpm run dev --port`
-- [ ] Create `tests/test_pipeline.py`
-  - [ ] End-to-end with fixture curriculum (mocked generator for unit test)
-  - [ ] Validate-only mode catches errors without generating
-- [ ] Bump version to v0.11.0
-- [ ] Update CHANGELOG.md
+- [x] Create `src/learningfoundry/pipeline.py` with `run_build()`, `run_validate()`, `run_preview()`
+- [x] `run_build()`: parse → resolve → generate, log progress at each stage, fail fast on error
+- [x] `run_validate()`: parse → resolve (validation only), report result
+- [x] `run_preview()`: build → `pnpm install` → `pnpm run dev --port`
+- [x] Create `tests/test_pipeline.py`
+  - [x] End-to-end with fixture curriculum (mocked generator for unit test)
+  - [x] Validate-only mode catches errors without generating
+- [x] Bump version to v0.11.0
+- [x] Update CHANGELOG.md
 
 ### Story C.b: v0.12.0 SvelteKit Generator — Template Copy and curriculum.json [Planned]
 

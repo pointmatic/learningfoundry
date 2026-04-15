@@ -1,0 +1,180 @@
+# Copyright 2026 Pointmatic
+# SPDX-License-Identifier: Apache-2.0
+"""Pipeline orchestrator — parse → resolve → generate."""
+
+import logging
+import subprocess
+from collections.abc import Callable
+from pathlib import Path
+
+from learningfoundry.integrations.protocols import (
+    ExerciseProvider,
+    QuizProvider,
+    VisualizationProvider,
+)
+from learningfoundry.parser import parse_curriculum
+from learningfoundry.resolver import ResolvedCurriculum, resolve_curriculum
+
+logger = logging.getLogger("learningfoundry.pipeline")
+
+GeneratorFn = Callable[[ResolvedCurriculum, Path], None]
+
+
+def run_build(
+    curriculum_path: Path,
+    output_dir: Path,
+    base_dir: Path | None = None,
+    quiz_provider: QuizProvider | None = None,
+    exercise_provider: ExerciseProvider | None = None,
+    visualization_provider: VisualizationProvider | None = None,
+    generator: GeneratorFn | None = None,
+) -> ResolvedCurriculum:
+    """Parse → resolve → generate in one call.
+
+    Args:
+        curriculum_path: Path to the curriculum YAML file.
+        output_dir: Destination directory for the generated SvelteKit project.
+        base_dir: Root for resolving content refs. Defaults to the directory
+            containing ``curriculum_path``.
+        quiz_provider: Override for quiz resolution. Defaults to
+            ``QuizazzProvider``.
+        exercise_provider: Override for exercise resolution. Defaults to
+            ``NbfoundryStub``.
+        visualization_provider: Override for visualization resolution. Defaults
+            to ``D3foundryStub``.
+        generator: Override for the SvelteKit generator callable. Defaults to
+            ``learningfoundry.generator.generate_app``.
+
+    Returns:
+        The fully resolved ``ResolvedCurriculum`` (after generation).
+
+    Raises:
+        CurriculumVersionError: Unsupported or missing curriculum version.
+        CurriculumValidationError: Schema validation failure.
+        ContentResolutionError: Any content reference that cannot be resolved.
+        GenerationError: SvelteKit project generation failure.
+    """
+    resolved_base = base_dir or curriculum_path.parent
+
+    logger.info("Parsing curriculum: %s", curriculum_path)
+    curriculum = parse_curriculum(curriculum_path)
+
+    logger.info("Resolving content references (base_dir=%s)", resolved_base)
+    resolved = resolve_curriculum(
+        curriculum,
+        resolved_base,
+        quiz_provider=quiz_provider,
+        exercise_provider=exercise_provider,
+        visualization_provider=visualization_provider,
+    )
+
+    if generator is None:
+        from learningfoundry.generator import generate_app
+
+        generator = generate_app
+
+    logger.info("Generating SvelteKit project at: %s", output_dir)
+    generator(resolved, output_dir)
+
+    logger.info("Build complete: %s", output_dir)
+    return resolved
+
+
+def run_validate(
+    curriculum_path: Path,
+    base_dir: Path | None = None,
+    quiz_provider: QuizProvider | None = None,
+    exercise_provider: ExerciseProvider | None = None,
+    visualization_provider: VisualizationProvider | None = None,
+) -> tuple[bool, list[str]]:
+    """Parse and resolve without generating — validation only.
+
+    Args:
+        curriculum_path: Path to the curriculum YAML file.
+        base_dir: Root for resolving content refs.
+        quiz_provider: Override for quiz resolution.
+        exercise_provider: Override for exercise resolution.
+        visualization_provider: Override for visualization resolution.
+
+    Returns:
+        Tuple of ``(is_valid, errors)`` where ``errors`` is empty on success
+        and contains human-readable error strings on failure.
+    """
+    resolved_base = base_dir or curriculum_path.parent
+    errors: list[str] = []
+
+    try:
+        logger.info("Validating curriculum: %s", curriculum_path)
+        curriculum = parse_curriculum(curriculum_path)
+        resolve_curriculum(
+            curriculum,
+            resolved_base,
+            quiz_provider=quiz_provider,
+            exercise_provider=exercise_provider,
+            visualization_provider=visualization_provider,
+        )
+        logger.info("Validation passed.")
+    except Exception as exc:
+        errors.append(str(exc))
+        logger.error("Validation failed: %s", exc)
+
+    return (len(errors) == 0, errors)
+
+
+def run_preview(
+    curriculum_path: Path,
+    output_dir: Path,
+    port: int = 5173,
+    base_dir: Path | None = None,
+    quiz_provider: QuizProvider | None = None,
+    exercise_provider: ExerciseProvider | None = None,
+    visualization_provider: VisualizationProvider | None = None,
+    generator: GeneratorFn | None = None,
+) -> None:
+    """Build then launch a local preview server.
+
+    Runs ``run_build()``, then ``pnpm install`` and ``pnpm run dev --port``
+    in the generated project directory.
+
+    Args:
+        curriculum_path: Path to the curriculum YAML file.
+        output_dir: Destination directory for the generated SvelteKit project.
+        port: Dev server port. Defaults to 5173.
+        base_dir: Root for resolving content refs.
+        quiz_provider: Override for quiz resolution.
+        exercise_provider: Override for exercise resolution.
+        visualization_provider: Override for visualization resolution.
+        generator: Override for the SvelteKit generator callable.
+
+    Raises:
+        GenerationError: If build or pnpm commands fail.
+    """
+    from learningfoundry.exceptions import GenerationError
+
+    run_build(
+        curriculum_path,
+        output_dir,
+        base_dir=base_dir,
+        quiz_provider=quiz_provider,
+        exercise_provider=exercise_provider,
+        visualization_provider=visualization_provider,
+        generator=generator,
+    )
+
+    logger.info("Installing Node dependencies in %s", output_dir)
+    result = subprocess.run(
+        ["pnpm", "install"],
+        cwd=output_dir,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise GenerationError(
+            f"`pnpm install` failed in `{output_dir}`:\n{result.stderr}"
+        )
+
+    logger.info("Starting dev server on port %d", port)
+    subprocess.run(
+        ["pnpm", "run", "dev", "--port", str(port)],
+        cwd=output_dir,
+    )
