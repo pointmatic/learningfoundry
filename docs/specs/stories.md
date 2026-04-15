@@ -33,24 +33,24 @@ Automated publishing to reserve the `learningfoundry` name on PyPI early.
   - [x] Trigger: push tag matching `v*`
   - [x] Steps: checkout, build sdist + wheel (`python -m build`), publish to PyPI via `twine` or `pypa/gh-action-pypi-publish`
   - [x] Use OIDC trusted publishing (preferred) or `PYPI_API_TOKEN` secret
-- [ ] Tag v0.1.0 and push to trigger initial publish, reserving the `learningfoundry` name on PyPI
-- [ ] Verify: tagged push triggers publish, package appears on PyPI
+- [x] Tag v0.2.0 and push to trigger initial publish, reserving the `learningfoundry` name on PyPI
+- [x] Verify: tagged push triggers publish, package appears on PyPI
 
-### Story A.c: v0.3.0 End-to-End Stack Spike [Planned]
+### Story A.c: v0.3.0 End-to-End Stack Spike [Done]
 
 Throwaway script wiring the full critical path: YAML parse → content resolve → SvelteKit output.
 
-- [ ] Create `scripts/spike_e2e.py`
-  - [ ] Hard-code a minimal curriculum dict (1 module, 1 lesson, 1 text block)
-  - [ ] Write it as a YAML string, parse with PyYAML
-  - [ ] Read a stub markdown file and attach it as resolved content
-  - [ ] Copy a minimal SvelteKit skeleton to a temp output dir
-  - [ ] Write a `curriculum.json` into the skeleton
-  - [ ] Print summary: "Generated SvelteKit project at <path>"
-- [ ] Create `scripts/fixtures/spike-curriculum.yml` and `scripts/fixtures/content/lesson-01.md`
-- [ ] Bump version to v0.3.0
-- [ ] Update CHANGELOG.md
-- [ ] Verify: `pyve run python scripts/spike_e2e.py` produces output dir with `curriculum.json`
+- [x] Create `scripts/spike_e2e.py`
+  - [x] Hard-code a minimal curriculum dict (1 module, 1 lesson, 1 text block)
+  - [x] Write it as a YAML string, parse with PyYAML
+  - [x] Read a stub markdown file and attach it as resolved content
+  - [x] Copy a minimal SvelteKit skeleton to a temp output dir
+  - [x] Write a `curriculum.json` into the skeleton
+  - [x] Print summary: "Generated SvelteKit project at <path>"
+- [x] Create `scripts/fixtures/spike-curriculum.yml` and `scripts/fixtures/content/lesson-01.md`
+- [x] Bump version to v0.3.0
+- [x] Update CHANGELOG.md
+- [x] Verify: `pyve run python scripts/spike_e2e.py` produces output dir with `curriculum.json`
 
 ### Story A.d: v0.4.0 Exception Hierarchy and Logging [Planned]
 

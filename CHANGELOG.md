@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-15
+
+### Added
+
+- `scripts/spike_e2e.py` — throwaway end-to-end spike: YAML parse → content resolve → SvelteKit skeleton generation
+- `scripts/fixtures/spike-curriculum.yml` — minimal 1-module/1-lesson fixture curriculum
+- `scripts/fixtures/content/lesson-01.md` — stub markdown content for the spike
+
 ## [0.2.0] - 2026-04-15
 
 ### Added

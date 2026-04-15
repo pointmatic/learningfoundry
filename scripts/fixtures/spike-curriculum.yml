@@ -1,0 +1,16 @@
+version: "1.0.0"
+
+curriculum:
+  title: "Spike Curriculum"
+  description: "Minimal fixture curriculum for the end-to-end stack spike."
+
+  modules:
+    - id: mod-01
+      title: "Introduction"
+      description: "A single introductory module."
+      lessons:
+        - id: lesson-01
+          title: "Hello, Learning"
+          content_blocks:
+            - type: text
+              ref: content/lesson-01.md
