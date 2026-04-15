@@ -97,20 +97,20 @@ Pydantic models for the v1 curriculum YAML schema.
 - [x] Bump version to v0.6.0
 - [x] Update CHANGELOG.md
 
-### Story B.b: v0.7.0 YAML Curriculum Parser [Planned]
+### Story B.b: v0.7.0 YAML Curriculum Parser [Done]
 
 Parser that loads YAML, extracts version, dispatches to schema.
 
-- [ ] Create `src/learningfoundry/parser.py` with `parse_curriculum()` and `_dispatch_parser()`
-- [ ] Handle: missing version field, unsupported major version, malformed YAML
-- [ ] Create `tests/test_parser.py`
-  - [ ] Valid YAML parses to `CurriculumV1`
-  - [ ] Missing `version` raises `CurriculumVersionError`
-  - [ ] Unsupported version raises `CurriculumVersionError`
-  - [ ] Malformed YAML raises appropriate error
-- [ ] Create test fixture: `tests/fixtures/valid-curriculum.yml`
-- [ ] Bump version to v0.7.0
-- [ ] Update CHANGELOG.md
+- [x] Create `src/learningfoundry/parser.py` with `parse_curriculum()` and `_dispatch_parser()`
+- [x] Handle: missing version field, unsupported major version, malformed YAML
+- [x] Create `tests/test_parser.py`
+  - [x] Valid YAML parses to `CurriculumV1`
+  - [x] Missing `version` raises `CurriculumVersionError`
+  - [x] Unsupported version raises `CurriculumVersionError`
+  - [x] Malformed YAML raises appropriate error
+- [x] Create test fixture: `tests/fixtures/valid-curriculum.yml`
+- [x] Bump version to v0.7.0
+- [x] Update CHANGELOG.md
 
 ### Story B.c: v0.8.0 Provider Protocols and Stubs [Planned]
 
