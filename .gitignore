@@ -25,5 +25,18 @@ build/
 .env
 .venv
 
+
+
+
+# Node / SvelteKit
+node_modules/
+.svelte-kit/
+.output/
+.vercel/
+.netlify/
+
+# TypeScript
+*.tsbuildinfo
+
 # project-guide
 docs/project-guide/**/*.bak.*

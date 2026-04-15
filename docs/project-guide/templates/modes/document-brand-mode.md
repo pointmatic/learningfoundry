@@ -2,8 +2,6 @@
 
 {{ mode_description }}
 
-{% include "modes/_header-sequence.md" %}
-
 ---
 
 ## Purpose
@@ -482,3 +480,5 @@ The `descriptions.md` file is a critical documentation artifact that:
 - Provides clear guidance on which description to use where
 - Should be created early in the documentation phase
 - Must be approved before disseminating to consumer files
+
+{% include "modes/_header-sequence.md" %}

@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "learningfoundry"
+version = "0.1.0"
+description = "A curriculum engine that turns a YAML curriculum definition into a deployable SvelteKit learning application."
+license = "Apache-2.0"
+authors = [
+    { name = "Pointmatic" },
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pyyaml>=6.0",
+    "pydantic>=2.0",
+    "click>=8.1",
+]
+
+[project.optional-dependencies]
+quizazz = [
+    "quizazz-builder>=0.1",
+]
+
+[project.scripts]
+learningfoundry = "learningfoundry.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/learningfoundry"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

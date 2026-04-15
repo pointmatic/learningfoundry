@@ -2,8 +2,6 @@ Break the project into an ordered sequence of small, independently completable s
 
 The high-level concept (why) should be captured in `concept.md`. The requirements and behavior (what) should be captured in `features.md`. The implementation details (how) should be written in `tech-spec.md`.
 
-{% include "modes/_header-sequence.md" %}
-
 ## Prerequisites
 
 Before writing stories, the following must be approved:
@@ -33,17 +31,19 @@ If yes, include a CI/CD phase in the stories. If no, skip it.
 - **Version**: semver, bumped per story. Stories with no code changes omit the version.
 - **Status suffix**: `[Planned]` initially, changed to `[Done]` when completed.
 - **Checklist**: use `- [ ]` for planned tasks, `- [x]` for completed tasks. Subtasks indented with two spaces.
-- **First story (A.a)**: Always a minimal "Hello World" -- the smallest runnable artifact proving the environment is wired up.
-- **Second story (A.b)**: An end-to-end stack spike -- a throwaway script (in `scripts/`, not the package) that wires the full critical path together before production modules.
+- **First story (A.a)**: Always Project Scaffolding — LICENSE, copyright header, package manifest, README, CHANGELOG, .gitignore. This story is executed in `project_scaffold` mode, not `code_velocity`. It is marked `[Done]` by `project_scaffold` mode upon completion.
+- **Second story (A.b)**: Always a minimal "Hello World" -- the smallest runnable artifact proving the environment is wired up.
+- **Third story (A.c)**: An end-to-end stack spike -- a throwaway script (in `scripts/`, not the package) that wires the full critical path together before production modules.
 - **Additional spikes**: Add as the first story of any phase introducing a major new integration boundary.
 - **Each story**: Completable in a single session and independently verifiable.
 - **Verification tasks**: Include where appropriate (e.g., "Verify: command prints version").
+- **Version bump and changelog tasks**: Every versioned story must include these two tasks as the last items before any Verify tasks: `- [ ] Bump version to vX.Y.Z` (substituting the actual version) and `- [ ] Update CHANGELOG.md`.
 
 ## Recommended Phase Progression
 
 | Phase | Name | Purpose |
 |-------|------|---------|
-| A | Foundation | Hello world, project structure, core models, config, logging |
+| A | Foundation | Scaffolding (A.a), hello world (A.b), spike (A.c), core models, config, logging |
 | B | Core Services | The main functional modules (one story per service) |
 | C | Pipeline & Orchestration | Wiring services together, caching, concurrency, error handling |
 | D | CLI & Library API | User-facing interfaces |
@@ -65,4 +65,9 @@ Phases may be added, removed, or renamed to fit the project.
   - [ ] Subtask 1b
 - [ ] Task 2
 - [ ] Task 3
+- [ ] Bump version to vX.Y.Z
+- [ ] Update CHANGELOG.md
+- [ ] Verify: <how to confirm the story is complete>
 ```
+
+{% include "modes/_header-sequence.md" %}

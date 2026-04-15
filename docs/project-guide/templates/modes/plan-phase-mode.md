@@ -2,8 +2,6 @@ Generate a combined concept/features/tech-spec document for a new phase in an ex
 
 Use this mode when the developer wants to add a significant new capability to a project that already has an established codebase and spec documents.
 
-{% include "modes/_header-sequence.md" %}
-
 ## Prerequisites
 
 Before planning a new phase, the following should exist:
@@ -71,5 +69,7 @@ Before planning a new phase, the following should exist:
    If the developer provides new facts, **append** (do not rewrite or reorder) them to `docs/specs/project-essentials.md`. The append-only semantics are deliberate: `plan_phase` runs once per phase and is not the place to refactor existing project-essentials content — that's `refactor_plan`'s Final Step job. Add new `###` subsections under the appropriate category (or create a new category if none fits). Follow the artifact template's heading convention: **do NOT include a top-level `#` heading** (the rendered `go.md` wrapper provides `## Project Essentials`), and use `###` for subsections so they nest correctly.
 
    Present the updated file to the developer for approval. Show only what was added (since this is an append operation, the diff is minimal).
+
+{% include "modes/_header-sequence.md" %}
 
 {% include "modes/_phase-letters.md" %}

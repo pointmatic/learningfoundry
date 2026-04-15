@@ -2,8 +2,6 @@ Archive the completed `docs/specs/stories.md` so the next phase can start with a
 
 This mode is intended to run after all active stories are `[Done]` and before the developer plans the next phase. Phase letters continue across the archive boundary (see below).
 
-{% include "modes/_header-sequence.md" %}
-
 ## Prerequisites
 
 - `docs/specs/stories.md` exists.
@@ -76,5 +74,7 @@ After the archive succeeds, suggest the next step:
 > ```
 >
 > `plan_phase` will read `.archive/` to continue the phase letter sequence (e.g. if the archive's last phase was `K`, the next phase is `L`). See the Phase and Story ID Scheme below.
+
+{% include "modes/_header-sequence.md" %}
 
 {% include "modes/_phase-letters.md" %}

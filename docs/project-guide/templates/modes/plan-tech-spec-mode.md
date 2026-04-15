@@ -2,8 +2,6 @@ Define **how** the project is built -- architecture, module layout, dependencies
 
 The high-level concept (why) should be captured in `concept.md`. The requirements and behavior (what) should be captured in `features.md`. The breakdown of this implementation plan (step-by-step tasks) should be written in `stories.md`.
 
-{% include "modes/_header-sequence.md" %}
-
 ## Prerequisites
 
 Before starting, the developer must provide (or the LLM must ask for):
@@ -72,3 +70,5 @@ Include a **Filename Conventions** section in the tech spec:
 | **Python packages** | Underscores (PEP 8) | `my_package/`, `utils/` |
 | **JavaScript/TypeScript** | Hyphens or camelCase | `api-client.ts`, `dataProcessor.ts` |
 | **Configuration files** | Hyphens or dots | `mkdocs.yml`, `.gitignore`, `pyproject.toml` |
+
+{% include "modes/_header-sequence.md" %}

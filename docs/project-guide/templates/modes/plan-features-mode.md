@@ -2,8 +2,6 @@ Define **what** the project does -- requirements, inputs, outputs, behavior -- w
 
 The high-level concept (why) should be captured in `concept.md`. The implementation details (how) should be written in `tech-spec.md`. The breakdown of the implementation plan (step-by-step tasks) should be written in `stories.md`.
 
-{% include "modes/_header-sequence.md" %}
-
 ## Prerequisites
 
 Before starting, the developer must provide (or the LLM must ask for):
@@ -11,12 +9,11 @@ Before starting, the developer must provide (or the LLM must ask for):
 1. **License preference** -- e.g. Apache-2.0, MIT, MPL-2.0, GPL-3.0. If a `LICENSE` file already exists in the project root, that license prevails.
 2. **Target audience** -- CLI tool, library, web app, etc.
 3. **Constraints** -- no UI, no database, must run offline, etc. (if any)
-
-The approved `docs/specs/concept.md` must exist before starting this mode.
+4. **A project idea** -- a description of the problem space and solution space along with a mapping of pain points to how the solution solves the pain. The `docs/specs/concept.md` file must exist -- read itfor context.
 
 ## Steps
 
-1. Gather information from the developer (ask questions if needed):
+1. Gather information from the developer if not already discovered in prerequisites (ask questions if needed):
    - project_name: The project name
    - programming_language: e.g., Python 3.11+, Node 22, Go 1.23
    - project_goal: One paragraph on what the project should accomplish
@@ -56,3 +53,5 @@ Description of the feature's purpose.
 - Edge case 1 -> How it's handled
 - Edge case 2 -> How it's handled
 ```
+
+{% include "modes/_header-sequence.md" %}

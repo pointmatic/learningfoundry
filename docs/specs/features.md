@@ -1,0 +1,344 @@
+# features.md -- learningfoundry (Python 3.12 + SvelteKit)
+
+This document defines **what** the `learningfoundry` project does -- requirements, inputs, outputs, behavior -- without specifying **how** it is implemented. This is the source of truth for scope.
+
+For a high-level concept (why), see `concept.md`. For implementation details (how), see `tech-spec.md`. For a breakdown of the implementation plan (step-by-step tasks), see `stories.md`. For project-specific must-know facts that future LLMs need to avoid blunders, see `project-essentials.md`.
+
+---
+
+## Project Goal
+
+learningfoundry is a PyPI package that turns a versioned YAML curriculum definition into a deployable, self-contained SvelteKit learning application. An author defines curriculum structure — modules, lessons, content blocks (markdown text, YouTube videos, quizzes, model-training exercises) — in a single YAML file. learningfoundry reads that definition, assembles content from referenced markdown files and library integrations (quizazz for assessments, nbfoundry for training exercises), and produces a static SvelteKit app with in-browser SQLite progress tracking. The goal is to eliminate the manual assembly cost of building a structured, multi-format learning curriculum so that an educator can go from a topic outline to a working learner-facing application using a single tool.
+
+### Core Requirements
+
+1. **YAML curriculum parser** — Read and validate a versioned (`semver`) YAML curriculum definition file that describes the full curriculum structure: modules, lessons, and content blocks.
+2. **Pipeline orchestrator** — Process the parsed YAML by resolving content references (markdown files, video URLs) and invoking library integrations (quizazz, nbfoundry) to assemble all learning artifacts.
+3. **SvelteKit frontend generation** — Produce a static SvelteKit application that presents all content types in a unified learner experience with module/lesson navigation and in-browser progress tracking.
+4. **In-browser SQLite** — The generated app uses sql.js/WASM to persist learner progress (module completion, quiz scores, exercise status) entirely client-side with no server dependency.
+5. **quizazz integration** — Consume assessment content produced by quizazz for pre- and post-module quizzes, rendered inline in the SvelteKit frontend.
+6. **nbfoundry integration** — Consume scaffolded model-training exercises produced by nbfoundry, rendered inline in the SvelteKit frontend. Exercise authoring details (code insertion points, data prep) are handled by nbfoundry, which integrates with modelfoundry.
+7. **Static deployment** — The final artifact is a static site deployable to any CDN or runnable locally via a dev server.
+
+### Operational Requirements
+
+1. **Fail-fast error handling** — The CLI exits immediately on the first error with a clear, actionable message (file path, line number where applicable, what went wrong, how to fix it). No partial recovery or silent fallback.
+2. **Structured logging** — Use a configurable logging library (e.g., `structlog` or `logging` with structured formatters). Log levels (DEBUG, INFO, WARNING, ERROR) are configurable via the global config file. Output defaults to stdout; file output is configurable.
+3. **Global configuration** — A user-level config file at `~/.config/learningfoundry/config.yml` stores defaults for logging level, log output destination, and other pipeline parameters. CLI flags override config-file values; config-file values override built-in defaults.
+4. **YAML versioning** — Every curriculum YAML file includes a top-level `version` field (semver string, e.g., `"1.0.0"`). The parser selects the correct schema/parser based on the major version, enabling backward-compatible evolution of the format.
+
+### Quality Requirements
+
+1. **Cross-platform** — The Python pipeline (data preparation, model training/optimization/evaluation via nbfoundry + modelfoundry; YAML parsing; content assembly) must run on macOS, Linux, and Windows. The generated SvelteKit artifacts have no cross-platform concerns.
+2. **Python 3.12 pinned** — The project requires Python 3.12 exactly, due to GPU acceleration library compatibility constraints.
+3. **Minimal dependencies** — Prefer standard-library solutions where practical. Third-party dependencies must be justified and pinned.
+4. **Readable, maintainable code** — Clear module boundaries, docstrings on public APIs, consistent code style enforced by linter/formatter.
+
+### Usability Requirements
+
+1. **CLI interface** — learningfoundry is invoked via CLI subcommands:
+   - `learningfoundry build` — Run the full pipeline: parse YAML, resolve content, invoke integrations, produce the SvelteKit app.
+   - `learningfoundry validate` — Check the curriculum YAML for schema errors, missing file references, and version compatibility without running the full build.
+   - `learningfoundry preview` — Build and launch a local dev server for the generated SvelteKit app.
+2. **Target users** — Educators, graduate students, technical teams, and developer advocates who are comfortable with YAML, markdown, and the command line. No web-based authoring UI.
+3. **Content authoring** — Authors write curriculum content in markdown files and reference them from the YAML definition. LLM-generated content is produced via ad hoc scripts or browser-based LLM chat and pasted into markdown files — learningfoundry does not invoke LLMs directly (LLM orchestration is delegated to lmentry for future integration).
+
+### Non-goals
+
+1. **Admin/authoring UI** — No web-based curriculum builder; authoring is YAML + markdown + CLI.
+2. **User accounts or authentication** — Single-user, local-first; no login system.
+3. **Server-side persistence or APIs** — The generated app is fully static; no backend at runtime.
+4. **AI video generation** — Videos are YouTube embeds only.
+5. **Spaced repetition or adaptive sequencing** — Beyond future pre/post-assessment gating, no adaptive learning algorithms.
+6. **Content locking/gating (v1)** — Pre/post assessments are present but do not gate access to modules in v1. The data model anticipates future gating support.
+7. **Multi-curriculum dashboard** — No cross-curriculum analytics or management surface.
+8. **Mobile native wrappers** — Web-only delivery.
+9. **nbfoundry integration (v1)** — Marimo notebook generation is out of scope; placeholder slots in the frontend anticipate future integration.
+10. **d3foundry integration (v1)** — D3.js visualization generation is out of scope; placeholder slots in the frontend anticipate future integration.
+11. **Progress export/import** — Progress is ephemeral and local to the browser; no export or sync mechanism in v1.
+12. **Direct LLM invocation** — learningfoundry does not call LLM APIs. Content generation is done externally; LLM orchestration will be handled by lmentry in a future version.
+
+---
+
+## Inputs
+
+### Curriculum YAML file
+
+The primary input is a single YAML file defining the curriculum structure. The file must include a semver `version` field. Structure:
+
+```yaml
+version: "1.0.0"
+
+curriculum:
+  title: "D802 Deep Learning Essentials"
+  description: "A hands-on curriculum covering deep learning fundamentals."
+
+  modules:
+    - id: mod-01
+      title: "Introduction to Neural Networks"
+      description: "..."
+
+      pre_assessment:
+        source: quizazz
+        ref: assessments/mod-01-pre.yml
+
+      lessons:
+        - id: lesson-01
+          title: "What is a Neural Network?"
+          content_blocks:
+            - type: text
+              ref: content/mod-01/lesson-01.md
+
+            - type: video
+              url: "https://www.youtube.com/watch?v=..."
+
+            - type: quiz
+              source: quizazz
+              ref: assessments/mod-01-lesson-01-quiz.yml
+
+            - type: exercise
+              source: nbfoundry
+              ref: exercises/mod-01-exercise-01.yml
+
+      post_assessment:
+        source: quizazz
+        ref: assessments/mod-01-post.yml
+```
+
+**Content block types (v1):**
+- **text** — References a markdown file (`ref`). The most common content type.
+- **video** — A YouTube URL (`url`).
+- **quiz** — References a quizazz assessment definition file (`ref`).
+- **exercise** — References an nbfoundry exercise definition file (`ref`).
+
+### Markdown content files
+
+Markdown files referenced by `text` content blocks. Standard markdown; no custom extensions in v1.
+
+### Global config file
+
+`~/.config/learningfoundry/config.yml` — Optional. Stores user-level defaults:
+
+```yaml
+logging:
+  level: INFO          # DEBUG | INFO | WARNING | ERROR
+  output: stdout       # stdout | <file path>
+```
+
+Additional parameters will be added as the project evolves.
+
+### CLI arguments
+
+CLI flags for subcommands (`build`, `validate`, `preview`). Flags override config-file values.
+
+---
+
+## Outputs
+
+### Static SvelteKit application
+
+The primary output is a build-ready SvelteKit project directory containing:
+
+- All curriculum content compiled into SvelteKit pages/components
+- Module and lesson navigation
+- Embedded quiz, video, and exercise components
+- In-browser SQLite (sql.js/WASM) for progress tracking
+- Placeholder slots for future nbfoundry and d3foundry content
+
+The application is deployable to any static hosting provider (CDN) or runnable locally.
+
+### Console output
+
+- **build** — Progress log of pipeline stages (parsing, content resolution, integration invocation, SvelteKit generation). Errors halt the pipeline immediately with actionable messages.
+- **validate** — Schema validation results: OK or a list of errors with file paths and descriptions.
+- **preview** — Dev server URL and log output.
+
+---
+
+## Functional Requirements
+
+### FR-1: YAML Curriculum Parsing
+
+Parse and validate the curriculum YAML file against the schema for the declared `version`.
+
+**Behavior:**
+1. Read the YAML file specified as a CLI argument.
+2. Extract the `version` field and select the corresponding schema/parser.
+3. Validate the full document against the schema: required fields, valid content block types, file reference existence, URL format.
+4. Return a structured in-memory representation of the curriculum for downstream pipeline stages.
+
+**Edge Cases:**
+- Missing `version` field → Error: "Curriculum YAML must include a top-level `version` field (semver)."
+- Unsupported major version → Error: "Unsupported curriculum version `X.0.0`. Supported versions: 1.x."
+- Referenced file does not exist → Error: "File not found: `content/mod-01/lesson-01.md` (referenced by mod-01 / lesson-01 / content_blocks[0])."
+- Duplicate module or lesson IDs → Error with location of both duplicates.
+
+### FR-2: Content Resolution
+
+Resolve all content references in the parsed curriculum to their actual content.
+
+**Behavior:**
+1. For each `text` block, read the referenced markdown file.
+2. For each `video` block, validate the YouTube URL format.
+3. For each `quiz` block, delegate to quizazz to parse the referenced assessment file and return renderable content.
+4. For each `exercise` block, delegate to nbfoundry to parse the referenced exercise file and return renderable content.
+5. Attach resolved content to the in-memory curriculum structure.
+
+**Edge Cases:**
+- Markdown file is empty → Warning logged; empty content block rendered in frontend.
+- Invalid YouTube URL format → Error with block location.
+- quizazz or nbfoundry returns an error → Error surfaced with the originating block location and the library's error message.
+
+### FR-3: SvelteKit Application Generation
+
+Generate a complete, build-ready SvelteKit project from the resolved curriculum.
+
+**Behavior:**
+1. Scaffold the SvelteKit project structure (or populate a bundled template).
+2. Generate a page/component for each module and lesson, embedding resolved content blocks in order.
+3. Include navigation components: module list, lesson list within a module, prev/next lesson navigation.
+4. Include a progress dashboard component showing per-module completion status and quiz scores.
+5. Embed the sql.js/WASM runtime and initialize the progress database schema on first load.
+6. Include placeholder component slots for future nbfoundry (notebook) and d3foundry (visualization) content types.
+
+**Edge Cases:**
+- Curriculum with zero modules → Error: "Curriculum must contain at least one module."
+- Module with zero lessons → Error: "Module `mod-01` must contain at least one lesson."
+- Very large curriculum (50+ modules) → No hard limit; build may be slow but must complete correctly.
+
+### FR-4: In-Browser Progress Tracking
+
+Track learner progress entirely client-side using sql.js/WASM (SQLite in the browser).
+
+**Behavior:**
+1. On first app load, create the SQLite database and initialize the schema (modules, lessons, quiz_scores, exercise_status).
+2. Mark a lesson as completed when the learner navigates past it or explicitly marks it done.
+3. Store quiz scores (pre/post assessment and inline quizzes) with timestamps.
+4. Store exercise completion status.
+5. Surface progress in the navigation UI: per-module completion percentage, quiz score indicators.
+
+**Edge Cases:**
+- Browser storage cleared → Database is recreated; progress resets. This is expected behavior (ephemeral).
+- Multiple browser tabs → No cross-tab sync in v1; last-write-wins on the same IndexedDB backing store.
+
+### FR-5: quizazz Integration
+
+Consume quiz/assessment content produced by quizazz and render it in the SvelteKit frontend.
+
+**Behavior:**
+1. During content resolution, invoke quizazz to parse assessment YAML files referenced by `quiz` content blocks and `pre_assessment`/`post_assessment` module fields.
+2. quizazz returns a content-only artifact (questions, answer choices, correct answers, explanations).
+3. The SvelteKit frontend renders quizzes inline with immediate scoring and explanation display.
+4. Quiz scores are written to the in-browser SQLite database.
+
+**Edge Cases:**
+- quizazz assessment file is malformed → Error surfaced with file path and quizazz's error message.
+- Assessment has zero questions → Warning; empty assessment section rendered.
+
+### FR-6: nbfoundry Integration
+
+Consume scaffolded model-training exercises produced by nbfoundry and render them in the SvelteKit frontend.
+
+**Behavior:**
+1. During content resolution, invoke nbfoundry to parse exercise YAML files referenced by `exercise` content blocks.
+2. nbfoundry returns renderable exercise content (instructions, code scaffolding with insertion points, expected outputs). Exercise authoring details (data prep, training steps, evaluation) are fully delegated to nbfoundry.
+3. The SvelteKit frontend renders exercises inline with instructions and code display.
+4. Exercise completion status is written to the in-browser SQLite database.
+
+**Edge Cases:**
+- nbfoundry exercise file is malformed → Error surfaced with file path and nbfoundry's error message.
+- Exercise references a dataset not available locally → Error from nbfoundry surfaced to the user.
+
+### FR-7: CLI Interface
+
+Provide a command-line interface with subcommands for building, validating, and previewing curricula.
+
+**Behavior:**
+1. `learningfoundry build <curriculum.yml>` — Run the full pipeline (FR-1 through FR-3). Output the SvelteKit project to a configurable output directory (default: `./build/`).
+2. `learningfoundry validate <curriculum.yml>` — Run FR-1 (parsing and validation) only. Report errors or "Curriculum is valid."
+3. `learningfoundry preview <curriculum.yml>` — Run `build`, then start a local dev server serving the generated app. Print the local URL.
+4. All subcommands accept `--log-level` and `--config` flags. CLI flags override config-file values; config-file values override built-in defaults.
+
+**Edge Cases:**
+- No curriculum file argument → Error: "Usage: learningfoundry <build|validate|preview> <curriculum.yml>"
+- Output directory already exists on `build` → Overwrite with a warning logged.
+- Port conflict on `preview` → Error with suggestion to use `--port` flag.
+
+### FR-8: Global Configuration
+
+Load and merge configuration from the global config file and CLI flags.
+
+**Behavior:**
+1. On startup, check for `~/.config/learningfoundry/config.yml`.
+2. If present, parse and apply settings (logging level, logging output, other future parameters).
+3. CLI flags override any config-file value.
+4. If the config file is absent, use built-in defaults (INFO logging to stdout).
+
+**Edge Cases:**
+- Config file is malformed YAML → Error: "Invalid config file at `~/.config/learningfoundry/config.yml`: <parse error>."
+- Unknown config keys → Warning logged; unknown keys ignored (forward-compatible).
+
+---
+
+## Configuration
+
+**Precedence (highest to lowest):**
+1. CLI flags (e.g., `--log-level DEBUG`)
+2. Global config file (`~/.config/learningfoundry/config.yml`)
+3. Built-in defaults
+
+**Global config schema (v1):**
+
+```yaml
+# ~/.config/learningfoundry/config.yml
+logging:
+  level: INFO          # DEBUG | INFO | WARNING | ERROR
+  output: stdout       # stdout | <file path>
+```
+
+Additional parameters will be added as the project evolves. Unknown keys are ignored with a warning.
+
+**Curriculum YAML schema:** See [Inputs — Curriculum YAML file](#curriculum-yaml-file).
+
+---
+
+## Testing Requirements
+
+Pragmatic test coverage focused on high-value paths:
+
+1. **YAML parsing** — Unit tests for valid curricula, missing fields, invalid versions, duplicate IDs, missing file references.
+2. **Content resolution** — Unit tests for markdown loading, URL validation, and error propagation from quizazz/nbfoundry (using mocks/stubs).
+3. **CLI** — Integration tests for `build`, `validate`, and `preview` subcommands using a small fixture curriculum.
+4. **Config merging** — Unit tests for precedence: CLI > config file > defaults; malformed config handling.
+5. **SvelteKit output** — Smoke tests verifying the generated project structure contains expected files and compiles without errors.
+
+Tests are expanded incrementally as the project matures.
+
+---
+
+## Security and Compliance Notes
+
+- **No direct LLM API calls** — learningfoundry does not handle API keys or make external network requests. LLM orchestration and key management are delegated to lmentry (future integration).
+- **No user authentication** — No passwords, tokens, or PII storage.
+- **Static output** — The generated app makes no server-side requests at runtime. All data stays in the learner's browser.
+- **Dependency auditing** — Third-party dependencies should be reviewed for known vulnerabilities before inclusion.
+- **Apache 2.0 license** — All source and generated artifacts are distributed under Apache 2.0.
+
+---
+
+## Performance Expectations
+
+No specific performance targets for v1. The pipeline should complete in a reasonable time for a typical curriculum (10–20 modules). Performance optimization is deferred until real workloads identify bottlenecks.
+
+---
+
+## Acceptance Criteria
+
+1. An author can write a curriculum YAML file and markdown content files, run `learningfoundry build`, and receive a static SvelteKit application that renders all modules and lessons with text, video, quiz, and exercise content.
+2. `learningfoundry validate` catches and reports schema errors, missing files, and version mismatches with clear, actionable messages.
+3. `learningfoundry preview` builds the app and serves it locally for review.
+4. The generated app tracks lesson completion and quiz scores in an in-browser SQLite database and displays progress in the navigation UI.
+5. The D802 Deep Learning Essentials reference curriculum builds and runs successfully as the first end-to-end proof of the pipeline.
+6. The pipeline runs on macOS, Linux, and Windows with Python 3.12.
+7. Pre/post assessment data is stored in the progress database, anticipating future gating support without enforcing it in v1.
+8. Placeholder slots exist in the frontend for future nbfoundry and d3foundry content types.

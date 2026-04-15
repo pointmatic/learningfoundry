@@ -1,7 +1,5 @@
 Define the problem space (problem statement, why, pain points, target users, value criteria) and the solution space (solution statement, goals, scope, constraints), and pain point to solution mapping.
 
-{% include "modes/_header-sequence.md" %}
-
 ## Prerequisites
 
 Before starting, the developer must provide (or the LLM must ask for):
@@ -48,3 +46,5 @@ Before starting, the developer must provide (or the LLM must ask for):
   ...
 ...
 ```
+
+{% include "modes/_header-sequence.md" %}
