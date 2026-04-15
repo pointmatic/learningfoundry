@@ -172,20 +172,20 @@ Wire parse → resolve → generate into a single pipeline.
 - [x] Bump version to v0.11.0
 - [x] Update CHANGELOG.md
 
-### Story C.b: v0.12.0 SvelteKit Generator — Template Copy and curriculum.json [Planned]
+### Story C.b: v0.12.0 SvelteKit Generator — Template Copy and curriculum.json [Done]
 
 Generate a SvelteKit project from resolved curriculum.
 
-- [ ] Create `src/learningfoundry/generator.py` with `generate_app()`
-- [ ] Copy `sveltekit_template/` to output dir (atomic: write to temp, then move)
-- [ ] Serialize `ResolvedCurriculum` to `curriculum.json` in the output `static/` dir
-- [ ] Overwrite existing output dir with warning
-- [ ] Create `tests/test_generator.py`
-  - [ ] Output dir contains expected files (`package.json`, `svelte.config.js`, `curriculum.json`)
-  - [ ] `curriculum.json` content matches input
-  - [ ] Overwrite behavior
-- [ ] Bump version to v0.12.0
-- [ ] Update CHANGELOG.md
+- [x] Create `src/learningfoundry/generator.py` with `generate_app()`
+- [x] Copy `sveltekit_template/` to output dir (atomic: write to temp, then move)
+- [x] Serialize `ResolvedCurriculum` to `curriculum.json` in the output `static/` dir
+- [x] Overwrite existing output dir with warning
+- [x] Create `tests/test_generator.py`
+  - [x] Output dir contains expected files (`package.json`, `svelte.config.js`, `curriculum.json`)
+  - [x] `curriculum.json` content matches input
+  - [x] Overwrite behavior
+- [x] Bump version to v0.12.0
+- [x] Update CHANGELOG.md
 
 ## Phase D: SvelteKit Frontend Template
 

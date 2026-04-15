@@ -65,6 +65,12 @@ class TestExceptionHierarchy:
 
 
 class TestLoggingSetup:
+    def teardown_method(self) -> None:
+        logger = logging.getLogger("learningfoundry")
+        logger.handlers.clear()
+        logger.propagate = True
+        logger.setLevel(logging.NOTSET)
+
     def test_default_level_is_info(self) -> None:
         setup_logging()
         logger = logging.getLogger("learningfoundry")
