@@ -125,19 +125,19 @@ Integration protocols and v1 stub implementations.
 - [x] Bump version to v0.8.0
 - [x] Update CHANGELOG.md
 
-### Story B.d: v0.9.0 quizazz Integration [Planned]
+### Story B.d: v0.9.0 quizazz Integration [Done]
 
 QuizProvider implementation delegating to `quizazz_builder`.
 
-- [ ] Create `src/learningfoundry/integrations/quizazz.py` (`QuizazzProvider`)
-  - [ ] Resolve ref path relative to base dir
-  - [ ] Delegate to `quizazz_builder.validator.validate_file()` and `quizazz_builder.compiler.compile_quiz()`
-  - [ ] Wrap errors in `IntegrationError`
-- [ ] Create `tests/test_integrations/test_quizazz.py`
-  - [ ] Mock `quizazz_builder` — verify delegation and error wrapping
-- [ ] Bump version to v0.9.0
-- [ ] Update CHANGELOG.md
-- [ ] Verify: `quizazz-builder` is listed in `[project.optional-dependencies]`
+- [x] Create `src/learningfoundry/integrations/quizazz.py` (`QuizazzProvider`)
+  - [x] Resolve ref path relative to base dir
+  - [x] Delegate to `quizazz_builder.compile_assessment()`
+  - [x] Wrap errors in `IntegrationError`
+- [x] Create `tests/test_integrations/test_quizazz.py`
+  - [x] Mock `quizazz_builder` — verify delegation and error wrapping
+- [x] Bump version to v0.9.0
+- [x] Update CHANGELOG.md
+- [x] Verify: `quizazz-builder` is listed in `[project.optional-dependencies]`
 
 ### Story B.e: v0.10.0 Content Resolver [Planned]
 
