@@ -22,7 +22,7 @@ For efficiency, when you change modes, start a new LLM conversation.
 ### For LLMs
 
 **Modes**
-This Project-Guide offers a human-in-the-loop workflow for you to follow that can be dynamically reconfigured based on the project `mode`. Each `mode` defines a focused cycle of steps to guide you (the LLM) to help generate artifacts for some facet in the project lifecycle. This document is customized for code_velocity.
+This Project-Guide offers a human-in-the-loop workflow for you to follow that can be dynamically reconfigured based on the project `mode`. Each `mode` defines a focused sequence of steps to guide you (the LLM) to help generate artifacts for some facet in the project lifecycle. This document is customized for plan_stories.
 
 **Approval Gate**
 When you have completed the steps, pause for the developer to review, correct, redirect, or ask questions about your work.  
@@ -118,71 +118,116 @@ top-level `#` title — the wrapper provides it.
 
 ---
 
-# code_velocity mode (cycle)
+# plan_stories mode (sequence)
 
-> Generate code with velocity
+> Generate a user stories prompt
 
 
-Implement stories rapidly with direct commits to main. Focus on feature completion and iteration speed over process overhead.
+Break the project into an ordered sequence of small, independently completable stories grouped into phases. Each story has a checklist of concrete tasks. Stories reference modules defined in `tech-spec.md`.
 
-**Next Action**
-Restart the cycle of steps. 
+The high-level concept (why) should be captured in `concept.md`. The requirements and behavior (what) should be captured in `features.md`. The implementation details (how) should be written in `tech-spec.md`.
+
+## Prerequisites
+
+Before writing stories, the following must be approved:
+- `docs/specs/concept.md`
+- `docs/specs/features.md`
+- `docs/specs/tech-spec.md`
+
+Additionally, ask the developer:
+
+> **Will this project need CI/CD automation?** For example: GitHub Actions for linting/testing on every push, dynamic code coverage badges (Codecov/Coveralls), and/or automated publishing to a package registry (PyPI, npm, etc.) on tagged releases?
+
+If yes, include a CI/CD phase in the stories. If no, skip it.
+
+## Steps
+
+1. Read the approved concept, features, and tech-spec documents.
+
+2. Generate `docs/specs/stories.md` using the artifact template at `templates/artifacts/stories.md`
+
+3. Present the complete document to the developer for approval. Iterate as needed.
+
+## Phase and Story ID Scheme
+
+Phase and story IDs use a base-26 letter scheme with no zero. The same scheme applies to both — single letters first, then two-letter combinations, etc. This keeps IDs short while supporting projects of any size, and lets archive boundaries continue the sequence cleanly.
+
+### Phase letters
+
+Phases are labeled `A`, `B`, …, `Z`, then `AA`, `AB`, …, `AZ`, `BA`, …, `ZZ`, then `AAA`, …. The scheme is base-26 with no zero — there is no "phase 0" and `B` follows `A` (not `AB`).
+
+Examples in order: `A`, `B`, …, `Z`, `AA`, `AB`, `AC`, …, `AZ`, `BA`, `BB`, …, `ZZ`, `AAA`, ….
+
+### Story sub-letters
+
+Within a phase, stories use lowercase letters following the same scheme: `A.a`, `A.b`, …, `A.z`, then `A.aa`, `A.ab`, …, `A.az`, `A.ba`, ….
+
+Examples: `A.a`, `A.b`, …, `A.z`, `A.aa`, `A.ab`, ….
+
+### Continuing across archive boundaries
+
+When `stories.md` is archived (via `archive_stories` mode), the fresh `stories.md` starts empty — but phase letters do **not** reset. To determine the next phase letter:
+
+1. Look in `docs/specs/.archive/` for files matching `stories-vX.Y.Z.md`.
+2. If any exist, read the one with the highest version and find the highest phase letter inside it. The next phase letter is the successor in the base-26 sequence (e.g., if the archive's last phase was `K`, the next is `L`; if it was `AZ`, the next is `BA`).
+3. If `.archive/` is missing or empty, start at `A`.
+
+Story sub-letters reset within each phase — they do not continue across phases or archive boundaries.
 
 ---
 
 
-## Cycle Steps
+## Story Writing Rules
 
-For each story:
+- **Story ID**: see the Phase and Story ID Scheme above.
+- **Version**: semver, bumped per story. Stories with no code changes omit the version.
+- **Status suffix**: `[Planned]` initially, changed to `[Done]` when completed.
+- **Checklist**: use `- [ ]` for planned tasks, `- [x]` for completed tasks. Subtasks indented with two spaces.
+- **First story (A.a)**: Always Project Scaffolding — LICENSE, copyright header, package manifest, README, CHANGELOG, .gitignore. This story is executed in `project_scaffold` mode, not `code_velocity`. It is marked `[Done]` by `project_scaffold` mode upon completion.
+- **Second story (A.b)**: Always a minimal "Hello World" -- the smallest runnable artifact proving the environment is wired up.
+- **Third story (A.c)**: An end-to-end stack spike -- a throwaway script (in `scripts/`, not the package) that wires the full critical path together before production modules.
+- **Additional spikes**: Add as the first story of any phase introducing a major new integration boundary.
+- **Each story**: Completable in a single session and independently verifiable.
+- **Verification tasks**: Include where appropriate (e.g., "Verify: command prints version").
+- **Version bump and changelog tasks**: Every versioned story must include these two tasks as the last items before any Verify tasks: `- [ ] Bump version to vX.Y.Z` (substituting the actual version) and `- [ ] Update CHANGELOG.md`.
 
-1. **Read** the story's checklist from `docs/specs/stories.md`
-2. **Implement** all tasks in the checklist
-3. **Add copyright/license headers** to every new source file
-4. **Run tests** -- `pyve run pytest` (fix failures before continuing)
-5. **Run linting** -- fix any issues immediately
-6. **Mark tasks** as `[x]` in `stories.md` and change story suffix to `[Done]`
-7. **Bump version** in package manifest and source (if the story has a version)
-8. **Update CHANGELOG.md** with the version entry
-9. **Present** the completed story concisely: what changed (files + line refs), verification results (test counts, lint status), and the suggested next story. Do not propose commits, pushes, or bundling options. Do not offer "want me to also…?" follow-ups.
-10. **Wait** for the developer to say "go" before starting the next story
+## Recommended Phase Progression
 
-## Velocity Practices
+| Phase | Name | Purpose |
+|-------|------|---------|
+| A | Foundation | Scaffolding (A.a), hello world (A.b), spike (A.c), core models, config, logging |
+| B | Core Services | The main functional modules (one story per service) |
+| C | Pipeline & Orchestration | Wiring services together, caching, concurrency, error handling |
+| D | CLI & Library API | User-facing interfaces |
+| E | Testing & Quality | Test suites, coverage, edge case tests |
+| F | Documentation & Release | README, changelog, final testing, polish |
+| G | CI/CD & Automation | GitHub Actions, coverage badges, release automation (if requested) |
 
-**LLM's role in each cycle:**
+Phases may be added, removed, or renamed to fit the project.
 
-- **Version bump per story** -- v0.1.0, v0.2.0, v0.3.0, etc. — bump in package manifest and source
-- **Minimal process overhead** -- focus on making it work, not making it perfect
-- **Tests run after every story** -- not after every file, but before presenting to developer
-- **Fix linting immediately** -- small incremental fixes, not batch cleanup
-- **Update CHANGELOG.md** with the version entry before presenting
+## Story Format
 
-**Developer's role (do NOT prompt for, offer, or initiate):**
+```markdown
+### Story <Phase>.<letter>: v<version> <Title> [Planned]
 
-- **Direct commits to main** -- no branches, no PRs, no code review (velocity convention)
-- **Commit messages** reference story IDs: `"Story A.a: v0.1.0 Hello World"`
-- **Decides when to commit** -- the LLM presents, the developer commits. Multiple stories may be bundled into one commit at the developer's discretion — that is not the LLM's call to make or suggest.
+<Optional one-line description.>
 
-## Story Ordering
+- [ ] Task 1
+  - [ ] Subtask 1a
+  - [ ] Subtask 1b
+- [ ] Task 2
+- [ ] Task 3
+- [ ] Bump version to vX.Y.Z
+- [ ] Update CHANGELOG.md
+- [ ] Verify: <how to confirm the story is complete>
+```
 
-- Start with Story A.a (Hello World) if not yet implemented
-- If unclear which story is next, ask: "Which story should I work on next?"
-- Never skip ahead -- complete stories in order within each phase
+**After completing all steps below**, prompt the user to change modes:
 
-## File Header Reminder
+```bash
+project-guide mode project_scaffold
+```
 
-Every new source file must include the copyright and license header as the very first content (before code, docstrings, or imports).
+---
 
-## When to Switch Modes
-
-Switch to **code_test_first** when:
-- Working on a story with complex logic that benefits from TDD
-- The developer requests test-first approach
-
-Switch to **debug** when:
-- A bug is discovered during implementation
-- Tests are failing unexpectedly
-
-Switch to **production mode** when:
-- CI/CD phase is complete and branch protection is enabled
-- The project is ready for public users
 
