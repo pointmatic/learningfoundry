@@ -112,18 +112,18 @@ Parser that loads YAML, extracts version, dispatches to schema.
 - [x] Bump version to v0.7.0
 - [x] Update CHANGELOG.md
 
-### Story B.c: v0.8.0 Provider Protocols and Stubs [Planned]
+### Story B.c: v0.8.0 Provider Protocols and Stubs [Done]
 
 Integration protocols and v1 stub implementations.
 
-- [ ] Create `src/learningfoundry/integrations/__init__.py`
-- [ ] Create `src/learningfoundry/integrations/protocols.py` with `QuizProvider`, `ExerciseProvider`, `VisualizationProvider` protocols
-- [ ] Create `src/learningfoundry/integrations/nbfoundry_stub.py` (`NbfoundryStub`) — returns placeholder dict with `"status": "stub"`
-- [ ] Create `src/learningfoundry/integrations/d3foundry_stub.py` (`D3foundryStub`) — returns placeholder dict with `"status": "stub"`
-- [ ] Create `tests/test_integrations/test_nbfoundry_stub.py` and `tests/test_integrations/test_d3foundry_stub.py`
-  - [ ] Verify stub return structure matches `ExerciseContent` / `VisualizationContent` TypeScript interfaces
-- [ ] Bump version to v0.8.0
-- [ ] Update CHANGELOG.md
+- [x] Create `src/learningfoundry/integrations/__init__.py`
+- [x] Create `src/learningfoundry/integrations/protocols.py` with `QuizProvider`, `ExerciseProvider`, `VisualizationProvider` protocols
+- [x] Create `src/learningfoundry/integrations/nbfoundry_stub.py` (`NbfoundryStub`) — returns placeholder dict with `"status": "stub"`
+- [x] Create `src/learningfoundry/integrations/d3foundry_stub.py` (`D3foundryStub`) — returns placeholder dict with `"status": "stub"`
+- [x] Create `tests/test_integrations/test_nbfoundry_stub.py` and `tests/test_integrations/test_d3foundry_stub.py`
+  - [x] Verify stub return structure matches `ExerciseContent` / `VisualizationContent` TypeScript interfaces
+- [x] Bump version to v0.8.0
+- [x] Update CHANGELOG.md
 
 ### Story B.d: v0.9.0 quizazz Integration [Planned]
 
