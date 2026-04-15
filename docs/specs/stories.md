@@ -63,21 +63,21 @@ Foundation error handling and logging used by all subsequent modules.
 - [x] Update CHANGELOG.md
 - [x] Verify: exceptions are importable, logging outputs to stdout at default INFO level
 
-### Story A.e: v0.5.0 Global Configuration [Planned]
+### Story A.e: v0.5.0 Global Configuration [Done]
 
 Settings model and config loading with precedence merging.
 
-- [ ] Create `src/learningfoundry/config.py` with `LoggingConfig`, `AppConfig` dataclasses and `load_config()` function
-- [ ] Implement precedence: CLI flags > config file (`~/.config/learningfoundry/config.yml`) > built-in defaults
-- [ ] Handle malformed YAML (raise `ConfigError`), unknown keys (warn and ignore)
-- [ ] Create `tests/test_config.py`
-  - [ ] Test defaults when no config file exists
-  - [ ] Test config file overrides defaults
-  - [ ] Test CLI overrides config file
-  - [ ] Test malformed config raises `ConfigError`
-  - [ ] Test unknown keys produce warning
-- [ ] Bump version to v0.5.0
-- [ ] Update CHANGELOG.md
+- [x] Create `src/learningfoundry/config.py` with `LoggingConfig`, `AppConfig` dataclasses and `load_config()` function
+- [x] Implement precedence: CLI flags > config file (`~/.config/learningfoundry/config.yml`) > built-in defaults
+- [x] Handle malformed YAML (raise `ConfigError`), unknown keys (warn and ignore)
+- [x] Create `tests/test_config.py`
+  - [x] Test defaults when no config file exists
+  - [x] Test config file overrides defaults
+  - [x] Test CLI overrides config file
+  - [x] Test malformed config raises `ConfigError`
+  - [x] Test unknown keys produce warning
+- [x] Bump version to v0.5.0
+- [x] Update CHANGELOG.md
 
 ## Phase B: Core Services
 
