@@ -1,0 +1,42 @@
+version: "1.0.0"
+
+curriculum:
+  title: "Test Curriculum"
+  description: "A minimal valid curriculum for testing."
+
+  modules:
+    - id: mod-01
+      title: "Module One"
+      description: "First module."
+      pre_assessment:
+        source: quizazz
+        ref: assessments/mod-01-pre.yml
+      post_assessment:
+        source: quizazz
+        ref: assessments/mod-01-post.yml
+      lessons:
+        - id: lesson-01
+          title: "Lesson One"
+          content_blocks:
+            - type: text
+              ref: content/mod-01/lesson-01.md
+            - type: video
+              url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+            - type: quiz
+              source: quizazz
+              ref: assessments/mod-01-lesson-01-quiz.yml
+            - type: exercise
+              source: nbfoundry
+              ref: exercises/mod-01-exercise-01.yml
+            - type: visualization
+              source: d3foundry
+              ref: visualizations/mod-01-vis-01.yml
+
+    - id: mod-02
+      title: "Module Two"
+      lessons:
+        - id: lesson-02
+          title: "Lesson Two"
+          content_blocks:
+            - type: text
+              ref: content/mod-02/lesson-02.md

@@ -81,21 +81,21 @@ Settings model and config loading with precedence merging.
 
 ## Phase B: Core Services
 
-### Story B.a: v0.6.0 Curriculum YAML Schema (Pydantic Models) [Planned]
+### Story B.a: v0.6.0 Curriculum YAML Schema (Pydantic Models) [Done]
 
 Pydantic models for the v1 curriculum YAML schema.
 
-- [ ] Create `src/learningfoundry/schema_v1.py` with all models: `AssessmentRef`, `TextBlock`, `VideoBlock`, `QuizBlock`, `ExerciseBlock`, `VisualizationBlock`, `ContentBlock` union, `Lesson`, `Module`, `CurriculumDef`, `CurriculumV1`
-- [ ] Implement validators: YouTube URL format, hyphenated lowercase IDs, at least one module, at least one lesson, unique IDs
-- [ ] Create `tests/test_schema_v1.py`
-  - [ ] Valid curriculum passes
-  - [ ] Missing required fields
-  - [ ] Invalid ID format (camelCase, underscored, integers)
-  - [ ] Duplicate module/lesson IDs
-  - [ ] Invalid YouTube URL
-  - [ ] Zero modules / zero lessons
-- [ ] Bump version to v0.6.0
-- [ ] Update CHANGELOG.md
+- [x] Create `src/learningfoundry/schema_v1.py` with all models: `AssessmentRef`, `TextBlock`, `VideoBlock`, `QuizBlock`, `ExerciseBlock`, `VisualizationBlock`, `ContentBlock` union, `Lesson`, `Module`, `CurriculumDef`, `CurriculumV1`
+- [x] Implement validators: YouTube URL format, hyphenated lowercase IDs, at least one module, at least one lesson, unique IDs
+- [x] Create `tests/test_schema_v1.py`
+  - [x] Valid curriculum passes
+  - [x] Missing required fields
+  - [x] Invalid ID format (camelCase, underscored, integers)
+  - [x] Duplicate module/lesson IDs
+  - [x] Invalid YouTube URL
+  - [x] Zero modules / zero lessons
+- [x] Bump version to v0.6.0
+- [x] Update CHANGELOG.md
 
 ### Story B.b: v0.7.0 YAML Curriculum Parser [Planned]
 
