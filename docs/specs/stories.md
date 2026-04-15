@@ -139,22 +139,22 @@ QuizProvider implementation delegating to `quizazz_builder`.
 - [x] Update CHANGELOG.md
 - [x] Verify: `quizazz-builder` is listed in `[project.optional-dependencies]`
 
-### Story B.e: v0.10.0 Content Resolver [Planned]
+### Story B.e: v0.10.0 Content Resolver [Done]
 
 Resolve all content references in a parsed curriculum.
 
-- [ ] Create `src/learningfoundry/resolver.py` with `ResolvedCurriculum`, `ResolvedModule`, `ResolvedLesson`, `ResolvedContentBlock` dataclasses and `resolve_curriculum()` function
-- [ ] Implement resolution for each block type: text (read markdown), video (validate URL), quiz (delegate to `QuizProvider`), exercise (delegate to `ExerciseProvider`), visualization (delegate to `VisualizationProvider`)
-- [ ] Resolve pre/post assessments on modules
-- [ ] Raise `ContentResolutionError` with block location context
-- [ ] Create `tests/test_resolver.py`
-  - [ ] Valid resolution with mocked providers
-  - [ ] Missing markdown file raises `ContentResolutionError`
-  - [ ] Invalid YouTube URL raises `ContentResolutionError`
-  - [ ] Provider error wrapped with block location
-  - [ ] Empty markdown file produces warning
-- [ ] Bump version to v0.10.0
-- [ ] Update CHANGELOG.md
+- [x] Create `src/learningfoundry/resolver.py` with `ResolvedCurriculum`, `ResolvedModule`, `ResolvedLesson`, `ResolvedContentBlock` dataclasses and `resolve_curriculum()` function
+- [x] Implement resolution for each block type: text (read markdown), video (validate URL), quiz (delegate to `QuizProvider`), exercise (delegate to `ExerciseProvider`), visualization (delegate to `VisualizationProvider`)
+- [x] Resolve pre/post assessments on modules
+- [x] Raise `ContentResolutionError` with block location context
+- [x] Create `tests/test_resolver.py`
+  - [x] Valid resolution with mocked providers
+  - [x] Missing markdown file raises `ContentResolutionError`
+  - [x] Invalid YouTube URL raises `ContentResolutionError`
+  - [x] Provider error wrapped with block location
+  - [x] Empty markdown file produces warning
+- [x] Bump version to v0.10.0
+- [x] Update CHANGELOG.md
 
 ## Phase C: Pipeline and Orchestration
 
