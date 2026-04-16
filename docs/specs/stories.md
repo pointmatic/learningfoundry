@@ -240,17 +240,17 @@ Svelte components for rendering each content block type.
 - [x] Bump version to v0.16.0
 - [x] Update CHANGELOG.md
 
-### Story D.e: v0.17.0 Navigation and Progress UI [Planned]
+### Story D.e: v0.17.0 Navigation and Progress UI [Done]
 
 Navigation components and progress dashboard.
 
-- [ ] Create `sveltekit_template/src/lib/components/ModuleList.svelte` — sidebar module navigation with progress indicators
-- [ ] Create `sveltekit_template/src/lib/components/LessonList.svelte` — lesson list within a module
-- [ ] Create `sveltekit_template/src/lib/components/Navigation.svelte` — prev/next lesson nav
-- [ ] Create `sveltekit_template/src/lib/components/ProgressBar.svelte` — visual progress indicator
-- [ ] Create `sveltekit_template/src/lib/components/ProgressDashboard.svelte` — per-module completion, quiz scores overview
-- [ ] Bump version to v0.17.0
-- [ ] Update CHANGELOG.md
+- [x] Create `sveltekit_template/src/lib/components/ModuleList.svelte` — sidebar module navigation with progress indicators
+- [x] Create `sveltekit_template/src/lib/components/LessonList.svelte` — lesson list within a module
+- [x] Create `sveltekit_template/src/lib/components/Navigation.svelte` — prev/next lesson nav
+- [x] Create `sveltekit_template/src/lib/components/ProgressBar.svelte` — visual progress indicator
+- [x] Create `sveltekit_template/src/lib/components/ProgressDashboard.svelte` — per-module completion, quiz scores overview
+- [x] Bump version to v0.17.0
+- [x] Update CHANGELOG.md
 
 ### Story D.f: v0.18.0 Route Pages and Layout [Planned]
 
