@@ -203,15 +203,15 @@ Minimal SvelteKit template that builds and serves.
 - [x] Update CHANGELOG.md
 - [x] Verify: `pnpm install && pnpm build` succeeds in the template dir
 
-### Story D.b: v0.14.0 TypeScript Types and Curriculum Store [Planned]
+### Story D.b: v0.14.0 TypeScript Types and Curriculum Store [Done]
 
 Type definitions and Svelte stores for the frontend.
 
-- [ ] Create `sveltekit_template/src/lib/types/index.ts` with all interfaces: `Curriculum`, `Module`, `Lesson`, `ContentBlock`, `QuizManifest`, `ExerciseContent`, `VisualizationContent`, progress types
-- [ ] Create `sveltekit_template/src/lib/stores/curriculum.ts` — load `curriculum.json`, expose curriculum state and navigation helpers
-- [ ] Bump version to v0.14.0
-- [ ] Update CHANGELOG.md
-- [ ] Verify: TypeScript compiles without errors
+- [x] Create `sveltekit_template/src/lib/types/index.ts` with all interfaces: `Curriculum`, `Module`, `Lesson`, `ContentBlock`, `QuizManifest`, `ExerciseContent`, `VisualizationContent`, progress types
+- [x] Create `sveltekit_template/src/lib/stores/curriculum.ts` — load `curriculum.json`, expose curriculum state and navigation helpers
+- [x] Bump version to v0.14.0
+- [x] Update CHANGELOG.md
+- [x] Verify: TypeScript compiles without errors
 
 ### Story D.c: v0.15.0 SQLite Progress Database [Planned]
 
