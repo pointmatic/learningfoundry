@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-04-15
+
+### Added
+
+- `pyproject.toml` — `readme`, `keywords`, `classifiers` (Beta, Apache, Python 3.12, Education, Code Generators, Typed), `[project.urls]` (Homepage, Repository, Bug Tracker, Changelog), `[tool.hatch.build.targets.sdist]` include list
+- `src/learningfoundry/sveltekit_template/` — template copied into package so it ships in the wheel
+
+### Fixed
+
+- `src/learningfoundry/generator.py` — `_TEMPLATE_DIR` now uses `Path(__file__).parent / "sveltekit_template"` (was `../../../sveltekit_template`); template now resolves correctly in installed environments
+
+### Verified
+
+- `pyve run hatch build` — `dist/learningfoundry-0.25.0-py3-none-any.whl` and `.tar.gz` produced
+- Wheel contains 31 `sveltekit_template/` files
+- `pip install dist/learningfoundry-0.25.0-py3-none-any.whl` in clean venv — `learningfoundry --version` → `0.25.0`; `_TEMPLATE_DIR.exists()` → `True`
+- `pyve test -q` — 195 passed
+
 ## [0.24.0] - 2026-04-15
 
 ### Added

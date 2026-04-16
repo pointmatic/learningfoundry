@@ -340,15 +340,15 @@ User-facing documentation.
 - [x] Create `CHANGELOG.md` with entries for v0.1.0 through current version
 - [x] Verify: README instructions work on a clean checkout
 
-### Story G.b: v0.25.0 Final Polish and Release Prep [Planned]
+### Story G.b: v0.25.0 Final Polish and Release Prep [Done]
 
 Last checks before initial release.
 
-- [ ] Review `pyproject.toml` metadata (description, classifiers, URLs)
-- [ ] Verify `sveltekit_template/` is included in sdist/wheel builds
-- [ ] Test `pip install` from built wheel in a clean venv
-- [ ] Bump version to v0.25.0
-- [ ] Update CHANGELOG.md
+- [x] Review `pyproject.toml` metadata (description, classifiers, URLs)
+- [x] Verify `sveltekit_template/` is included in sdist/wheel builds
+- [x] Test `pip install` from built wheel in a clean venv
+- [x] Bump version to v0.25.0
+- [x] Update CHANGELOG.md
 - [ ] Tag release as v0.25.0
 
 ## Phase H: CI/CD and Automation

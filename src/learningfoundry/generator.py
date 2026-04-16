@@ -14,7 +14,7 @@ from learningfoundry.resolver import ResolvedCurriculum
 
 logger = logging.getLogger("learningfoundry.generator")
 
-_TEMPLATE_DIR = Path(__file__).parent.parent.parent / "sveltekit_template"
+_TEMPLATE_DIR = Path(__file__).parent / "sveltekit_template"
 
 
 def generate_app(

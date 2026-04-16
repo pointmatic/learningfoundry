@@ -4,11 +4,24 @@ build-backend = "hatchling.build"
 
 [project]
 name = "learningfoundry"
-version = "0.24.0"
+version = "0.25.0"
 description = "A curriculum engine that turns a YAML curriculum definition into a deployable SvelteKit learning application."
+readme = "README.md"
 license = "Apache-2.0"
 authors = [
     { name = "Pointmatic" },
+]
+keywords = ["curriculum", "elearning", "sveltekit", "education", "lms"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Education",
+    "Topic :: Software Development :: Code Generators",
+    "Typing :: Typed",
 ]
 requires-python = ">=3.12"
 dependencies = [
@@ -22,11 +35,26 @@ quizazz = [
     "quizazz-builder>=0.1",
 ]
 
+[project.urls]
+Homepage = "https://github.com/pointmatic/learningfoundry"
+Repository = "https://github.com/pointmatic/learningfoundry"
+"Bug Tracker" = "https://github.com/pointmatic/learningfoundry/issues"
+Changelog = "https://github.com/pointmatic/learningfoundry/blob/main/CHANGELOG.md"
+
 [project.scripts]
 learningfoundry = "learningfoundry.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/learningfoundry"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "pyproject.toml",
+]
 
 [tool.ruff]
 line-length = 88
