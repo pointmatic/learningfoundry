@@ -332,24 +332,24 @@ Verify the generated app compiles end-to-end.
 
 ## Phase G: Documentation and Release
 
-### Story G.a: README and Changelog [Planned]
+### Story G.a: v0.24.0 README and Changelog [Done]
 
 User-facing documentation.
 
-- [ ] Write `README.md`: project description, installation, quick start, CLI usage, curriculum YAML format, development setup
-- [ ] Create `CHANGELOG.md` with entries for v0.1.0 through current version
-- [ ] Verify: README instructions work on a clean checkout
+- [x] Write `README.md`: project description, installation, quick start, CLI usage, curriculum YAML format, development setup
+- [x] Create `CHANGELOG.md` with entries for v0.1.0 through current version
+- [x] Verify: README instructions work on a clean checkout
 
-### Story G.b: v0.24.0 Final Polish and Release Prep [Planned]
+### Story G.b: v0.25.0 Final Polish and Release Prep [Planned]
 
 Last checks before initial release.
 
 - [ ] Review `pyproject.toml` metadata (description, classifiers, URLs)
 - [ ] Verify `sveltekit_template/` is included in sdist/wheel builds
 - [ ] Test `pip install` from built wheel in a clean venv
-- [ ] Bump version to v0.24.0
+- [ ] Bump version to v0.25.0
 - [ ] Update CHANGELOG.md
-- [ ] Tag release as v0.24.0
+- [ ] Tag release as v0.25.0
 
 ## Phase H: CI/CD and Automation
 

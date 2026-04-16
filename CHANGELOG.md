@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-04-15
+
+### Added
+
+- `README.md` — full user-facing documentation: overview, installation, quick start, CLI reference (build/validate/preview with all flags and exit codes), curriculum YAML format with all 5 block types, configuration file reference, development setup, project structure
+
 ## [0.23.0] - 2026-04-15
 
 ### Added
