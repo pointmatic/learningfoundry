@@ -308,17 +308,18 @@ Fill any test gaps and ensure full coverage of high-value paths.
 - [x] Update CHANGELOG.md
 - [x] Verify: `pyve test` passes all tests
 
-### Story F.b: v0.22.0 Linting, Formatting, and Type Checking [Planned]
+### Story F.b: v0.22.0 Linting, Formatting, and Type Checking [Done]
 
 Enforce code quality tooling.
 
-- [ ] Create `ruff.toml` or `[tool.ruff]` section in `pyproject.toml` with project-appropriate rules
-- [ ] Configure mypy in `pyproject.toml` (`--strict`)
-- [ ] Run `pyve testenv run ruff check .` — fix all issues
-- [ ] Run `pyve testenv run mypy src/` — fix all type errors
-- [ ] Bump version to v0.22.0
-- [ ] Update CHANGELOG.md
-- [ ] Verify: both pass cleanly
+- [x] Create `ruff.toml` or `[tool.ruff]` section in `pyproject.toml` with project-appropriate rules
+- [x] Configure mypy in `pyproject.toml` (`--strict`)
+- [x] Run `pyve testenv run ruff check .` — fix all issues
+- [x] Run `pyve testenv run mypy src/` — fix all type errors
+- [x] Create `requirements-dev.txt` with all the necessary development dependencies. 
+- [x] Bump version to v0.22.0
+- [x] Update CHANGELOG.md
+- [x] Verify: both pass cleanly
 
 ### Story F.c: SvelteKit Smoke Test [Planned]
 

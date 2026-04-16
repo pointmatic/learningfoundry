@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-04-15
+
+### Added
+
+- `pyproject.toml [tool.mypy]` — `strict = true`, `python_version = "3.12"`, `[[tool.mypy.overrides]]` for `quizazz_builder` (`ignore_missing_imports = true`)
+- `pyproject.toml [tool.ruff.lint]` — expanded select to `["E", "F", "I", "UP", "W", "B"]` (adds pycodestyle warnings + flake8-bugbear)
+- Installed `mypy` and `types-PyYAML` into testenv
+
+### Fixed
+
+- `src/learningfoundry/integrations/quizazz.py` — removed stale `# type: ignore[import-untyped]`; now covered by mypy overrides
+- `scripts/spike_e2e.py` — removed unused `shutil` import
+
+### Verified
+
+- `pyve testenv run ruff check .` — 0 errors (with W + B rules)
+- `pyve testenv run mypy src/` — 0 errors (16 source files, strict)
+- `pyve test -q` — 195 passed
+
 ## [0.21.0] - 2026-04-15
 
 ### Added

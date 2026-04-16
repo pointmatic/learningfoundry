@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "learningfoundry"
-version = "0.21.0"
+version = "0.22.0"
 description = "A curriculum engine that turns a YAML curriculum definition into a deployable SvelteKit learning application."
 license = "Apache-2.0"
 authors = [
@@ -33,11 +33,15 @@ line-length = 88
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
+select = ["E", "F", "I", "UP", "W", "B"]
 
 [tool.mypy]
 strict = true
 python_version = "3.12"
+
+[[tool.mypy.overrides]]
+module = "quizazz_builder"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

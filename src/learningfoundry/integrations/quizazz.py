@@ -34,7 +34,7 @@ class QuizazzProvider:
         """
         try:
             from quizazz_builder import (
-                compile_assessment,  # type: ignore[import-untyped]
+                compile_assessment,
             )
         except ImportError as exc:
             raise ImportError(

@@ -1,0 +1,7 @@
+# Development dependencies for learningfoundry
+# Install with: pyve testenv --install -r requirements-dev.txt
+
+pytest>=9.0
+ruff>=0.15
+mypy>=1.20
+types-PyYAML>=6.0.12
