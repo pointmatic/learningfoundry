@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-04-15
+
+### Added
+
+- `sveltekit_template/src/lib/db/database.ts` — sql.js init with WASM locator, IndexedDB persistence (`getDb()`, `persistDb()`), DDL for `lesson_progress`, `quiz_scores`, `exercise_status`
+- `sveltekit_template/src/lib/db/progress.ts` — `markLessonComplete()`, `markLessonInProgress()`, `getLessonProgress()`, `saveQuizScore()`, `getQuizScore()`, `updateExerciseStatus()`, `getModuleProgress()`
+- `sveltekit_template/src/lib/db/index.ts` — barrel re-export
+- `sveltekit_template/package.json` — `postinstall` script copies `sql-wasm.wasm` to `static/`; added `@types/sql.js ^1.4.11`
+- `sveltekit_template/static/.gitkeep` — tracks static dir in git
+- `.gitignore` — ignores `sveltekit_template/static/sql-wasm.wasm`
+
+### Verified
+
+- `pnpm exec svelte-check` — 0 errors
+
 ## [0.14.0] - 2026-04-15
 
 ### Added

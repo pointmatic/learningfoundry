@@ -8,7 +8,8 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "test": "vitest run"
+    "test": "vitest run",
+    "postinstall": "node -e \"const fs=require('fs'); fs.mkdirSync('static',{recursive:true}); fs.copyFileSync(require.resolve('sql.js/dist/sql-wasm.wasm'),'static/sql-wasm.wasm')\""
   },
   "dependencies": {
     "@sveltejs/kit": "^2.0.0",
@@ -18,14 +19,15 @@
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.0",
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@tailwindcss/vite": "^4.0.0",
+    "@types/sql.js": "^1.4.11",
     "prettier": "^3.0.0",
     "prettier-plugin-svelte": "^3.0.0",
     "svelte-check": "^4.0.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.0.0",
     "vite": "^8.0.0",
-    "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "vitest": "^3.0.0"
   },
   "type": "module"

@@ -213,17 +213,17 @@ Type definitions and Svelte stores for the frontend.
 - [x] Update CHANGELOG.md
 - [x] Verify: TypeScript compiles without errors
 
-### Story D.c: v0.15.0 SQLite Progress Database [Planned]
+### Story D.c: v0.15.0 SQLite Progress Database [Done]
 
 In-browser SQLite for learner progress tracking.
 
-- [ ] Create `sveltekit_template/src/lib/db/database.ts` — sql.js init, IndexedDB persistence, schema creation (tables: `lesson_progress`, `quiz_scores`, `exercise_status`)
-- [ ] Create `sveltekit_template/src/lib/db/progress.ts` — CRUD: mark lesson complete, save quiz score, update exercise status, query module progress
-- [ ] Create `sveltekit_template/src/lib/db/index.ts` (barrel export)
-- [ ] Copy `sql-wasm.wasm` to `sveltekit_template/static/` via postinstall script
-- [ ] Bump version to v0.15.0
-- [ ] Update CHANGELOG.md
-- [ ] Verify: database initializes on page load, CRUD operations work
+- [x] Create `sveltekit_template/src/lib/db/database.ts` — sql.js init, IndexedDB persistence, schema creation (tables: `lesson_progress`, `quiz_scores`, `exercise_status`)
+- [x] Create `sveltekit_template/src/lib/db/progress.ts` — CRUD: mark lesson complete, save quiz score, update exercise status, query module progress
+- [x] Create `sveltekit_template/src/lib/db/index.ts` (barrel export)
+- [x] Copy `sql-wasm.wasm` to `sveltekit_template/static/` via postinstall script
+- [x] Bump version to v0.15.0
+- [x] Update CHANGELOG.md
+- [x] Verify: database initializes on page load, CRUD operations work
 
 ### Story D.d: v0.16.0 Content Block Components [Planned]
 

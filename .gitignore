@@ -34,6 +34,7 @@ node_modules/
 .output/
 .vercel/
 .netlify/
+sveltekit_template/static/sql-wasm.wasm
 
 # TypeScript
 *.tsbuildinfo
