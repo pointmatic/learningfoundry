@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  lint:
+    name: Lint and type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: ruff check
+        run: ruff check .
+
+      - name: mypy
+        run: |
+          pip install -e . --quiet
+          mypy src/
+
+  test:
+    name: Test suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package and test dependencies
+        run: |
+          pip install -e . --quiet
+          pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest --ignore=tests/test_smoke_sveltekit.py -q

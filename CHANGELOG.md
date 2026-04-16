@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-04-15
+
+### Added
+
+- `.github/workflows/ci.yml` — CI workflow triggered on push/PR to `main`:
+  - `lint` job: Python 3.12, installs `requirements-dev.txt`, runs `ruff check .` then `mypy src/`
+  - `test` job: Python 3.12, installs package + dev deps, runs `pytest` (smoke tests excluded)
+  - Jobs run in parallel; standard `actions/setup-python` used (pyve is local-only tooling)
+
 ## [0.25.0] - 2026-04-15
 
 ### Added

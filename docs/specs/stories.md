@@ -349,18 +349,18 @@ Last checks before initial release.
 - [x] Test `pip install` from built wheel in a clean venv
 - [x] Bump version to v0.25.0
 - [x] Update CHANGELOG.md
-- [ ] Tag release as v0.25.0
+- [x] Tag release as v0.25.0
 
 ## Phase H: CI/CD and Automation
 
-### Story H.a: GitHub Actions — Lint and Test on Push [Planned]
+### Story H.a: v0.26.0 GitHub Actions — Lint and Test on Push [Done]
 
 Catch regressions on every push.
 
-- [ ] Create `.github/workflows/ci.yml`
-  - [ ] Trigger: push to `main`, pull requests
-  - [ ] Matrix: Python 3.12, latest Ubuntu
-  - [ ] Steps: checkout, install pyve, `pyve run pip install -e ".[dev]"`, `pyve testenv run ruff check .`, `pyve testenv run mypy src/`, `pyve test`
+- [x] Create `.github/workflows/ci.yml`
+  - [x] Trigger: push to `main`, pull requests
+  - [x] Matrix: Python 3.12, latest Ubuntu
+  - [x] Steps: checkout, `actions/setup-python`, install deps, `ruff check .`, `mypy src/`, `pytest`
 - [ ] Verify: workflow passes on push
 
 ### Story H.b: GitHub Actions — Coverage Badge [Planned]
