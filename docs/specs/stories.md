@@ -225,20 +225,20 @@ In-browser SQLite for learner progress tracking.
 - [x] Update CHANGELOG.md
 - [x] Verify: database initializes on page load, CRUD operations work
 
-### Story D.d: v0.16.0 Content Block Components [Planned]
+### Story D.d: v0.16.0 Content Block Components [Done]
 
 Svelte components for rendering each content block type.
 
-- [ ] Create `sveltekit_template/src/lib/components/TextBlock.svelte` — render HTML from markdown
-- [ ] Create `sveltekit_template/src/lib/components/VideoBlock.svelte` — YouTube embed
-- [ ] Create `sveltekit_template/src/lib/components/QuizBlock.svelte` — render quizazz manifest, scoring, write to SQLite
-- [ ] Create `sveltekit_template/src/lib/components/ExerciseBlock.svelte` — render exercise content or stub placeholder
-- [ ] Create `sveltekit_template/src/lib/components/VisualizationBlock.svelte` — render visualization or stub placeholder
-- [ ] Create `sveltekit_template/src/lib/components/PlaceholderBlock.svelte` — generic "coming soon" placeholder
-- [ ] Create `sveltekit_template/src/lib/components/ContentBlock.svelte` — dispatcher by block type
-- [ ] Create `sveltekit_template/src/lib/utils/markdown.ts` — markdown-to-HTML utility
-- [ ] Bump version to v0.16.0
-- [ ] Update CHANGELOG.md
+- [x] Create `sveltekit_template/src/lib/components/TextBlock.svelte` — render HTML from markdown
+- [x] Create `sveltekit_template/src/lib/components/VideoBlock.svelte` — YouTube embed
+- [x] Create `sveltekit_template/src/lib/components/QuizBlock.svelte` — render quizazz manifest, scoring, write to SQLite
+- [x] Create `sveltekit_template/src/lib/components/ExerciseBlock.svelte` — render exercise content or stub placeholder
+- [x] Create `sveltekit_template/src/lib/components/VisualizationBlock.svelte` — render visualization or stub placeholder
+- [x] Create `sveltekit_template/src/lib/components/PlaceholderBlock.svelte` — generic "coming soon" placeholder
+- [x] Create `sveltekit_template/src/lib/components/ContentBlock.svelte` — dispatcher by block type
+- [x] Create `sveltekit_template/src/lib/utils/markdown.ts` — markdown-to-HTML utility
+- [x] Bump version to v0.16.0
+- [x] Update CHANGELOG.md
 
 ### Story D.e: v0.17.0 Navigation and Progress UI [Planned]
 

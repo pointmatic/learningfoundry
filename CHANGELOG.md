@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-04-15
+
+### Added
+
+- `sveltekit_template/src/lib/utils/markdown.ts` — `renderMarkdown()` using `marked`
+- `sveltekit_template/src/lib/components/PlaceholderBlock.svelte` — generic "coming soon" placeholder
+- `sveltekit_template/src/lib/components/TextBlock.svelte` — renders markdown via `{@html}` with `$derived`
+- `sveltekit_template/src/lib/components/VideoBlock.svelte` — YouTube embed (converts watch/youtu.be URLs to embed URLs)
+- `sveltekit_template/src/lib/components/QuizBlock.svelte` — quizazz manifest placeholder; writes score to SQLite on complete
+- `sveltekit_template/src/lib/components/ExerciseBlock.svelte` — renders exercise content or stub placeholder
+- `sveltekit_template/src/lib/components/VisualizationBlock.svelte` — renders SVG/image or stub placeholder
+- `sveltekit_template/src/lib/components/ContentBlock.svelte` — type dispatcher for all block types
+- `sveltekit_template/package.json` — added `marked ^18.0.0`
+
+### Verified
+
+- `pnpm exec svelte-check` — 0 errors, 0 warnings
+
 ## [0.15.0] - 2026-04-15
 
 ### Added
