@@ -252,17 +252,17 @@ Navigation components and progress dashboard.
 - [x] Bump version to v0.17.0
 - [x] Update CHANGELOG.md
 
-### Story D.f: v0.18.0 Route Pages and Layout [Planned]
+### Story D.f: v0.18.0 Route Pages and Layout [Done]
 
 SvelteKit routes tying everything together.
 
-- [ ] Create `sveltekit_template/src/routes/+layout.svelte` — app shell with sidebar navigation
-- [ ] Create `sveltekit_template/src/routes/+page.svelte` — landing page / progress dashboard
-- [ ] Create `sveltekit_template/src/routes/[module]/[lesson]/+page.svelte` — lesson page rendering content blocks via `LessonView.svelte`
-- [ ] Create `sveltekit_template/src/lib/components/LessonView.svelte` — lesson content renderer
-- [ ] Bump version to v0.18.0
-- [ ] Update CHANGELOG.md
-- [ ] Verify: full app builds, navigates modules/lessons, renders all block types
+- [x] Create `sveltekit_template/src/routes/+layout.svelte` — app shell with sidebar navigation
+- [x] Create `sveltekit_template/src/routes/+page.svelte` — landing page / progress dashboard
+- [x] Create `sveltekit_template/src/routes/[module]/[lesson]/+page.svelte` — lesson page rendering content blocks via `LessonView.svelte`
+- [x] Create `sveltekit_template/src/lib/components/LessonView.svelte` — lesson content renderer
+- [x] Bump version to v0.18.0
+- [x] Update CHANGELOG.md
+- [x] Verify: full app builds, navigates modules/lessons, renders all block types
 
 ## Phase E: CLI Interface
 

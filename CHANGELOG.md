@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-04-15
+
+### Added
+
+- `sveltekit_template/src/lib/components/LessonView.svelte` — renders all content blocks for a lesson, marks lesson in-progress on mount, marks complete on nav-next, propagates quiz scores
+- `sveltekit_template/src/routes/+layout.svelte` — app shell: sidebar (`ModuleList`) + main content slot; loads module progress from SQLite reactively
+- `sveltekit_template/src/routes/+page.svelte` — landing page with `ProgressDashboard`
+- `sveltekit_template/src/routes/[module]/[lesson]/+page.svelte` — lesson route; syncs URL params to curriculum store; renders `LessonView`
+
+### Verified
+
+- `pnpm exec svelte-check` — 0 errors, 0 warnings
+- `pnpm build` — full adapter-static build succeeds; all routes compiled
+
 ## [0.17.0] - 2026-04-15
 
 ### Added
