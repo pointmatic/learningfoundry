@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-04-15
+
+### Added
+
+- `tests/test_smoke_sveltekit.py` — 6 end-to-end smoke tests (marked `smoke`, excluded from default `pyve test` run):
+  - `test_pnpm_install_succeeds` — `node_modules/` created
+  - `test_pnpm_build_produces_build_dir` — `build/` directory exists
+  - `test_build_produces_index_html` — `build/index.html` present
+  - `test_curriculum_json_present_in_build` — `build/curriculum.json` copied by vite
+  - `test_curriculum_json_valid_in_build` — JSON is valid with 2 modules
+  - `test_build_contains_js_assets` — at least one `.js` file in build output
+- `pyproject.toml` — registered `smoke` marker; smoke file excluded from `addopts` so `pyve test` stays fast
+- Smoke tests use `scope="module"` fixtures so `pnpm install` + `pnpm build` run once per session
+
+### Verified
+
+- `pyve test tests/test_smoke_sveltekit.py -v` — 6 passed in ~13 s
+- `pyve test -q` — 195 passed (smoke excluded, fast)
+- `ruff check .` and `mypy src/` — clean
+
 ## [0.22.0] - 2026-04-15
 
 ### Added

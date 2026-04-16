@@ -321,14 +321,14 @@ Enforce code quality tooling.
 - [x] Update CHANGELOG.md
 - [x] Verify: both pass cleanly
 
-### Story F.c: SvelteKit Smoke Test [Planned]
+### Story F.c: v0.23.0 SvelteKit Smoke Test [Done]
 
 Verify the generated app compiles end-to-end.
 
-- [ ] Create a test fixture curriculum with all block types (text, video, quiz, exercise, visualization)
-- [ ] Run `learningfoundry build` on the fixture
-- [ ] Run `pnpm install && pnpm build` in the output directory
-- [ ] Verify: build succeeds with no errors
+- [x] Create a test fixture curriculum with all block types (text, video, quiz, exercise, visualization)
+- [x] Run `learningfoundry build` on the fixture
+- [x] Run `pnpm install && pnpm build` in the output directory
+- [x] Verify: build succeeds with no errors
 
 ## Phase G: Documentation and Release
 
@@ -340,16 +340,16 @@ User-facing documentation.
 - [ ] Create `CHANGELOG.md` with entries for v0.1.0 through current version
 - [ ] Verify: README instructions work on a clean checkout
 
-### Story G.b: v0.23.0 Final Polish and Release Prep [Planned]
+### Story G.b: v0.24.0 Final Polish and Release Prep [Planned]
 
 Last checks before initial release.
 
 - [ ] Review `pyproject.toml` metadata (description, classifiers, URLs)
 - [ ] Verify `sveltekit_template/` is included in sdist/wheel builds
 - [ ] Test `pip install` from built wheel in a clean venv
-- [ ] Bump version to v0.23.0
+- [ ] Bump version to v0.24.0
 - [ ] Update CHANGELOG.md
-- [ ] Tag release as v0.23.0
+- [ ] Tag release as v0.24.0
 
 ## Phase H: CI/CD and Automation
 
