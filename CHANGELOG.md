@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-04-15
+
+### Added
+
+- `tests/test_edge_cases.py` — 22 new tests across 6 classes:
+  - `TestEmptyCurriculum` — schema rejects empty modules/lessons; generator handles zero-module `ResolvedCurriculum`; `run_validate` returns False for empty-module YAML; lesson-with-no-blocks resolves fine
+  - `TestAllBlockTypesTogether` — all 5 block types resolved in order; all are `ResolvedContentBlock`; `curriculum.json` contains all 5 types
+  - `TestLargeCurriculum` — 5 modules × 4 lessons; all modules/lessons resolved; generated JSON counts correct; spot-check text content
+  - `TestIntegrationRunBuild` — full `run_build` with fixture curriculum (all block types) through real generator; `curriculum.json` has 2 modules; mod-01 has all 5 block types; `package.json` present
+  - `TestValidateResolutionErrors` — missing text-block file returns False with error; error message includes location context
+  - `TestOptionalFields` — missing `description` defaults to `""`; missing assessments resolve to `None`
+
+### Verified
+
+- `pyve test` — 195 passed, 0 failed
+
 ## [0.20.0] - 2026-04-15
 
 ### Added

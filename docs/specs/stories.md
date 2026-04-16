@@ -297,16 +297,16 @@ Build and serve locally.
 
 ## Phase F: Testing and Quality
 
-### Story F.a: v0.21.0 Test Suite Completion [Planned]
+### Story F.a: v0.21.0 Test Suite Completion [Done]
 
 Fill any test gaps and ensure full coverage of high-value paths.
 
-- [ ] Audit existing tests against tech-spec testing strategy
-- [ ] Add any missing unit tests for edge cases (empty curriculum, all block types, large curriculum)
-- [ ] Add integration test: full build with fixture curriculum containing all content block types
-- [ ] Bump version to v0.21.0
-- [ ] Update CHANGELOG.md
-- [ ] Verify: `pyve test` passes all tests
+- [x] Audit existing tests against tech-spec testing strategy
+- [x] Add any missing unit tests for edge cases (empty curriculum, all block types, large curriculum)
+- [x] Add integration test: full build with fixture curriculum containing all content block types
+- [x] Bump version to v0.21.0
+- [x] Update CHANGELOG.md
+- [x] Verify: `pyve test` passes all tests
 
 ### Story F.b: v0.22.0 Linting, Formatting, and Type Checking [Planned]
 
