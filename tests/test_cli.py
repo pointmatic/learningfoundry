@@ -1,0 +1,200 @@
+# Copyright 2026 Pointmatic
+# SPDX-License-Identifier: Apache-2.0
+"""Tests for the CLI build and validate commands."""
+
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+from click.testing import CliRunner
+
+from learningfoundry.cli import EXIT_CONFIG, EXIT_RESOLUTION, EXIT_VALIDATION, main
+from learningfoundry.exceptions import (
+    ContentResolutionError,
+    CurriculumValidationError,
+    GenerationError,
+)
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
+VALID_CURRICULUM = FIXTURES_DIR / "valid-curriculum.yml"
+
+
+@pytest.fixture()
+def runner() -> CliRunner:
+    return CliRunner()
+
+
+# ---------------------------------------------------------------------------
+# --help / --version
+# ---------------------------------------------------------------------------
+
+
+class TestHelpAndVersion:
+    def test_main_help_exits_zero(self, runner: CliRunner) -> None:
+        result = runner.invoke(main, ["--help"])
+        assert result.exit_code == 0
+        assert "build" in result.output
+        assert "validate" in result.output
+
+    def test_build_help_exits_zero(self, runner: CliRunner) -> None:
+        result = runner.invoke(main, ["build", "--help"])
+        assert result.exit_code == 0
+        assert "--config" in result.output
+        assert "--output" in result.output
+
+    def test_validate_help_exits_zero(self, runner: CliRunner) -> None:
+        result = runner.invoke(main, ["validate", "--help"])
+        assert result.exit_code == 0
+        assert "--config" in result.output
+
+    def test_version_exits_zero(self, runner: CliRunner) -> None:
+        result = runner.invoke(main, ["--version"])
+        assert result.exit_code == 0
+        assert "learningfoundry" in result.output
+
+
+# ---------------------------------------------------------------------------
+# build
+# ---------------------------------------------------------------------------
+
+
+class TestBuildCommand:
+    def test_build_success_exits_zero(self, runner: CliRunner, tmp_path: Path) -> None:
+        with patch("learningfoundry.pipeline.run_build") as mock_run:
+            mock_run.return_value = MagicMock()
+            result = runner.invoke(
+                main,
+                [
+                    "build",
+                    "--config", str(VALID_CURRICULUM),
+                    "--output", str(tmp_path / "out"),
+                    "--base-dir", str(FIXTURES_DIR),
+                ],
+            )
+        assert result.exit_code == 0
+        assert "Build complete" in result.output
+
+    def test_build_prints_output_path(self, runner: CliRunner, tmp_path: Path) -> None:
+        out = tmp_path / "myapp"
+        with patch("learningfoundry.pipeline.run_build"):
+            result = runner.invoke(
+                main,
+                ["build", "--config", str(VALID_CURRICULUM), "--output", str(out)],
+            )
+        assert str(out) in result.output
+
+    def test_build_validation_error_exits_1(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        with patch(
+            "learningfoundry.pipeline.run_build",
+            side_effect=CurriculumValidationError("bad schema"),
+        ):
+            result = runner.invoke(
+                main,
+                ["build", "--config", str(VALID_CURRICULUM), "--output", str(tmp_path)],
+            )
+        assert result.exit_code == EXIT_VALIDATION
+        assert "Validation error" in result.output
+
+    def test_build_resolution_error_exits_2(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        with patch(
+            "learningfoundry.pipeline.run_build",
+            side_effect=ContentResolutionError("missing file"),
+        ):
+            result = runner.invoke(
+                main,
+                ["build", "--config", str(VALID_CURRICULUM), "--output", str(tmp_path)],
+            )
+        assert result.exit_code == EXIT_RESOLUTION
+        assert "resolution error" in result.output
+
+    def test_build_generation_error_exits_3(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        with patch(
+            "learningfoundry.pipeline.run_build",
+            side_effect=GenerationError("template missing"),
+        ):
+            result = runner.invoke(
+                main,
+                ["build", "--config", str(VALID_CURRICULUM), "--output", str(tmp_path)],
+            )
+        assert result.exit_code == 3
+
+    def test_build_missing_config_file(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        result = runner.invoke(
+            main,
+            ["build", "--config", str(tmp_path / "nonexistent.yml")],
+        )
+        assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
+# validate
+# ---------------------------------------------------------------------------
+
+
+class TestValidateCommand:
+    def test_validate_valid_curriculum_exits_zero(
+        self, runner: CliRunner
+    ) -> None:
+        with patch(
+            "learningfoundry.pipeline.run_validate", return_value=(True, [])
+        ):
+            result = runner.invoke(
+                main,
+                ["validate", "--config", str(VALID_CURRICULUM)],
+            )
+        assert result.exit_code == 0
+        assert "OK" in result.output
+
+    def test_validate_invalid_curriculum_exits_1(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        bad = tmp_path / "bad.yml"
+        bad.write_text("version: \"1.0.0\"\ncurriculum:\n  title: T\n  modules: []\n")
+        result = runner.invoke(main, ["validate", "--config", str(bad)])
+        assert result.exit_code == EXIT_VALIDATION
+
+    def test_validate_reports_errors(
+        self, runner: CliRunner
+    ) -> None:
+        with patch(
+            "learningfoundry.pipeline.run_validate",
+            return_value=(False, ["mod-01: missing file"]),
+        ):
+            result = runner.invoke(
+                main,
+                ["validate", "--config", str(VALID_CURRICULUM)],
+            )
+        assert result.exit_code == EXIT_VALIDATION
+        assert "mod-01" in result.output
+
+    def test_validate_missing_config_exits_nonzero(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        result = runner.invoke(
+            main,
+            ["validate", "--config", str(tmp_path / "nonexistent.yml")],
+        )
+        assert result.exit_code != 0
+
+    def test_validate_exit_config_on_config_error(
+        self, runner: CliRunner
+    ) -> None:
+        from learningfoundry.exceptions import ConfigError
+
+        with patch(
+            "learningfoundry.pipeline.run_validate",
+            side_effect=ConfigError("bad config"),
+        ):
+            result = runner.invoke(
+                main,
+                ["validate", "--config", str(VALID_CURRICULUM)],
+            )
+        assert result.exit_code == EXIT_CONFIG

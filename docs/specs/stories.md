@@ -266,22 +266,22 @@ SvelteKit routes tying everything together.
 
 ## Phase E: CLI Interface
 
-### Story E.a: v0.19.0 CLI Build and Validate Commands [Planned]
+### Story E.a: v0.19.0 CLI Build and Validate Commands [Done]
 
 Wire CLI to the pipeline orchestrator.
 
-- [ ] Update `src/learningfoundry/cli.py`: implement `build` and `validate` subcommands
-  - [ ] `build`: load config, call `run_build()`, handle errors with exit codes
-  - [ ] `validate`: load config, call `run_validate()`, report result
-  - [ ] Shared flags: `--config`, `--log-level`
-- [ ] Create `tests/test_cli.py`
-  - [ ] `build` produces output directory with fixture curriculum
-  - [ ] `validate` reports OK for valid curriculum
-  - [ ] `validate` reports errors for invalid curriculum
-  - [ ] `--help` exits 0
-  - [ ] Exit codes match spec (1=validation, 2=resolution, 3=generation, 4=config)
-- [ ] Bump version to v0.19.0
-- [ ] Update CHANGELOG.md
+- [x] Update `src/learningfoundry/cli.py`: implement `build` and `validate` subcommands
+  - [x] `build`: load config, call `run_build()`, handle errors with exit codes
+  - [x] `validate`: load config, call `run_validate()`, report result
+  - [x] Shared flags: `--config`, `--log-level`
+- [x] Create `tests/test_cli.py`
+  - [x] `build` produces output directory with fixture curriculum
+  - [x] `validate` reports OK for valid curriculum
+  - [x] `validate` reports errors for invalid curriculum
+  - [x] `--help` exits 0
+  - [x] Exit codes match spec (1=validation, 2=resolution, 3=generation, 4=config)
+- [x] Bump version to v0.19.0
+- [x] Update CHANGELOG.md
 
 ### Story E.b: v0.20.0 CLI Preview Command [Planned]
 
