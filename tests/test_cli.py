@@ -198,3 +198,91 @@ class TestValidateCommand:
                 ["validate", "--config", str(VALID_CURRICULUM)],
             )
         assert result.exit_code == EXIT_CONFIG
+
+
+# ---------------------------------------------------------------------------
+# preview
+# ---------------------------------------------------------------------------
+
+
+class TestPreviewCommand:
+    def test_preview_help_exits_zero(self, runner: CliRunner) -> None:
+        result = runner.invoke(main, ["preview", "--help"])
+        assert result.exit_code == 0
+        assert "--port" in result.output
+        assert "--config" in result.output
+
+    def test_preview_calls_run_preview(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        with patch("learningfoundry.pipeline.run_preview") as mock_preview:
+            runner.invoke(
+                main,
+                [
+                    "preview",
+                    "--config", str(VALID_CURRICULUM),
+                    "--output", str(tmp_path / "out"),
+                    "--port", "5174",
+                ],
+            )
+        mock_preview.assert_called_once()
+        _, kwargs = mock_preview.call_args
+        assert kwargs.get("port") == 5174 or mock_preview.call_args.args[2] == 5174
+
+    def test_preview_prints_url(self, runner: CliRunner, tmp_path: Path) -> None:
+        with patch("learningfoundry.pipeline.run_preview"):
+            result = runner.invoke(
+                main,
+                [
+                    "preview",
+                    "--config", str(VALID_CURRICULUM),
+                    "--output", str(tmp_path / "out"),
+                    "--port", "5200",
+                ],
+            )
+        assert "5200" in result.output
+        assert "localhost" in result.output
+
+    def test_preview_default_port_is_5173(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        with patch("learningfoundry.pipeline.run_preview") as mock_preview:
+            runner.invoke(
+                main,
+                [
+                    "preview",
+                    "--config", str(VALID_CURRICULUM),
+                    "--output", str(tmp_path / "out"),
+                ],
+            )
+        call_kwargs = mock_preview.call_args
+        # port is positional arg index 2 or keyword
+        args, kwargs = call_kwargs
+        port = kwargs.get("port", args[2] if len(args) > 2 else None)
+        assert port == 5173
+
+    def test_preview_validation_error_exits_1(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        with patch(
+            "learningfoundry.pipeline.run_preview",
+            side_effect=CurriculumValidationError("bad"),
+        ):
+            result = runner.invoke(
+                main,
+                ["preview", "--config", str(VALID_CURRICULUM)],
+            )
+        assert result.exit_code == EXIT_VALIDATION
+
+    def test_preview_generation_error_exits_3(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        with patch(
+            "learningfoundry.pipeline.run_preview",
+            side_effect=GenerationError("pnpm missing"),
+        ):
+            result = runner.invoke(
+                main,
+                ["preview", "--config", str(VALID_CURRICULUM)],
+            )
+        assert result.exit_code == 3

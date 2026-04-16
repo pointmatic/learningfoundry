@@ -148,3 +148,71 @@ def validate(
             click.echo(f"  ✗ {err}", err=True)
         click.echo(f"Validation failed ({len(errors)} error(s)).", err=True)
         sys.exit(EXIT_VALIDATION)
+
+
+# ---------------------------------------------------------------------------
+# preview
+# ---------------------------------------------------------------------------
+
+@main.command()
+@_config_option
+@_log_level_option
+@click.option(
+    "--output",
+    "-o",
+    "output_dir",
+    type=click.Path(path_type=Path),
+    default="dist",
+    show_default=True,
+    help="Output directory for the generated SvelteKit project.",
+)
+@click.option(
+    "--base-dir",
+    "base_dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Base directory for content refs (default: curriculum file's parent dir).",
+)
+@click.option(
+    "--port",
+    "port",
+    type=int,
+    default=5173,
+    show_default=True,
+    help="Port for the local dev server.",
+)
+def preview(
+    config_path: Path,
+    log_level: str,
+    output_dir: Path,
+    base_dir: Path | None,
+    port: int,
+) -> None:
+    """Build then launch a local preview server."""
+    _setup_logging(level=log_level)
+
+    from learningfoundry.pipeline import run_preview
+
+    click.echo(f"Building → {output_dir} …")
+
+    try:
+        run_preview(
+            config_path,
+            output_dir,
+            port=port,
+            base_dir=base_dir,
+        )
+    except (CurriculumValidationError, CurriculumVersionError) as exc:
+        click.echo(f"Validation error: {exc}", err=True)
+        sys.exit(EXIT_VALIDATION)
+    except ContentResolutionError as exc:
+        click.echo(f"Content resolution error: {exc}", err=True)
+        sys.exit(EXIT_RESOLUTION)
+    except GenerationError as exc:
+        click.echo(f"Generation error: {exc}", err=True)
+        sys.exit(EXIT_GENERATION)
+    except ConfigError as exc:
+        click.echo(f"Config error: {exc}", err=True)
+        sys.exit(EXIT_CONFIG)
+
+    click.echo(f"Preview server started at http://localhost:{port}")

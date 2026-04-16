@@ -283,17 +283,17 @@ Wire CLI to the pipeline orchestrator.
 - [x] Bump version to v0.19.0
 - [x] Update CHANGELOG.md
 
-### Story E.b: v0.20.0 CLI Preview Command [Planned]
+### Story E.b: v0.20.0 CLI Preview Command [Done]
 
 Build and serve locally.
 
-- [ ] Implement `preview` subcommand in `cli.py`
-  - [ ] Call `run_preview()` — build, `pnpm install`, start dev server
-  - [ ] Accept `--port` flag (default 5173)
-  - [ ] Print local URL
-- [ ] Add test in `tests/test_cli.py` for preview (verify build step runs; dev server is an integration concern)
-- [ ] Bump version to v0.20.0
-- [ ] Update CHANGELOG.md
+- [x] Implement `preview` subcommand in `cli.py`
+  - [x] Call `run_preview()` — build, `pnpm install`, start dev server
+  - [x] Accept `--port` flag (default 5173)
+  - [x] Print local URL
+- [x] Add test in `tests/test_cli.py` for preview (verify build step runs; dev server is an integration concern)
+- [x] Bump version to v0.20.0
+- [x] Update CHANGELOG.md
 
 ## Phase F: Testing and Quality
 
