@@ -189,19 +189,19 @@ Generate a SvelteKit project from resolved curriculum.
 
 ## Phase D: SvelteKit Frontend Template
 
-### Story D.a: v0.13.0 SvelteKit Skeleton — Project Config and Shell [Planned]
+### Story D.a: v0.13.0 SvelteKit Skeleton — Project Config and Shell [Done]
 
 Minimal SvelteKit template that builds and serves.
 
-- [ ] Create `sveltekit_template/package.json` with dependencies: `svelte`, `@sveltejs/kit`, `@sveltejs/adapter-static`, `sql.js`, `lucide-svelte`, dev deps: `typescript`, `tailwindcss`, `@tailwindcss/vite`, `vitest`, `eslint`, `prettier`, `prettier-plugin-svelte`
-- [ ] Create `sveltekit_template/svelte.config.js` with `adapter-static`
-- [ ] Create `sveltekit_template/vite.config.ts`
-- [ ] Create `sveltekit_template/tsconfig.json`
-- [ ] Create `sveltekit_template/src/app.html` (SvelteKit shell)
-- [ ] Create `sveltekit_template/src/app.css` (Tailwind imports)
-- [ ] Bump version to v0.13.0
-- [ ] Update CHANGELOG.md
-- [ ] Verify: `pnpm install && pnpm build` succeeds in the template dir
+- [x] Create `sveltekit_template/package.json` with dependencies: `svelte`, `@sveltejs/kit`, `@sveltejs/adapter-static`, `sql.js`, `lucide-svelte`, dev deps: `typescript`, `tailwindcss`, `@tailwindcss/vite`, `vitest`, `eslint`, `prettier`, `prettier-plugin-svelte`
+- [x] Create `sveltekit_template/svelte.config.js` with `adapter-static`
+- [x] Create `sveltekit_template/vite.config.ts`
+- [x] Create `sveltekit_template/tsconfig.json`
+- [x] Create `sveltekit_template/src/app.html` (SvelteKit shell)
+- [x] Create `sveltekit_template/src/app.css` (Tailwind imports)
+- [x] Bump version to v0.13.0
+- [x] Update CHANGELOG.md
+- [x] Verify: `pnpm install && pnpm build` succeeds in the template dir
 
 ### Story D.b: v0.14.0 TypeScript Types and Curriculum Store [Planned]
 
