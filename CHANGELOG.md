@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-04-15
+
+### Added
+
+- `requirements-dev.txt` — added `pytest-cov>=7.0`
+- `pyproject.toml` — `[tool.coverage.run]` (source, omit sveltekit_template) and `[tool.coverage.report]` (exclude_lines)
+- `.github/workflows/ci.yml` — test job now runs `--cov=src/learningfoundry --cov-report=xml`; uploads `coverage.xml` to Codecov via `codecov/codecov-action@v4` (`fail_ci_if_error: false`)
+- `README.md` — CI status badge and Codecov coverage badge
+
+### Verified
+
+- Local coverage run: **95%** (458 statements, 25 missed)
+
 ## [0.26.0] - 2026-04-15
 
 ### Added

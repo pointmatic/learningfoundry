@@ -2,6 +2,8 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org)
+[![CI](https://github.com/pointmatic/learningfoundry/actions/workflows/ci.yml/badge.svg)](https://github.com/pointmatic/learningfoundry/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/pointmatic/learningfoundry/branch/main/graph/badge.svg)](https://codecov.io/gh/pointmatic/learningfoundry)
 
 A curriculum engine that turns a YAML curriculum definition into a deployable SvelteKit learning application — with interactive assessments, executable notebooks, and data visualizations — in a single pipeline.
 

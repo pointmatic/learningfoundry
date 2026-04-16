@@ -361,16 +361,16 @@ Catch regressions on every push.
   - [x] Trigger: push to `main`, pull requests
   - [x] Matrix: Python 3.12, latest Ubuntu
   - [x] Steps: checkout, `actions/setup-python`, install deps, `ruff check .`, `mypy src/`, `pytest`
-- [ ] Verify: workflow passes on push
+- [x] Verify: workflow passes on push
 
-### Story H.b: GitHub Actions — Coverage Badge [Planned]
+### Story H.b: v0.27.0 GitHub Actions — Coverage Badge [Done]
 
 Visible test coverage in the repo.
 
-- [ ] Add `pytest-cov` to dev dependencies
-- [ ] Update CI workflow to run `pyve test --cov=src/learningfoundry --cov-report=xml`
-- [ ] Integrate with Codecov or Coveralls for dynamic badge
-- [ ] Add coverage badge to `README.md`
+- [x] Add `pytest-cov` to dev dependencies
+- [x] Update CI workflow to run `pytest --cov=src/learningfoundry --cov-report=xml`
+- [x] Integrate with Codecov via `codecov/codecov-action@v4`
+- [x] Add coverage badge to `README.md`
 - [ ] Verify: badge renders and updates on push
 
 

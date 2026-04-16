@@ -45,5 +45,11 @@ jobs:
           pip install -e . --quiet
           pip install -r requirements-dev.txt
 
-      - name: Run tests
-        run: pytest --ignore=tests/test_smoke_sveltekit.py -q
+      - name: Run tests with coverage
+        run: pytest --ignore=tests/test_smoke_sveltekit.py -q --cov=src/learningfoundry --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
