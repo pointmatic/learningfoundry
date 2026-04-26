@@ -21,8 +21,9 @@ Before starting, the developer must provide (or the LLM must ask for):
    - scope: What the solution will and won't do
    - constraints: Technical, regulatory, or business limitations
 3. Map pain points to solution
-   - pain_point_to_solution_mapping: A mapping of pain point labels to descriptions on how the solution addresses the pain in the pain_point_to_solution_mapping format below. 
-   
+   - pain_point_to_solution_mapping: A mapping of pain point labels to descriptions on how the solution addresses the pain in the pain_point_to_solution_mapping format below.
+4. Write the completed document to `docs/specs/concept.md`.
+
 ## Formats
 
 ### pain_points

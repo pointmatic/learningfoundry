@@ -10,8 +10,8 @@ This is the default mode for new projects. It provides an overview of the full p
 | 2 | `plan_features` | Define requirements, inputs, outputs, behavior |
 | 3 | `plan_tech_spec` | Define architecture, modules, dependencies |
 | 4 | `plan_stories` | Break into phases and stories with checklists |
-| 5 | `project_scaffold` | Scaffold LICENSE, headers, manifest, README, CHANGELOG, .gitignore |
-| 6 | `code_velocity` | Implement stories with fast iteration |
+| 5 | `scaffold_project` | Scaffold LICENSE, headers, manifest, README, CHANGELOG, .gitignore |
+| 6 | `{% if test_first %}code_test_first{% else %}code_direct{% endif %}` | Implement stories with fast iteration |
 
 ## Get Started
 
@@ -53,7 +53,7 @@ Wait for the developer to choose before changing modes.
 
 ### If at least one story is non-`[Done]`
 
-The current phase still has in-progress, planned, or otherwise incomplete work. Use the existing project lifecycle suggestions above — direct the developer to the relevant coding mode (`code_velocity`, `code_test_first`) or, if planning artifacts are missing, to the appropriate planning mode.
+The current phase still has in-progress, planned, or otherwise incomplete work. Use the existing project lifecycle suggestions above — direct the developer to the relevant coding mode (`code_direct`, `code_test_first`) or, if planning artifacts are missing, to the appropriate planning mode.
 
 ### If `stories.md` does not exist
 
@@ -73,12 +73,12 @@ This is a fresh project. Direct the developer to `project-guide mode plan_concep
 ### Scaffold (sequence)
 | Mode | Command | Purpose |
 |------|---------|---------|
-| **Project Scaffold** | `project-guide mode project_scaffold` | One-time project scaffolding |
+| **Project Scaffold** | `project-guide mode scaffold_project` | One-time project scaffolding |
 
 ### Coding (cycle)
 | Mode | Command | Workflow |
 |------|---------|----------|
-| **Velocity** | `project-guide mode code_velocity` | Direct commits, fast iteration |
+| **{% if test_first %}Test-First{% else %}Direct{% endif %}** | `project-guide mode {% if test_first %}code_test_first{% else %}code_direct{% endif %}` | {% if test_first %}TDD red-green-refactor cycle{% else %}Direct commits, fast iteration{% endif %} |
 | **Test-First** | `project-guide mode code_test_first` | TDD red-green-refactor cycle |
 | **Debug** | `project-guide mode debug` | Test-driven debugging |
 

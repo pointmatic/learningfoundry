@@ -32,13 +32,20 @@ When you have completed the steps, pause for the developer to review, correct, r
 - Never auto-advance past an approval gate—always wait for explicit confirmation. 
 - At approval gates, present the completed work and wait. Do **not** propose follow-up actions outside the current mode step — in particular, do not prompt for git operations (commits, pushes, PRs, branch creation), CI runs, or deploys unless the current step explicitly calls for them. The developer initiates these on their own schedule.
 - After compacting memory, re-read this guide to refresh your context.
+- Before recording a new memory, reflect: is this fact project-specific (belongs in `docs/specs/project-essentials.md`) or cross-project (belongs in LLM memory)? Could it belong in both? If project-specific, add it to `project-essentials.md` instead of or in addition to memory.
+- When creating any new source file, add a copyright notice and license header using the comment syntax for that file type (`#` for Python/YAML/shell, `//` for JS/TS, `<!-- -->` for HTML/Svelte). Check this project's `project-essentials.md` for the specific copyright holder, license, and SPDX identifier to use.
 
 ---
-{% if project_essentials %}
+{% if project_essentials or pyve_essentials %}
 ## Project Essentials
-
+{% if project_essentials %}
 {{ project_essentials }}
+{% endif %}
+{% if pyve_essentials %}
+### Pyve Essentials
 
+{{ pyve_essentials }}
+{% endif %}
 ---
 {% endif %}
 # {{ mode_name }} mode ({{ sequence_or_cycle }})

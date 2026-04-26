@@ -70,6 +70,7 @@ Before planning a new phase, the following should exist:
 
    Present the updated file to the developer for approval. Show only what was added (since this is an append operation, the diff is minimal).
 
+{% set next_mode = 'code_test_first' if test_first else 'code_direct' %}
 {% include "modes/_header-sequence.md" %}
 
 {% include "modes/_phase-letters.md" %}

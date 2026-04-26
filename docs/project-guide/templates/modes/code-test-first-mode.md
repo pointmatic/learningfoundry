@@ -49,7 +49,7 @@ The TDD cycle:
 
 ## When to Switch Modes
 
-Switch to **code_velocity** when:
+Switch to **code_direct** when:
 - The story is straightforward and TDD overhead isn't justified
 - The developer requests faster iteration
 

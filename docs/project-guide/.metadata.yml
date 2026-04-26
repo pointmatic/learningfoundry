@@ -7,7 +7,8 @@ common:
   programming_language: python
   test_command: pytest
   test_invocation: "pyve run {{test_command}}"
-  default_code_mode: code_velocity
+  default_code_mode: code_direct
+  test_first: false
 
 modes:
 
@@ -64,7 +65,7 @@ modes:
     sequence_or_cycle: sequence
     generation_type: document
     mode_template: "{{mode_templates_path}}/plan-stories-mode.md"
-    next_mode: project_scaffold
+    next_mode: scaffold_project
     artifacts:
       - file: "{{spec_artifacts_path}}/stories.md"
         action: create
@@ -106,12 +107,12 @@ modes:
       - "{{spec_artifacts_path}}/stories.md"
 
   # Scaffold
-  - name: project_scaffold
+  - name: scaffold_project
     info: Scaffold the project foundation (LICENSE, headers, manifest, README, CHANGELOG)
     description: One-time project scaffolding after planning. Creates license, copyright headers, package manifest, README with badges, CHANGELOG, and .gitignore based on decisions made during planning.
     sequence_or_cycle: sequence
     generation_type: document
-    mode_template: "{{mode_templates_path}}/project-scaffold-mode.md"
+    mode_template: "{{mode_templates_path}}/scaffold-project-mode.md"
     next_mode: "{{default_code_mode}}"
     files_exist:
       - "{{spec_artifacts_path}}/concept.md"
@@ -134,7 +135,7 @@ modes:
       - "{{spec_artifacts_path}}/features.md"
   - name: document_landing
     info: Generate a GitHub landing page and markdown support documentation using MkDocs
-    description: TBD.
+    description: Build a GitHub Pages site with a custom branded landing page (index.html) and MkDocs Material theme for structured documentation. Covers site architecture, GitHub Actions deployment, and keeping docs in sync with the project.
     sequence_or_cycle: sequence
     generation_type: document
     mode_template: "{{mode_templates_path}}/document-landing-mode.md"
@@ -151,18 +152,18 @@ modes:
       - "{{spec_artifacts_path}}/brand-descriptions.md"
  
   # Code modes
-  - name: code_velocity
-    info: Generate code with velocity
-    description: TBD.
+  - name: code_direct
+    info: Generate code directly, test after
+    description: Implement stories rapidly with direct commits to main. Each cycle reads a story checklist, implements all tasks, runs tests and linting, bumps the version, and updates CHANGELOG. Best for straightforward stories where TDD overhead isn't justified.
     sequence_or_cycle: cycle
     generation_type: code
-    mode_template: "{{mode_templates_path}}/code-velocity-mode.md"
+    mode_template: "{{mode_templates_path}}/code-direct-mode.md"
     files_exist:
       - "{{spec_artifacts_path}}/stories.md"
       - "{{root_artifacts_path}}/CHANGELOG.md"
   - name: code_test_first
     info: Generate code with a test-first approach
-    description: TBD.
+    description: "Implement stories using test-driven development (TDD). For each task: write a failing test, confirm red, write minimal implementation, confirm green, refactor. Best for complex logic where correctness is critical and tests can capture intent precisely."
     sequence_or_cycle: cycle
     generation_type: code
     mode_template: "{{mode_templates_path}}/code-test-first-mode.md"
@@ -170,7 +171,7 @@ modes:
       - "{{spec_artifacts_path}}/stories.md"
   - name: debug
     info: Debug code with a test-first approach
-    description: TBD.
+    description: Structured debugging cycle emphasizing root cause analysis and regression prevention. Write a failing test that reproduces the bug before attempting a fix, then isolate, fix, verify, and document the root cause.
     sequence_or_cycle: cycle
     generation_type: code
     mode_template: "{{mode_templates_path}}/debug-mode.md"

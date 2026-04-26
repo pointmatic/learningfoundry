@@ -20,13 +20,11 @@ build/
 *.ipynb_checkpoints
 
 # Pyve virtual environment
+.pyve/envs
 .pyve/testenv
 .envrc
 .env
-.venv
-
-
-
+.vscode/settings.json
 
 # Node / SvelteKit
 node_modules/
