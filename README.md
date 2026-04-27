@@ -27,7 +27,7 @@ A curriculum engine that turns a YAML curriculum definition into a deployable Sv
 
 - **Text** — Markdown content rendered in the browser
 - **Video** — YouTube embeds
-- **Quiz** — Interactive assessments via [quizazz-builder](https://github.com/pointmatic/quizazz-builder) (optional)
+- **Quiz** — Interactive assessments via [quizazz](https://github.com/pointmatic/quizazz) (optional)
 - **Exercise** — Executable notebooks via nbfoundry (stub provided)
 - **Visualization** — D3-based charts via d3foundry (stub provided)
 

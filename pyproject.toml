@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "learningfoundry"
-version = "0.27.0"
+version = "0.28.0"
 description = "A curriculum engine that turns a YAML curriculum definition into a deployable SvelteKit learning application."
 readme = "README.md"
 license = "Apache-2.0"
@@ -32,7 +32,7 @@ dependencies = [
 
 [project.optional-dependencies]
 quizazz = [
-    "quizazz-builder>=0.1",
+    "quizazz>=0.1",
 ]
 
 [project.urls]
@@ -68,7 +68,7 @@ strict = true
 python_version = "3.12"
 
 [[tool.mypy.overrides]]
-module = "quizazz_builder"
+module = "quizazz"
 ignore_missing_imports = true
 
 [tool.coverage.run]

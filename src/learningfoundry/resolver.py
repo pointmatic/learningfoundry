@@ -78,7 +78,7 @@ def resolve_curriculum(
         curriculum: Validated ``CurriculumV1`` from the parser.
         base_dir: Root directory for resolving relative content paths.
         quiz_provider: Provider for ``quiz`` blocks. If None, uses
-            ``QuizazzProvider`` (requires quizazz-builder).
+            ``QuizazzProvider`` (requires the ``quizazz`` package).
         exercise_provider: Provider for ``exercise`` blocks. If None, uses
             ``NbfoundryStub``.
         visualization_provider: Provider for ``visualization`` blocks. If None,

@@ -1,6 +1,6 @@
 # Copyright 2026 Pointmatic
 # SPDX-License-Identifier: Apache-2.0
-"""quizazz integration — QuizProvider backed by quizazz_builder."""
+"""quizazz integration — QuizProvider backed by the quizazz package."""
 
 from pathlib import Path
 
@@ -8,12 +8,12 @@ from learningfoundry.exceptions import IntegrationError
 
 
 class QuizazzProvider:
-    """QuizProvider implementation backed by quizazz_builder.
+    """QuizProvider implementation backed by the quizazz package.
 
-    Delegates to ``quizazz_builder.compile_assessment()`` to produce a
+    Delegates to ``quizazz.compile_assessment()`` to produce a
     manifest dict from a single assessment YAML file.
 
-    Requires the ``quizazz-builder`` package:
+    Requires the ``quizazz`` package:
         pip install learningfoundry[quizazz]
     """
 
@@ -28,17 +28,17 @@ class QuizazzProvider:
             Compiled quiz manifest dict (questions, nav tree).
 
         Raises:
-            IntegrationError: If quizazz_builder raises any error during
+            IntegrationError: If quizazz raises any error during
                 validation or compilation.
-            ImportError: If quizazz-builder is not installed.
+            ImportError: If quizazz is not installed.
         """
         try:
-            from quizazz_builder import (
+            from quizazz import (
                 compile_assessment,
             )
         except ImportError as exc:
             raise ImportError(
-                "quizazz-builder is not installed. "
+                "quizazz is not installed. "
                 "Install it with: pip install learningfoundry[quizazz]"
             ) from exc
 

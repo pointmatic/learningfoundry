@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-04-26
+
+### Fixed
+
+- `pip install "learningfoundry[quizazz]"` now resolves: the `quizazz` extra pointed at the non-existent PyPI package `quizazz-builder`. The actual package (per `docs/specs/quizazz-README.md`) is published as `quizazz`.
+
+### Changed
+
+- `pyproject.toml` — `[project.optional-dependencies] quizazz` now requires `quizazz>=0.1` (was `quizazz-builder>=0.1`); `[[tool.mypy.overrides]] module = "quizazz"` (was `"quizazz_builder"`)
+- `src/learningfoundry/integrations/quizazz.py` — imports `from quizazz import compile_assessment` (was `from quizazz_builder`); error messages and docstrings updated
+- `tests/test_integrations/test_quizazz.py` — `sys.modules` mocks and `ImportError` match pattern updated to `quizazz`
+- `src/learningfoundry/resolver.py` — docstring reference updated
+- `README.md` — quiz block link points to `pointmatic/quizazz` (was `quizazz-builder`)
+
 ## [0.27.0] - 2026-04-15
 
 ### Added

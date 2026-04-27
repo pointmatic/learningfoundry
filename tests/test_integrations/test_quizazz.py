@@ -25,7 +25,7 @@ class TestQuizazzProviderDelegation:
         mock_compile = MagicMock(return_value=_MOCK_MANIFEST)
         with patch.dict(
             "sys.modules",
-            {"quizazz_builder": MagicMock(compile_assessment=mock_compile)},
+            {"quizazz": MagicMock(compile_assessment=mock_compile)},
         ):
             provider = QuizazzProvider()
             result = provider.compile_assessment(_REF, _BASE)
@@ -37,7 +37,7 @@ class TestQuizazzProviderDelegation:
         mock_compile = MagicMock(return_value=_MOCK_MANIFEST)
         with patch.dict(
             "sys.modules",
-            {"quizazz_builder": MagicMock(compile_assessment=mock_compile)},
+            {"quizazz": MagicMock(compile_assessment=mock_compile)},
         ):
             provider = QuizazzProvider()
             result = provider.compile_assessment(_REF, _BASE)
@@ -52,7 +52,7 @@ class TestQuizazzProviderDelegation:
         custom_base = Path("/other/curriculum")
         with patch.dict(
             "sys.modules",
-            {"quizazz_builder": MagicMock(compile_assessment=mock_compile)},
+            {"quizazz": MagicMock(compile_assessment=mock_compile)},
         ):
             QuizazzProvider().compile_assessment(custom_ref, custom_base)
 
@@ -64,7 +64,7 @@ class TestQuizazzProviderErrorWrapping:
         mock_compile = MagicMock(side_effect=ValueError("missing required field"))
         with patch.dict(
             "sys.modules",
-            {"quizazz_builder": MagicMock(compile_assessment=mock_compile)},
+            {"quizazz": MagicMock(compile_assessment=mock_compile)},
         ):
             provider = QuizazzProvider()
             with pytest.raises(IntegrationError, match="quizazz failed"):
@@ -74,7 +74,7 @@ class TestQuizazzProviderErrorWrapping:
         mock_compile = MagicMock(side_effect=RuntimeError("bad YAML"))
         with patch.dict(
             "sys.modules",
-            {"quizazz_builder": MagicMock(compile_assessment=mock_compile)},
+            {"quizazz": MagicMock(compile_assessment=mock_compile)},
         ):
             provider = QuizazzProvider()
             with pytest.raises(IntegrationError, match=str(_REF)):
@@ -85,7 +85,7 @@ class TestQuizazzProviderErrorWrapping:
         mock_compile = MagicMock(side_effect=cause)
         with patch.dict(
             "sys.modules",
-            {"quizazz_builder": MagicMock(compile_assessment=mock_compile)},
+            {"quizazz": MagicMock(compile_assessment=mock_compile)},
         ):
             provider = QuizazzProvider()
             with pytest.raises(IntegrationError) as exc_info:
@@ -99,7 +99,7 @@ class TestQuizazzProviderErrorWrapping:
         mock_compile = MagicMock(side_effect=Exception("boom"))
         with patch.dict(
             "sys.modules",
-            {"quizazz_builder": MagicMock(compile_assessment=mock_compile)},
+            {"quizazz": MagicMock(compile_assessment=mock_compile)},
         ):
             provider = QuizazzProvider()
             with pytest.raises(LearningFoundryError):
@@ -108,7 +108,7 @@ class TestQuizazzProviderErrorWrapping:
 
 class TestQuizazzProviderMissingPackage:
     def test_missing_package_raises_import_error(self) -> None:
-        with patch.dict("sys.modules", {"quizazz_builder": None}):  # type: ignore[dict-item]
+        with patch.dict("sys.modules", {"quizazz": None}):  # type: ignore[dict-item]
             provider = QuizazzProvider()
-            with pytest.raises(ImportError, match="quizazz-builder"):
+            with pytest.raises(ImportError, match="quizazz is not installed"):
                 provider.compile_assessment(_REF, _BASE)

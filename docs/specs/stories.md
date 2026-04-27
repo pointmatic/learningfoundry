@@ -371,7 +371,21 @@ Visible test coverage in the repo.
 - [x] Update CI workflow to run `pytest --cov=src/learningfoundry --cov-report=xml`
 - [x] Integrate with Codecov via `codecov/codecov-action@v4`
 - [x] Add coverage badge to `README.md`
-- [ ] Verify: badge renders and updates on push
+- [x] Verify: badge renders and updates on push
+
+### Story H.c: v0.28.0 Fix `quizazz` Extra to Match Published Package [Done]
+
+`pip install "learningfoundry[quizazz]"` failed because the extra pointed at the non-existent PyPI package `quizazz-builder`. Per `docs/specs/quizazz-README.md`, the package is published as `quizazz` (both the PyPI distribution name and the Python import name).
+
+- [x] Update `pyproject.toml`: `[project.optional-dependencies] quizazz` → `quizazz>=0.1`; `[[tool.mypy.overrides]] module = "quizazz"`
+- [x] Update `src/learningfoundry/integrations/quizazz.py`: `from quizazz import compile_assessment`; docstrings and error messages reference `quizazz`
+- [x] Update `tests/test_integrations/test_quizazz.py`: `sys.modules` mocks and `ImportError` match pattern use `quizazz`
+- [x] Update `src/learningfoundry/resolver.py` docstring
+- [x] Update `README.md` quiz block link
+- [x] Bump version to v0.28.0
+- [x] Update CHANGELOG.md
+- [x] Verify: `pyve test` passes (195/195), `ruff` and `mypy` clean
+- [ ] Verify: `pip install "learningfoundry[quizazz]"` resolves in a clean venv after v0.28.0 is published to PyPI
 
 
 ---
