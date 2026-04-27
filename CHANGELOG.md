@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-04-27
+
+### Fixed
+
+- **Lesson content never rendered after clicking "Start module" / Next / Previous.** `navigateTo`, `navigateNext`, and `navigatePrev` in the SvelteKit template only updated the `currentPosition` Svelte store; they never changed the URL. Because lesson content is mounted by the dynamic route `/[module]/[lesson]/+page.svelte`, the route was never visited and `LessonView` (which renders the inlined markdown) never mounted — the left nav title updated, but the content area stayed on the home dashboard.
+  - `src/learningfoundry/sveltekit_template/src/lib/stores/curriculum.ts` — `navigateTo` now also calls `goto('/${moduleId}/${lessonId}')`; `navigateNext` and `navigatePrev` refactored to compute the target and delegate to `navigateTo` so URL navigation happens for them too.
+
+### Added
+
+- **Frontend unit-test infrastructure** for the SvelteKit template (the navigation regression went uncaught because the template had no test suite):
+  - `sveltekit_template/package.json` — added `jsdom` to devDependencies (`vitest` was already present)
+  - `sveltekit_template/vite.config.ts` — added vitest config block (`environment: 'jsdom'`, `include: src/**/*.{test,spec}.{js,ts}`)
+  - `sveltekit_template/src/lib/stores/curriculum.test.ts` — 9 cases covering `navigateTo` (URL + store update), `navigateNext` (within module / across modules / final-lesson no-op / null position), `navigatePrev` (within module / across modules / first-lesson no-op / null position); mocks `$app/navigation`'s `goto` via `vi.mock` and stubs global `fetch` to seed the curriculum readable
+- `tests/test_smoke_sveltekit.py::test_pnpm_test_passes` — runs `pnpm test` (vitest) inside the installed template so the smoke run catches future frontend regressions
+
+### Verified
+
+- `pyve test -m smoke` — 7/7 passed (Python build + vitest)
+- Full Python suite — 195/195 passed; ruff and mypy clean
+
 ## [0.28.0] - 2026-04-26
 
 ### Fixed

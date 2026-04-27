@@ -373,7 +373,7 @@ Visible test coverage in the repo.
 - [x] Add coverage badge to `README.md`
 - [x] Verify: badge renders and updates on push
 
-### Story H.c: v0.28.0 Fix `quizazz` Extra to Match Published Package [Done]
+### Story H.c: v0.28.0 Fix 'quizazz' Extra to Match Published Package [Done]
 
 `pip install "learningfoundry[quizazz]"` failed because the extra pointed at the non-existent PyPI package `quizazz-builder`. Per `docs/specs/quizazz-README.md`, the package is published as `quizazz` (both the PyPI distribution name and the Python import name).
 
@@ -385,7 +385,38 @@ Visible test coverage in the repo.
 - [x] Bump version to v0.28.0
 - [x] Update CHANGELOG.md
 - [x] Verify: `pyve test` passes (195/195), `ruff` and `mypy` clean
-- [ ] Verify: `pip install "learningfoundry[quizazz]"` resolves in a clean venv after v0.28.0 is published to PyPI
+- [x] Verify: `pip install "learningfoundry[quizazz]"` resolves in a clean venv after v0.28.0 is published to PyPI
+
+### Story H.d: v0.29.0 Fix Lesson Navigation + Frontend Unit Tests [Done]
+
+Lesson content never rendered after clicking "Start module" / Next / Previous. `navigateTo`, `navigateNext`, and `navigatePrev` in the SvelteKit template only updated the `currentPosition` Svelte store; they never changed the URL. Because lesson content is mounted by the dynamic route `/[module]/[lesson]/+page.svelte`, the route was never visited and `LessonView` (which renders the inlined markdown) never mounted — the left nav title updated, but the content area stayed on the home dashboard.
+
+The template had no frontend test suite, so this regression went uncaught. Added vitest + tests for the navigation helpers to prevent recurrence.
+
+**Bug fix:**
+
+- [x] `src/learningfoundry/sveltekit_template/src/lib/stores/curriculum.ts` — `navigateTo` calls `goto('/${moduleId}/${lessonId}')`; `navigateNext`/`navigatePrev` delegate to `navigateTo`
+
+**Frontend unit tests:**
+
+- [x] Add `jsdom` to `sveltekit_template/package.json` devDependencies (`vitest` was already present; `@vitest/ui` skipped — not needed for headless CI)
+- [x] Extend `vite.config.ts` with vitest config (`environment: 'jsdom'`, `include: src/**/*.{test,spec}.{js,ts}`)
+- [x] `test` script `vitest run` already present in `package.json`
+- [x] Create `src/lib/stores/curriculum.test.ts` (9 cases):
+  - [x] `navigateTo` calls `goto` with `/{moduleId}/{lessonId}` and updates `currentPosition`
+  - [x] `navigateNext` advances within a module
+  - [x] `navigateNext` crosses module boundaries
+  - [x] `navigateNext` is a no-op past the final lesson
+  - [x] `navigateNext` is a no-op when `currentPosition` is null
+  - [x] `navigatePrev` reverses through lessons within a module
+  - [x] `navigatePrev` reverses across module boundaries
+  - [x] `navigatePrev` is a no-op before the first lesson
+  - [x] `navigatePrev` is a no-op when `currentPosition` is null
+  - [x] Mock `$app/navigation`'s `goto` via `vi.mock`; stub global `fetch` to seed the curriculum readable
+- [x] Update `tests/test_smoke_sveltekit.py` with `test_pnpm_test_passes` to also run `pnpm test` after `pnpm install`
+- [x] Bump version to v0.29.0
+- [x] Update CHANGELOG.md
+- [x] Verify: `pyve test -m smoke` passes — 7/7 (Python smoke + vitest); full suite 195/195; ruff + mypy clean
 
 
 ---

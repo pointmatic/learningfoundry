@@ -23,6 +23,7 @@
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@tailwindcss/vite": "^4.0.0",
     "@types/sql.js": "^1.4.11",
+    "jsdom": "^25.0.0",
     "prettier": "^3.0.0",
     "prettier-plugin-svelte": "^3.0.0",
     "svelte-check": "^4.0.0",

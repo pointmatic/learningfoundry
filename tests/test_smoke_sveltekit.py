@@ -109,3 +109,16 @@ class TestSvelteKitSmokeBuild:
         build_dir = compiled_app / "build"
         js_files = list(build_dir.rglob("*.js"))
         assert len(js_files) > 0
+
+    def test_pnpm_test_passes(self, installed_app: Path) -> None:
+        """Run vitest in the installed template to catch frontend regressions
+        (e.g. the navigation goto() bug fixed in v0.29.0)."""
+        result = subprocess.run(
+            ["pnpm", "test"],
+            cwd=installed_app,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, (
+            f"pnpm test failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        )

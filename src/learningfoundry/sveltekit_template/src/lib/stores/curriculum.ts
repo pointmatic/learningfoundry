@@ -1,6 +1,7 @@
 // Copyright 2026 Pointmatic
 // SPDX-License-Identifier: Apache-2.0
 import { derived, readable, writable } from 'svelte/store';
+import { goto } from '$app/navigation';
 import type { Curriculum, Lesson, Module } from '$lib/types/index.js';
 
 // ---------------------------------------------------------------------------
@@ -87,36 +88,37 @@ export const nextLesson = derived(
 
 export function navigateTo(moduleId: string, lessonId: string): void {
 	currentPosition.set({ moduleId, lessonId });
+	void goto(`/${moduleId}/${lessonId}`);
 }
 
 export function navigateNext(): void {
-	currentPosition.update(($pos) => {
-		if (!$pos) return $pos;
-		let found = false;
-		for (const mod of get(modules) as Module[]) {
-			for (const lesson of mod.lessons as Lesson[]) {
-				if (found) return { moduleId: mod.id, lessonId: lesson.id };
-				if (mod.id === $pos.moduleId && lesson.id === $pos.lessonId) found = true;
+	const pos = get(currentPosition);
+	if (!pos) return;
+	let found = false;
+	for (const mod of get(modules) as Module[]) {
+		for (const lesson of mod.lessons as Lesson[]) {
+			if (found) {
+				navigateTo(mod.id, lesson.id);
+				return;
 			}
+			if (mod.id === pos.moduleId && lesson.id === pos.lessonId) found = true;
 		}
-		return $pos;
-	});
+	}
 }
 
 export function navigatePrev(): void {
-	currentPosition.update(($pos) => {
-		if (!$pos) return $pos;
-		let prev: NavPosition | null = null;
-		for (const mod of get(modules) as Module[]) {
-			for (const lesson of mod.lessons as Lesson[]) {
-				if (mod.id === $pos.moduleId && lesson.id === $pos.lessonId) {
-					return prev ?? $pos;
-				}
-				prev = { moduleId: mod.id, lessonId: lesson.id };
+	const pos = get(currentPosition);
+	if (!pos) return;
+	let prev: NavPosition | null = null;
+	for (const mod of get(modules) as Module[]) {
+		for (const lesson of mod.lessons as Lesson[]) {
+			if (mod.id === pos.moduleId && lesson.id === pos.lessonId) {
+				if (prev) navigateTo(prev.moduleId, prev.lessonId);
+				return;
 			}
+			prev = { moduleId: mod.id, lessonId: lesson.id };
 		}
-		return $pos;
-	});
+	}
 }
 
 // get() helper for non-reactive reads inside update callbacks
