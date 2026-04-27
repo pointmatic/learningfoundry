@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-04-27
+
+### Fixed
+
+- **`Cannot call fetch eagerly during server-side rendering with relative URL (/curriculum.json)`** — SvelteKit's prerender pass was subscribing to the `curriculum` readable store during SSR of `+layout.svelte`, triggering a relative-URL fetch on the server. The template is a pure CSR SPA (runtime curriculum fetch, IndexedDB, sql.js/WASM) and was never intended to render on the server.
+  - `src/learningfoundry/sveltekit_template/src/routes/+layout.ts` — new file exporting `ssr = false` and `prerender = false`. With `adapter-static` + `fallback: 'index.html'` already configured in `svelte.config.js`, the SPA fallback handles every route client-side; prerendering is not needed and was failing on dynamic `[module]/[lesson]` routes anyway.
+
 ## [0.29.0] - 2026-04-27
 
 ### Fixed

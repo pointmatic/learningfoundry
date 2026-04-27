@@ -418,6 +418,15 @@ The template had no frontend test suite, so this regression went uncaught. Added
 - [x] Update CHANGELOG.md
 - [x] Verify: `pyve test -m smoke` passes — 7/7 (Python smoke + vitest); full suite 195/195; ruff + mypy clean
 
+### Story H.e: v0.30.0 Disable SSR/Prerender in Generated SPA [Done]
+
+Every `learningfoundry build` run printed `Cannot call fetch eagerly during server-side rendering with relative URL (/curriculum.json)` errors. SvelteKit's prerender pass subscribes to the `curriculum` readable during SSR of `+layout.svelte`, and the readable's start function calls `fetch('/curriculum.json')` — a relative URL, which is illegal on the server. The generated app is a pure CSR SPA (runtime curriculum fetch, IndexedDB, sql.js/WASM) and was never intended to render on the server. `svelte.config.js` already uses `adapter-static` with `fallback: 'index.html'`, so the SPA fallback handles every route client-side without prerendering.
+
+- [x] Create `src/learningfoundry/sveltekit_template/src/routes/+layout.ts` exporting `ssr = false` and `prerender = false`
+- [x] Bump version to v0.30.0
+- [x] Update CHANGELOG.md
+- [x] Verify: `pyve test -m smoke` passes 7/7 with no SSR errors in build output
+
 
 ---
 
