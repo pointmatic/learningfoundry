@@ -110,6 +110,21 @@ class TestSvelteKitSmokeBuild:
         js_files = list(build_dir.rglob("*.js"))
         assert len(js_files) > 0
 
+    def test_typography_prose_styles_in_bundled_css(
+        self, compiled_app: Path
+    ) -> None:
+        """The `prose` class on rendered markdown (TextBlock.svelte) must
+        compile into the bundled CSS so headings, lists, and code in lesson
+        content render with proper typography. Regression guard for the
+        missing `@tailwindcss/typography` plugin fixed in v0.32.0."""
+        css_files = list((compiled_app / "build").rglob("*.css"))
+        assert css_files, "no CSS files in build output"
+        combined = "\n".join(f.read_text(encoding="utf-8") for f in css_files)
+        assert ".prose" in combined, (
+            "`.prose` class not found in bundled CSS — the "
+            "@tailwindcss/typography plugin is not registered."
+        )
+
     def test_pnpm_test_passes(self, installed_app: Path) -> None:
         """Run vitest in the installed template to catch frontend regressions
         (e.g. the navigation goto() bug fixed in v0.29.0)."""

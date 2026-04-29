@@ -436,6 +436,17 @@ Clicking "Finish" on the final lesson did nothing visible. `Navigation.goNext()`
 - [x] Update CHANGELOG.md
 - [x] Verify: `pyve test -m smoke` passes 7/7
 
+### Story H.g: v0.32.0 Register Tailwind Typography Plugin for Markdown Rendering [Done]
+
+Markdown headings (`#`, `##`, `###`, `####`), lists, and code blocks in lesson content all rendered at body-text size — no heading hierarchy, no styled code blocks. `TextBlock.svelte` uses `class="prose prose-slate max-w-none"` to delegate styling to Tailwind's typography plugin, but `@tailwindcss/typography` was never installed or registered, so `prose` was an unknown utility class and Tailwind's preflight reset flattened all default browser heading styles.
+
+- [x] Add `@tailwindcss/typography ^0.5.16` to `src/learningfoundry/sveltekit_template/package.json` devDependencies
+- [x] Register the plugin in `src/learningfoundry/sveltekit_template/src/app.css` via Tailwind v4 CSS-first directive: `@plugin '@tailwindcss/typography';`
+- [x] Add `tests/test_smoke_sveltekit.py::test_typography_prose_styles_in_bundled_css` — asserts `.prose` is present in the compiled bundle CSS as a regression guard
+- [x] Bump version to v0.32.0
+- [x] Update CHANGELOG.md
+- [x] Verify: `pyve test -m smoke` passes 8/8 (Python smoke + vitest + new prose-CSS check)
+
 
 ---
 

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-04-29
+
+### Fixed
+
+- **Markdown headings, lists, and code in rendered lesson content had no styling** — they all displayed at body-text size. `TextBlock.svelte` applies the Tailwind `prose prose-slate` classes, but `@tailwindcss/typography` was never installed or registered, so the `prose` class was an unknown utility and the marked-rendered HTML fell through to browser defaults (which Tailwind's preflight reset flattens).
+  - `src/learningfoundry/sveltekit_template/package.json` — added `@tailwindcss/typography ^0.5.16` to devDependencies
+  - `src/learningfoundry/sveltekit_template/src/app.css` — registered the plugin via Tailwind v4's CSS-first `@plugin '@tailwindcss/typography';` directive
+
+### Added
+
+- `tests/test_smoke_sveltekit.py::test_typography_prose_styles_in_bundled_css` — regression guard asserting `.prose` is present in the compiled bundle CSS, so an accidental removal of the plugin will fail the smoke suite.
+
 ## [0.31.0] - 2026-04-27
 
 ### Fixed
