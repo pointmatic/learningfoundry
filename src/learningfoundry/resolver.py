@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from learningfoundry.asset_resolver import Asset, resolve_markdown_assets
 from learningfoundry.exceptions import ContentResolutionError
 from learningfoundry.integrations.protocols import (
     ExerciseProvider,
@@ -63,6 +64,11 @@ class ResolvedCurriculum:
     title: str
     description: str
     modules: list[ResolvedModule] = field(default_factory=list)
+    # Image assets referenced from any text block's markdown, deduped by
+    # content hash. Carried out-of-band — the generator copies these into
+    # ``static/`` and they are stripped before curriculum.json is written
+    # (the SvelteKit frontend never sees them).
+    assets: list[Asset] = field(default_factory=list)
 
 
 def resolve_curriculum(
@@ -105,6 +111,10 @@ def resolve_curriculum(
         visualization_provider = D3foundryStub()
 
     resolved_modules: list[ResolvedModule] = []
+    # Image assets are deduped globally on `dest_relative` (which is keyed
+    # on the content hash), so a single image referenced from N lessons is
+    # copied exactly once into the generated project.
+    assets_by_dest: dict[str, Asset] = {}
     for module in curriculum.curriculum.modules:
         resolved_modules.append(
             _resolve_module(
@@ -113,6 +123,7 @@ def resolve_curriculum(
                 quiz_provider,
                 exercise_provider,
                 visualization_provider,
+                assets_by_dest,
             )
         )
 
@@ -121,6 +132,7 @@ def resolve_curriculum(
         title=curriculum.curriculum.title,
         description=curriculum.curriculum.description,
         modules=resolved_modules,
+        assets=list(assets_by_dest.values()),
     )
 
 
@@ -130,6 +142,7 @@ def _resolve_module(
     quiz_provider: QuizProvider,
     exercise_provider: ExerciseProvider,
     visualization_provider: VisualizationProvider,
+    assets_by_dest: dict[str, Asset],
 ) -> ResolvedModule:
     pre = None
     post = None
@@ -158,6 +171,7 @@ def _resolve_module(
                 quiz_provider,
                 exercise_provider,
                 visualization_provider,
+                assets_by_dest,
             )
         )
 
@@ -178,6 +192,7 @@ def _resolve_lesson(
     quiz_provider: QuizProvider,
     exercise_provider: ExerciseProvider,
     visualization_provider: VisualizationProvider,
+    assets_by_dest: dict[str, Asset],
 ) -> ResolvedLesson:
     resolved_blocks: list[ResolvedContentBlock] = []
     for idx, block in enumerate(lesson.content_blocks):
@@ -190,6 +205,7 @@ def _resolve_lesson(
                 exercise_provider,
                 visualization_provider,
                 location,
+                assets_by_dest,
             )
         )
     return ResolvedLesson(
@@ -206,10 +222,11 @@ def _resolve_block(
     exercise_provider: ExerciseProvider,
     visualization_provider: VisualizationProvider,
     location: str,
+    assets_by_dest: dict[str, Asset],
 ) -> ResolvedContentBlock:
     try:
         if isinstance(block, TextBlock):
-            return _resolve_text(block, base_dir, location)
+            return _resolve_text(block, base_dir, location, assets_by_dest)
         if isinstance(block, VideoBlock):
             return _resolve_video(block, location)
         if isinstance(block, QuizBlock):
@@ -245,7 +262,10 @@ def _resolve_block(
 
 
 def _resolve_text(
-    block: TextBlock, base_dir: Path, location: str
+    block: TextBlock,
+    base_dir: Path,
+    location: str,
+    assets_by_dest: dict[str, Asset],
 ) -> ResolvedContentBlock:
     content_path = base_dir / block.ref
     try:
@@ -258,11 +278,25 @@ def _resolve_text(
     if not text.strip():
         logger.warning("%s: markdown file `%s` is empty.", location, content_path)
 
+    # Scan for image refs, copy-relative on disk, rewrite to absolute
+    # `/content/<hash>/<basename>` URLs that work at any SvelteKit route.
+    # Missing images surface as ContentResolutionError tagged with the
+    # block location for parity with other resolution errors.
+    try:
+        rewritten, lesson_assets = resolve_markdown_assets(text, content_path)
+    except ContentResolutionError as exc:
+        raise ContentResolutionError(f"{location}: {exc}") from exc
+
+    for asset in lesson_assets:
+        # Dedup globally — two lessons referencing the same image hash to
+        # the same dest_relative, so the dict swallows the duplicate.
+        assets_by_dest.setdefault(asset.dest_relative, asset)
+
     return ResolvedContentBlock(
         type="text",
         source=None,
         ref=block.ref,
-        content={"markdown": text, "path": str(content_path)},
+        content={"markdown": rewritten, "path": str(content_path)},
     )
 
 

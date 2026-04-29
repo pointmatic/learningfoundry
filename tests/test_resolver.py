@@ -171,6 +171,125 @@ class TestTextBlockResolution:
         assert "empty" in caplog.text.lower()
 
 
+class TestTextBlockImageAssets:
+    """Image references inside lesson markdown should be discovered by the
+    resolver, copied (by the generator) to ``static/content/<hash>/``, and
+    rewritten to absolute URLs in the in-memory markdown. The assets are
+    aggregated and deduped on ``ResolvedCurriculum.assets``."""
+
+    PNG = b"\x89PNG\r\nfake-bytes-for-resolver-tests"
+
+    def test_assets_populated_on_resolved_curriculum(
+        self, tmp_path: Path
+    ) -> None:
+        md_dir = tmp_path / "content"
+        md_dir.mkdir()
+        (md_dir / "lesson.md").write_text("![Alt](figure.png)")
+        (md_dir / "figure.png").write_bytes(self.PNG)
+
+        c = _curriculum_with_blocks([{"type": "text", "ref": "content/lesson.md"}])
+        result = resolve_curriculum(
+            c, tmp_path,
+            quiz_provider=MagicMock(),
+            exercise_provider=MagicMock(),
+            visualization_provider=MagicMock(),
+        )
+
+        assert len(result.assets) == 1
+        assert result.assets[0].dest_relative.startswith("content/")
+        assert result.assets[0].dest_relative.endswith("/figure.png")
+
+    def test_markdown_url_rewritten_to_absolute_path(
+        self, tmp_path: Path
+    ) -> None:
+        md_dir = tmp_path / "content"
+        md_dir.mkdir()
+        (md_dir / "lesson.md").write_text("![Alt](figure.png)")
+        (md_dir / "figure.png").write_bytes(self.PNG)
+
+        c = _curriculum_with_blocks([{"type": "text", "ref": "content/lesson.md"}])
+        result = resolve_curriculum(
+            c, tmp_path,
+            quiz_provider=MagicMock(),
+            exercise_provider=MagicMock(),
+            visualization_provider=MagicMock(),
+        )
+
+        rewritten = result.modules[0].lessons[0].content_blocks[0].content[
+            "markdown"
+        ]
+        assert "(figure.png)" not in rewritten
+        assert "(/content/" in rewritten
+        assert "/figure.png)" in rewritten
+
+    def test_missing_image_raises_with_lesson_location(
+        self, tmp_path: Path
+    ) -> None:
+        md_dir = tmp_path / "content"
+        md_dir.mkdir()
+        (md_dir / "lesson.md").write_text("![Missing](nope.png)")
+
+        c = _curriculum_with_blocks([{"type": "text", "ref": "content/lesson.md"}])
+        with pytest.raises(ContentResolutionError) as exc_info:
+            resolve_curriculum(
+                c, tmp_path,
+                quiz_provider=MagicMock(),
+                exercise_provider=MagicMock(),
+                visualization_provider=MagicMock(),
+            )
+        msg = str(exc_info.value)
+        # Lesson location prefix is preserved through the asset error wrap.
+        assert "mod-01" in msg
+        assert "lesson-01" in msg
+        assert "nope.png" in msg
+
+    def test_assets_deduped_across_lessons(self, tmp_path: Path) -> None:
+        # Two lessons both reference the same image; should land on the
+        # ResolvedCurriculum once, not twice.
+        md_dir = tmp_path / "content"
+        md_dir.mkdir()
+        (md_dir / "lesson-01.md").write_text("![](shared.png)")
+        (md_dir / "lesson-02.md").write_text("Different text. ![](shared.png)")
+        (md_dir / "shared.png").write_bytes(self.PNG)
+
+        c = CurriculumV1.model_validate({
+            "version": "1.0.0",
+            "curriculum": {
+                "title": "T",
+                "modules": [
+                    {
+                        "id": "mod-01",
+                        "title": "M",
+                        "lessons": [
+                            {
+                                "id": "lesson-01",
+                                "title": "L1",
+                                "content_blocks": [
+                                    {"type": "text", "ref": "content/lesson-01.md"}
+                                ],
+                            },
+                            {
+                                "id": "lesson-02",
+                                "title": "L2",
+                                "content_blocks": [
+                                    {"type": "text", "ref": "content/lesson-02.md"}
+                                ],
+                            },
+                        ],
+                    }
+                ],
+            },
+        })
+        result = resolve_curriculum(
+            c, tmp_path,
+            quiz_provider=MagicMock(),
+            exercise_provider=MagicMock(),
+            visualization_provider=MagicMock(),
+        )
+
+        assert len(result.assets) == 1
+
+
 class TestVideoBlockResolution:
     def test_valid_youtube_url_resolved(self, tmp_path: Path) -> None:
         c = _curriculum_with_blocks(

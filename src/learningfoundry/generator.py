@@ -21,11 +21,17 @@ _TEMPLATE_DIR = Path(__file__).parent / "sveltekit_template"
 # are preserved across `learningfoundry build` re-runs so the user does not
 # have to `pnpm install` after every regen. Template files (package.json,
 # src/, static/, configs) are still refreshed every time.
+#
+# `static/content` is preserved so previously-copied image assets
+# (content-hashed under `static/content/<hash12>/<basename>`) survive a
+# rebuild — keeps `learningfoundry preview` snappy when only markdown
+# text changed and no new images were introduced.
 _PRESERVED_PATHS: tuple[str, ...] = (
     "node_modules",
     "pnpm-lock.yaml",
     "build",
     ".svelte-kit",
+    "static/content",
 )
 
 
@@ -83,6 +89,7 @@ def generate_app(
         )
 
     _atomic_copy(src, output_dir)
+    _copy_assets(resolved, output_dir)
     _write_curriculum_json(resolved, output_dir)
 
     logger.info("Generated SvelteKit project at: %s", output_dir)
@@ -174,13 +181,19 @@ def check_dep_state(output_dir: Path) -> DepState:
 
 
 def _write_curriculum_json(resolved: ResolvedCurriculum, output_dir: Path) -> None:
-    """Serialize ResolvedCurriculum to output_dir/static/curriculum.json."""
+    """Serialize ResolvedCurriculum to output_dir/static/curriculum.json.
+
+    The ``assets`` list is intentionally stripped — it carries on-disk
+    ``Path`` objects (which are not JSON-serialisable) and is consumed only
+    by the generator's asset-copy step, never by the SvelteKit frontend.
+    """
     static_dir = output_dir / "static"
     static_dir.mkdir(parents=True, exist_ok=True)
 
     curriculum_json = output_dir / "static" / "curriculum.json"
     try:
         data = dataclasses.asdict(resolved)
+        data.pop("assets", None)
         curriculum_json.write_text(
             json.dumps(data, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
@@ -191,3 +204,41 @@ def _write_curriculum_json(resolved: ResolvedCurriculum, output_dir: Path) -> No
         ) from exc
 
     logger.debug("Wrote curriculum.json (%d bytes)", curriculum_json.stat().st_size)
+
+
+def _copy_assets(resolved: ResolvedCurriculum, output_dir: Path) -> None:
+    """Copy each ``Asset`` to ``output_dir/static/<dest_relative>``.
+
+    Idempotent: a destination file whose size matches the source is left
+    untouched. Because ``dest_relative`` is content-hashed
+    (``content/<sha256[:12]>/<basename>``), a matching size on a path with a
+    matching hash implies matching content — re-copying would be wasted I/O.
+    """
+    if not resolved.assets:
+        return
+
+    static_dir = output_dir / "static"
+    static_dir.mkdir(parents=True, exist_ok=True)
+
+    copied = 0
+    skipped = 0
+    for asset in resolved.assets:
+        dest = static_dir / asset.dest_relative
+        try:
+            if dest.is_file() and dest.stat().st_size == asset.source.stat().st_size:
+                skipped += 1
+                continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(asset.source, dest)
+            copied += 1
+        except OSError as exc:
+            raise GenerationError(
+                f"Failed to copy image asset `{asset.source}` "
+                f"to `{dest}`: {exc}"
+            ) from exc
+
+    logger.info(
+        "Copied %d image asset(s) into static/ (%d already up to date).",
+        copied,
+        skipped,
+    )

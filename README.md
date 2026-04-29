@@ -16,6 +16,7 @@ A curriculum engine that turns a YAML curriculum definition into a deployable Sv
 - [Quick Start](#quick-start)
 - [CLI Reference](#cli-reference)
 - [Curriculum YAML Format](#curriculum-yaml-format)
+- [Images and assets](#images-and-assets)
 - [Configuration File](#configuration-file)
 - [Development Setup](#development-setup)
 
@@ -231,6 +232,42 @@ curriculum:
 - Every curriculum must have at least one module; every module at least one lesson.
 - All `ref` paths are resolved relative to `--base-dir` (default: directory containing the curriculum YAML).
 - Only YouTube URLs are accepted for `video` blocks (`youtube.com/watch?v=` or `youtu.be/`).
+
+---
+
+## Images and assets
+
+Lesson markdown can embed images directly. Place the image file alongside the markdown that uses it and reference it with a relative path:
+
+```
+content/
+└── mod-01/
+    ├── lesson-01.md
+    ├── diagram.png
+    └── figures/
+        └── architecture.svg
+```
+
+```markdown
+# Lesson One
+
+![Architecture diagram](figures/architecture.svg "Hover title")
+
+Here is a smaller inline diagram:
+
+<img src="diagram.png" alt="Diagram" />
+```
+
+**How it works:**
+
+- Relative URLs (`diagram.png`, `figures/architecture.svg`) are resolved against the markdown file's own directory. `learningfoundry build` copies each unique image into `dist/static/content/<sha256[:12]>/<basename>` and rewrites the markdown URL to the absolute path `/content/<sha256[:12]>/<basename>` so it resolves at every nested route in the generated app.
+- Both the markdown form (`![alt](path)`, `![alt](path "title")`) and the HTML form (`<img src="path">`) are recognised.
+- Absolute URLs (`https://`, `http://`, protocol-relative `//...`, root-absolute `/...`) and `data:` URIs pass through unchanged — useful for CDN-hosted assets you don't want copied into the build.
+- Image references inside fenced code blocks (` ``` ` or `~~~`) are left as literal text, so code samples that *demonstrate* image syntax aren't silently rewritten.
+- The same image referenced from N lessons is copied exactly once (deduped by content hash).
+- A missing image fails the build with the lesson location and the expected on-disk path in the error message.
+
+For production deployment to a CDN, just run `cd dist && pnpm build` — the `static/content/` tree gets bundled into the static export under `build/content/`, so deploying `build/` to any static host (Cloudflare Pages, Netlify, S3+CloudFront, …) serves the images at the same URLs the markdown references.
 
 ---
 

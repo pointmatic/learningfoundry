@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-04-29
+
+### Added
+
+- **First-class support for co-located image assets in lesson markdown.** Authors can now reference images directly from a lesson's markdown using either the markdown form (`![alt](path)`, `![alt](path "title")`) or the HTML form (`<img src="path">`); relative paths are resolved against the markdown file's own directory so authors keep images next to the markdown that uses them. `learningfoundry build` copies each unique image into `dist/static/content/<sha256[:12]>/<basename>` and rewrites the markdown URL to the absolute path `/content/<sha256[:12]>/<basename>` so it resolves at every nested route in the generated app. Same image referenced from N lessons → copied once (deduped by content hash). Absolute URLs (`https://`, `http://`, `//`, leading `/`, `data:` URIs) pass through unchanged so authors can mix CDN-hosted and co-located images. Image refs inside fenced code blocks (`` ``` `` or `~~~`) are left as literal text so code samples that demonstrate image syntax aren't silently rewritten. Missing images fail the build with the lesson location AND the expected on-disk path in the error message.
+  - New module `src/learningfoundry/asset_resolver.py` — pure function `resolve_markdown_assets(markdown, markdown_path) → (rewritten_markdown, list[Asset])`. Skips fenced code blocks, normalises query/fragment off the on-disk lookup, and dedupes by `dest_relative` (= content hash).
+  - `src/learningfoundry/resolver.py` — text-block resolution now invokes `resolve_markdown_assets()`; `ResolvedCurriculum` gained a top-level `assets: list[Asset]` field aggregated globally across modules/lessons (deduped by content hash).
+  - `src/learningfoundry/generator.py` — new `_copy_assets()` step copies each `Asset` into `output_dir/static/<dest_relative>` (idempotent on matching size, since the path is content-hashed). `_write_curriculum_json()` now strips `assets` from the serialised tree (the field carries on-disk `Path` objects and is consumed only by the generator).
+  - `_PRESERVED_PATHS` extended with `"static/content"` so previously-copied image assets survive a `learningfoundry build` re-run alongside `node_modules/`, `pnpm-lock.yaml`, `build/`, and `.svelte-kit/`.
+
+### Documentation
+
+- `README.md` — new "Images and assets" section in the Table of Contents with a worked example, the rules for relative vs. absolute URLs, the dedup-by-hash behaviour, and a note on how `static/content/` flows through to `build/content/` for static-export deployment.
+- `docs/specs/features.md` — Inputs section documents the image co-location convention; Outputs section documents the generated `static/content/<hash12>/<basename>` directory; FR-2 (Content Resolution) gained an "Image asset resolution" sub-requirement covering the regex strategy, passthrough rules, dedup, and error semantics.
+- `docs/specs/tech-spec.md` — added `asset_resolver.py` to Package Structure; added a new "asset_resolver.py — Markdown Image Asset Resolution" Key Component Design section; updated the `resolver.py` and `generator.py` sections to describe the asset hand-off; documented `Asset` and the `assets` field in Data Models.
+
+### Added (tests)
+
+- `tests/test_asset_resolver.py` — 19 cases covering relative-image resolution, subdirectory paths, title attributes, all five passthrough URL forms, missing-file error messages, dedup of identical content, hash separation of same-basename-different-bytes, HTML `<img>` (single + double quoted), fenced-code-block skipping for both `` ``` `` and `~~~`, query/fragment stripping, no-image no-op, and the `Asset.url_path` property.
+- `tests/test_resolver.py::TestTextBlockImageAssets` — 4 cases asserting that `resolve_curriculum()` populates `ResolvedCurriculum.assets`, rewrites lesson markdown to `/content/...` URLs, surfaces missing-image errors with the lesson location, and dedupes assets across lessons.
+- `tests/test_generator.py::TestImageAssetCopy` (4 cases) and `TestStaticContentPreserved` (2 cases) — verify that `Asset` records land on disk under `static/<dest_relative>`, that `assets` is stripped from `curriculum.json`, that absent assets don't create an empty `static/content/`, that rebuilds are idempotent on unchanged assets, and that an existing `static/content/` survives a rebuild.
+- `tests/test_smoke_sveltekit.py::test_co_located_image_reaches_build_output` — added a co-located `diagram.png` to `tests/fixtures/content/mod-01/` (referenced from `lesson-01.md`) and asserts the image lands at `build/content/<hash12>/diagram.png` after the full `learningfoundry build → pnpm install → pnpm build` smoke pipeline.
+
 ## [0.36.0] - 2026-04-29
 
 ### Changed

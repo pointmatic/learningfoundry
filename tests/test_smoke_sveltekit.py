@@ -147,3 +147,28 @@ class TestSvelteKitSmokeBuild:
         assert result.returncode == 0, (
             f"pnpm test failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
         )
+
+    def test_co_located_image_reaches_build_output(
+        self, compiled_app: Path
+    ) -> None:
+        """A `![](diagram.png)` reference in a lesson markdown file (with the
+        image co-located in the curriculum's content/ directory) should be
+        copied into the generated project's `static/content/<hash>/diagram.png`
+        and from there into the production `build/content/<hash>/diagram.png`
+        artifacts. Regression guard for the image asset pipeline added in v0.37.0."""
+        # SvelteKit's adapter-static serves static/ at the root, so the
+        # image lands under build/content/<hash>/ — not build/static/...
+        build_dir = compiled_app / "build"
+        matches = list((build_dir / "content").rglob("diagram.png"))
+        if not matches:
+            tree = sorted(p.relative_to(build_dir) for p in build_dir.rglob("*"))
+            pytest.fail(
+                "co-located image `diagram.png` was not copied into "
+                f"build/content/. build/ contents: {tree}"
+            )
+        # The hash directory should contain exactly the basename, no other
+        # files — keeps the asset layout predictable.
+        for hit in matches:
+            assert hit.parent.name and len(hit.parent.name) == 12, (
+                f"image landed at unexpected path: {hit}"
+            )

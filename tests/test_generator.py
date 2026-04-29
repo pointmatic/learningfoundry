@@ -255,3 +255,109 @@ class TestMissingTemplate:
                 out,
                 template_dir=tmp_path / "nonexistent_template",
             )
+
+
+class TestImageAssetCopy:
+    """Image assets carried on ResolvedCurriculum.assets must land on disk
+    under ``static/<dest_relative>`` and must not appear in
+    curriculum.json (the SvelteKit frontend has no use for the source paths
+    of the original files)."""
+
+    PNG = b"\x89PNG\r\nfake-bytes-for-generator-tests"
+
+    def _make_resolved_with_asset(self, source: Path) -> ResolvedCurriculum:
+        from learningfoundry.asset_resolver import Asset
+
+        resolved = _make_resolved()
+        resolved.assets = [
+            Asset(source=source, dest_relative="content/abc123def456/figure.png")
+        ]
+        return resolved
+
+    def test_asset_is_copied_into_static(self, tmp_path: Path) -> None:
+        source = tmp_path / "src" / "figure.png"
+        source.parent.mkdir()
+        source.write_bytes(self.PNG)
+
+        out = tmp_path / "app"
+        generate_app(
+            self._make_resolved_with_asset(source),
+            out,
+            template_dir=TEMPLATE_DIR,
+        )
+
+        dest = out / "static" / "content" / "abc123def456" / "figure.png"
+        assert dest.is_file()
+        assert dest.read_bytes() == self.PNG
+
+    def test_assets_are_excluded_from_curriculum_json(
+        self, tmp_path: Path
+    ) -> None:
+        source = tmp_path / "figure.png"
+        source.write_bytes(self.PNG)
+
+        out = tmp_path / "app"
+        generate_app(
+            self._make_resolved_with_asset(source),
+            out,
+            template_dir=TEMPLATE_DIR,
+        )
+
+        data = json.loads((out / "static" / "curriculum.json").read_text())
+        assert "assets" not in data, (
+            "Asset records carry on-disk Paths and are not for the frontend"
+        )
+
+    def test_no_assets_means_no_static_content_dir(
+        self, tmp_path: Path
+    ) -> None:
+        # A curriculum with no images must not create an empty
+        # static/content/ directory.
+        out = tmp_path / "app"
+        generate_app(_make_resolved(), out, template_dir=TEMPLATE_DIR)
+        assert not (out / "static" / "content").exists()
+
+    def test_rebuild_skips_unchanged_assets(self, tmp_path: Path) -> None:
+        # The destination is content-hashed, so a matching size on a hashed
+        # path is a strong signal the file is identical. The generator
+        # short-circuits the copy in that case.
+        source = tmp_path / "figure.png"
+        source.write_bytes(self.PNG)
+
+        out = tmp_path / "app"
+        resolved = self._make_resolved_with_asset(source)
+        generate_app(resolved, out, template_dir=TEMPLATE_DIR)
+
+        dest = out / "static" / "content" / "abc123def456" / "figure.png"
+        first_mtime = dest.stat().st_mtime_ns
+
+        # Sleep would be racy; just regenerate and confirm the file is
+        # untouched (mtime preserved).
+        generate_app(resolved, out, template_dir=TEMPLATE_DIR)
+        assert dest.stat().st_mtime_ns == first_mtime
+
+
+class TestStaticContentPreserved:
+    """`static/content/` must be in `_PRESERVED_PATHS` so previously-copied
+    assets survive a `learningfoundry build` re-run."""
+
+    def test_static_content_listed_in_preserved_paths(self) -> None:
+        from learningfoundry.generator import _PRESERVED_PATHS
+
+        assert "static/content" in _PRESERVED_PATHS
+
+    def test_existing_static_content_survives_rebuild(
+        self, tmp_path: Path
+    ) -> None:
+        out = tmp_path / "app"
+        generate_app(_make_resolved(), out, template_dir=TEMPLATE_DIR)
+
+        # Simulate a previously-copied asset surviving from a prior build.
+        previous = out / "static" / "content" / "deadbeef0001" / "old.png"
+        previous.parent.mkdir(parents=True)
+        previous.write_bytes(b"old-asset-bytes")
+
+        # Rebuild with no assets; the existing file should still be there.
+        generate_app(_make_resolved(), out, template_dir=TEMPLATE_DIR)
+        assert previous.is_file()
+        assert previous.read_bytes() == b"old-asset-bytes"

@@ -105,6 +105,7 @@ learningfoundry/
 │       ├── parser.py                       # YAML curriculum parser + version dispatch
 │       ├── schema_v1.py                    # Pydantic models for curriculum YAML v1 schema
 │       ├── resolver.py                     # Content resolution: markdown, video URLs, integrations
+│       ├── asset_resolver.py               # Markdown image asset detection, hashing, and URL rewriting
 │       ├── pipeline.py                     # Pipeline orchestrator: parse → resolve → generate
 │       ├── generator.py                    # SvelteKit project generation from resolved curriculum
 │       ├── integrations/
@@ -396,6 +397,7 @@ class ResolvedCurriculum:
     title: str
     description: str
     modules: list[ResolvedModule]
+    assets: list[Asset] = field(default_factory=list)  # See asset_resolver.py
 
 @dataclass
 class ResolvedModule:
@@ -427,14 +429,72 @@ def resolve_curriculum(
     """
     Resolve all content references in the parsed curriculum.
 
-    - text blocks: read markdown file from base_dir / ref
+    - text blocks: read markdown file from base_dir / ref, then call
+      asset_resolver.resolve_markdown_assets() to detect image references,
+      hash them, and rewrite the markdown to absolute /content/<hash>/
+      URLs. Image asset records aggregate onto ResolvedCurriculum.assets
+      (deduped globally by content hash).
     - video blocks: validate YouTube URL, pass through
     - quiz blocks: delegate to quiz_provider
     - exercise blocks: delegate to exercise_provider
     - visualization blocks: delegate to visualization_provider
 
-    Raises ContentResolutionError on missing files, invalid URLs,
-    or integration errors (with block location context).
+    Raises ContentResolutionError on missing files (markdown or referenced
+    images), invalid URLs, or integration errors. Error messages always
+    include the block location (module / lesson / block index).
+    """
+    ...
+```
+
+### `asset_resolver.py` — Markdown Image Asset Resolution
+
+Pure module that scans a lesson's markdown for image references and rewrites
+them to absolute SvelteKit-compatible URLs. Designed to be called once per
+text block by `resolver.py`; emits `Asset` records that the generator
+consumes to copy files into the output `static/` directory.
+
+```python
+from pathlib import Path
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Asset:
+    """A single asset that the generator must copy into the project."""
+    source: Path           # Absolute path to the source file on disk
+    dest_relative: str     # "content/<sha256[:12]>/<basename>" (forward-slash, URL-safe)
+
+    @property
+    def url_path(self) -> str:
+        """The leading-slash URL the rewritten markdown references."""
+        return "/" + self.dest_relative
+
+def resolve_markdown_assets(
+    markdown: str,
+    markdown_path: Path,
+) -> tuple[str, list[Asset]]:
+    """
+    Find every image reference in `markdown` and resolve it.
+
+    Match forms:
+      - Markdown:  `![alt](url)`, `![alt](url "title")`
+      - HTML:      `<img src="url">` or `<img src='url'>`
+
+    Passthrough rules (no resolution, no Asset record):
+      - http://, https://, // (protocol-relative)
+      - leading / (already a SvelteKit static URL)
+      - data:, mailto:, tel: URIs
+      - References inside fenced code blocks (``` or ~~~)
+
+    On-disk resolution:
+      - Relative paths resolve against `markdown_path.parent`.
+      - Query (`?cache=1`) and fragment (`#anchor`) are stripped before lookup.
+      - Missing file → ContentResolutionError with the markdown path in
+        the message; resolver.py wraps with the lesson location prefix.
+      - SHA-256 of file bytes; first 12 hex chars become the dest dir.
+      - Multiple references to the same source file → one Asset record,
+        all references rewritten to the same URL.
+
+    Returns (rewritten_markdown, deduped_assets_in_first-seen_order).
     """
     ...
 ```
@@ -623,16 +683,29 @@ def generate_app(
     """
     Generate a complete SvelteKit project from the resolved curriculum.
 
-    1. Copy the bundled sveltekit_template/ to output_dir.
-    2. Generate a curriculum.json data file containing the full resolved
-       curriculum structure (modules, lessons, content blocks with resolved content).
-    3. Generate SvelteKit route files:
-       - One +page.svelte per module/lesson combination under routes/[module]/[lesson]/
-       - Landing page with progress dashboard
-    4. Generate navigation data (module list, lesson lists) as a JSON data file.
-    5. Run `pnpm install` to install dependencies.
+    1. Copy the bundled sveltekit_template/ to output_dir, atomically (write
+       to sibling temp dir, then rename). State directories listed in
+       _PRESERVED_PATHS are moved from the existing output (if any) into the
+       fresh template copy before the swap, so install/build artefacts and
+       previously-copied image assets survive a rebuild without having to
+       re-run pnpm install. The current preserved set:
+         - node_modules
+         - pnpm-lock.yaml
+         - build
+         - .svelte-kit
+         - static/content   (image assets copied by step 3)
+    2. Write curriculum.json into output_dir/static/, containing the full
+       resolved curriculum structure (modules, lessons, content blocks with
+       resolved content). The `assets` field on ResolvedCurriculum is
+       intentionally stripped — it carries on-disk Path objects (not JSON
+       serialisable) and is consumed only by the next step.
+    3. Copy each Asset record from ResolvedCurriculum.assets into
+       output_dir/static/<dest_relative>. Idempotent: a destination file
+       whose size matches the source is left untouched (the content-hashed
+       path makes matching size a strong identity signal).
 
-    If output_dir exists, it is overwritten with a warning logged.
+    If output_dir exists, the log message is INFO-level and notes which
+    state directories are being preserved.
     """
     ...
 ```
@@ -710,6 +783,8 @@ curriculum:
 ### Resolved Curriculum (in-memory)
 
 The `ResolvedCurriculum` dataclass tree (see `resolver.py` above) is serialized to `curriculum.json` in the generated SvelteKit project for the frontend to consume.
+
+In addition to the module/lesson/content tree, `ResolvedCurriculum` carries an `assets: list[Asset]` field — the deduped union of every image asset referenced by any text block's markdown. Each `Asset` is a `(source: Path, dest_relative: str)` pair where `dest_relative = "content/<sha256[:12]>/<basename>"`. The list is consumed by `generator.generate_app()` to copy files into `output_dir/static/`; it is **stripped before serialisation to curriculum.json** because it carries `Path` objects (not JSON-serialisable) and the SvelteKit frontend only ever needs the rewritten URL embedded in the lesson markdown — never the original source path.
 
 ### curriculum.json (generated, consumed by SvelteKit)
 

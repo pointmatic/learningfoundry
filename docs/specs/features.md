@@ -115,6 +115,8 @@ curriculum:
 
 Markdown files referenced by `text` content blocks. Standard markdown; no custom extensions in v1.
 
+**Co-located image assets.** Authors may reference images directly from a lesson's markdown using either the markdown form (`![alt](path)`, `![alt](path "title")`) or the HTML form (`<img src="path">`). Relative paths are resolved against the markdown file's own directory, so authors organise images alongside the markdown that uses them. Absolute URLs (`http://`, `https://`, protocol-relative `//`, root-absolute `/`, and `data:` URIs) pass through unchanged so authors can mix CDN-hosted and co-located images freely. Image refs inside fenced code blocks (``` ``` `` or `~~~`) are left as literal text — code samples that *show* image syntax are not silently rewritten.
+
 ### Global config file
 
 `~/.config/learningfoundry/config.yml` — Optional. Stores user-level defaults:
@@ -144,6 +146,7 @@ The primary output is a build-ready SvelteKit project directory containing:
 - Embedded quiz, video, and exercise components
 - In-browser SQLite (sql.js/WASM) for progress tracking
 - Placeholder slots for future nbfoundry and d3foundry content
+- A `static/content/<hash12>/<basename>` directory holding every co-located image asset referenced by any lesson's markdown. The 12-character prefix is the SHA-256 hash of the source file's bytes, so identical images dedupe automatically and the URL is stable across rebuilds.
 
 The application is deployable to any static hosting provider (CDN) or runnable locally.
 
@@ -178,16 +181,26 @@ Parse and validate the curriculum YAML file against the schema for the declared 
 Resolve all content references in the parsed curriculum to their actual content.
 
 **Behavior:**
-1. For each `text` block, read the referenced markdown file.
+1. For each `text` block, read the referenced markdown file, then scan the markdown for image references and rewrite them (see "Image asset resolution" below).
 2. For each `video` block, validate the YouTube URL format.
 3. For each `quiz` block, delegate to quizazz to parse the referenced assessment file and return renderable content.
 4. For each `exercise` block, delegate to nbfoundry to parse the referenced exercise file and return renderable content.
 5. Attach resolved content to the in-memory curriculum structure.
 
+**Image asset resolution (sub-requirement of `text` block resolution):**
+1. Walk the markdown source for `![alt](path)`, `![alt](path "title")`, and HTML `<img src="path">` references; skip references inside fenced code blocks.
+2. Pass through any reference whose URL is absolute (`http://`, `https://`, `//`, leading `/`) or a `data:` URI — these stay unchanged in the rewritten markdown and produce no asset records.
+3. Resolve every other reference relative to the markdown file's own directory.
+4. Hash each unique source file's bytes (SHA-256, first 12 hex chars) and record an `(source_path, dest_relative)` pair where `dest_relative = "content/<hash12>/<basename>"`. The hashing is what produces global dedup: two lessons referencing the same image content produce one asset record.
+5. Rewrite every relative reference's URL to `/content/<hash12>/<basename>` so it resolves at every nested SvelteKit route.
+6. Aggregate all asset records onto the in-memory `ResolvedCurriculum` for the generator to copy into `static/content/...`.
+
 **Edge Cases:**
 - Markdown file is empty → Warning logged; empty content block rendered in frontend.
 - Invalid YouTube URL format → Error with block location.
 - quizazz or nbfoundry returns an error → Error surfaced with the originating block location and the library's error message.
+- Image reference points at a non-existent file → `ContentResolutionError` with the markdown file path AND the lesson location ("module `mod-01` / lesson `lesson-01` / block[0]") in the error message.
+- Same image referenced from N lessons → Copied exactly once; all N markdown rewrites point at the same `/content/<hash12>/<basename>` URL.
 
 ### FR-3: SvelteKit Application Generation
 
