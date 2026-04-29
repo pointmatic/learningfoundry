@@ -475,6 +475,43 @@ Lesson markdown had no math support — `$...$` and `$$...$$` syntax was passed 
 - [x] Update CHANGELOG.md
 - [x] Verify: full Python suite passes 204/204 and `pyve test -m smoke` passes 9/9 (smoke ~40% faster since stray template node_modules no longer copied)
 
+### Story H.j: v0.35.0 Robust Block-Math Delimiter Tolerance [Done]
+
+`marked-katex-extension`'s block regex `/^(\${1,2})\n(...)\n\1(?:\n|$)/` is intolerant of any whitespace adjacent to a delimiter-only line. Real-world markdown frequently has trailing spaces on the closing `$$` line (editor quirks, copy-paste from PDFs/chat/docs). When that happens, the entire math block falls through to default paragraph rendering and `$$…$$` shows up as literal text in the rendered page. The existing vitest case in `markdown.test.ts` only covered the clean `'$$\n...\n$$'` form, so the regression went uncaught.
+
+Repro: a curriculum markdown file containing
+```
+$$
+\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
+$$␠␠␠
+```
+(three trailing spaces after the closing `$$`) renders as `<p>$$\n…\n$$   </p>` instead of a `<span class="katex-display">…</span>` block.
+
+- [x] Add 3 failing vitest cases in `src/learningfoundry/sveltekit_template/src/lib/utils/markdown.test.ts`: trailing-whitespace-after-closing-`$$`, leading-whitespace-before-closing-`$$`, trailing-whitespace-after-opening-`$$`. Each must produce `class="katex"` in the output HTML.
+- [x] Verify the 3 new cases fail against the current implementation
+- [x] In `src/learningfoundry/sveltekit_template/src/lib/utils/markdown.ts`, add a one-line preprocess inside `renderMarkdown()` that normalises delimiter-only lines: `markdown.replace(/^[ \t]*(\$\$)[ \t]*$/gm, '$1')` before `marked.parse()`. Only matches lines that are *just* whitespace + `$$` + whitespace, so the markdown "trailing two spaces = `<br>`" rule on regular text and inline `$x$` math are unaffected.
+- [x] Verify all 3 new cases pass and existing 6 still pass
+- [x] Bump version to v0.35.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`
+- [x] Update `CHANGELOG.md` with v0.35.0 entry
+- [x] Verify: `pyve test` passes, `pyve test -m smoke` passes, `ruff` and `mypy` clean
+
+### Story H.k: v0.36.0 Align Preview Workflow — Single Source of Truth [Planned]
+
+The `build` → `preview` flow has two parallel mental models. `README.md` Quick Start tells users to run `learningfoundry preview` after `learningfoundry build`. The `cli.py` build command's next-steps prompt instead points users at `cd dist && pnpm build` (a static export that exits without serving) or `pnpm dev` — never mentions `learningfoundry preview`. Worse, `learningfoundry preview` itself unconditionally re-runs `pnpm install` even when `check_dep_state(output_dir) is UNCHANGED`, adding 5–30 s of waste to every preview cycle. Net effect: users follow whichever doc they read first, end up with redundant or wasted work, and have no clear "this is the canonical iterate-on-content command."
+
+This story aligns the CLI prompts and README to a single canonical flow:
+- **Iterate on content / see your work →** `learningfoundry preview` (build + dev server, idempotent)
+- **Static export for deploy →** `cd dist && pnpm build` (mentioned as an aside, not the primary "Next:")
+
+- [ ] `src/learningfoundry/cli.py` (build command, lines ~111–130): change the next-steps prompt to recommend `learningfoundry preview` as the primary path for all three `DepState` values; mention `pnpm build` only as a secondary "for a static export to deploy:" note. Drop the `pnpm dev` shortcut (now subsumed by `learningfoundry preview`).
+- [ ] `src/learningfoundry/pipeline.py` (`run_preview`): import `DepState` and `check_dep_state`; skip the `pnpm install` subprocess call when state is `UNCHANGED`, logging `"Dependencies up to date — skipping pnpm install."` Still install on `FIRST_BUILD` and `CHANGED`.
+- [ ] `README.md` `learningfoundry preview` section (lines ~155–172): update the description to be honest about the behaviour — "builds the SvelteKit project (preserving installed deps and `node_modules/`) and starts a Vite dev server. Skips `pnpm install` when dependencies are unchanged." Note that this does **not** serve `pnpm build` output; that's a separate workflow.
+- [ ] `tests/test_cli.py`: add cases asserting the new build-prompt wording for each `DepState`.
+- [ ] `tests/test_pipeline.py`: add a unit test that `run_preview` does not invoke `pnpm install` when `check_dep_state` returns `UNCHANGED` (mock subprocess + state).
+- [ ] Bump version to v0.36.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`
+- [ ] Update `CHANGELOG.md` with v0.36.0 entry
+- [ ] Verify: `pyve test` passes, `pyve test -m smoke` passes, `ruff` and `mypy` clean
+
 
 ---
 

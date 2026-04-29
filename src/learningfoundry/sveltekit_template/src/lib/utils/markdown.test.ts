@@ -51,4 +51,33 @@ describe('renderMarkdown', () => {
 	it('does not throw on malformed LaTeX (throwOnError: false)', () => {
 		expect(() => renderMarkdown('$\\unknownmacro{x}$')).not.toThrow();
 	});
+
+	// Real-world editors and copy-paste from PDFs/docs frequently leave
+	// stray whitespace on the delimiter-only lines of a `$$ … $$` block.
+	// `marked-katex-extension`'s upstream block regex requires the closing
+	// `$$` to be followed immediately by `\n` or end-of-string and the
+	// opening `$$` to be followed immediately by `\n`, so any padding
+	// silently breaks math rendering. `renderMarkdown` normalises these
+	// delimiter-only lines so the block is still recognised.
+
+	it('renders display math when the closing $$ has trailing whitespace', () => {
+		const md = '$$\n\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}\n$$   ';
+		const html = renderMarkdown(md);
+		expect(html).toContain('katex-display');
+		expect(html).toContain('class="katex"');
+	});
+
+	it('renders display math when the closing $$ has leading whitespace', () => {
+		const md = '$$\n\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}\n   $$';
+		const html = renderMarkdown(md);
+		expect(html).toContain('katex-display');
+		expect(html).toContain('class="katex"');
+	});
+
+	it('renders display math when the opening $$ has trailing whitespace', () => {
+		const md = '$$   \n\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}\n$$';
+		const html = renderMarkdown(md);
+		expect(html).toContain('katex-display');
+		expect(html).toContain('class="katex"');
+	});
 });

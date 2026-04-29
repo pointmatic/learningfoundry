@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-04-29
+
+### Fixed
+
+- **Block math (`$$ … $$`) now renders reliably even when the delimiter lines have stray whitespace.** `marked-katex-extension`'s upstream block regex requires the opening `$$` to be followed immediately by `\n` and the closing `$$` to be followed immediately by `\n` or end-of-string — any leading or trailing whitespace on a delimiter-only line silently breaks the match, falling through to default paragraph rendering and emitting literal `$$ … $$` text in the page. Real-world markdown frequently has trailing spaces on these lines (editor quirks, copy-paste from PDFs/chat/docs), so this was easy to trip into.
+  - `src/learningfoundry/sveltekit_template/src/lib/utils/markdown.ts` — `renderMarkdown()` now normalises any line that is *only* whitespace + `$$` + whitespace down to bare `$$` before handing the source to `marked.parse()`. Inline math (`$x$`) and the markdown "trailing two spaces = `<br>`" rule on regular text are unaffected because the regex requires the line to consist of nothing but the delimiter.
+
+### Added (tests)
+
+- `src/learningfoundry/sveltekit_template/src/lib/utils/markdown.test.ts` — 3 new vitest cases covering trailing-whitespace-after-closing-`$$`, leading-whitespace-before-closing-`$$`, and trailing-whitespace-after-opening-`$$`. Each now produces `class="katex"` and `katex-display` in the rendered HTML.
+
 ## [0.34.0] - 2026-04-29
 
 ### Changed
