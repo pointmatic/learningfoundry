@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-04-29
+
+### Changed
+
+- **`learningfoundry build` now preserves install/build state across rebuilds.** Previously every rebuild wiped the entire output directory, including any existing `node_modules/`, `pnpm-lock.yaml`, `build/`, and `.svelte-kit/` — forcing the user to `pnpm install` after every regen. Now those four paths are moved into the fresh template copy before the swap, so iteration is install → build, then any number of `learningfoundry build` re-runs followed by just `pnpm build` (or `pnpm dev`).
+  - `src/learningfoundry/generator.py` — new `_PRESERVED_PATHS` list + `_move_preserved()` helper used by `_atomic_copy()`. Same paths are also passed to `shutil.ignore_patterns` so a stray `node_modules/` in the dev template directory never ships to user output.
+  - The "output directory exists" log message changed from `WARNING` ("will be overwritten") to `INFO` ("refreshing template files; preserving …") to reflect the new behaviour.
+
+### Added
+
+- **Smart post-build next-steps message in the CLI** based on detected dep state:
+  - `FIRST_BUILD` (no `node_modules/`) → `Next: cd dist && pnpm install && pnpm build`
+  - `CHANGED` (any declared dep missing from `node_modules/`) → `⚠️  Dependencies changed since last install. Run: cd dist && pnpm install && pnpm build`
+  - `UNCHANGED` (every declared dep present) → `Next: cd dist && pnpm build`
+- New public API: `learningfoundry.generator.check_dep_state(output_dir)` returning a `DepState` enum, used by the CLI but also callable from third-party tooling.
+
+### Added (tests)
+
+- `tests/test_generator.py::TestPreserveInstallState` — 5 cases covering preservation of `node_modules/`, `pnpm-lock.yaml`, `build/`, `.svelte-kit/`, and confirmation that template files (e.g. `curriculum.json`) still refresh on rebuild.
+- `tests/test_generator.py::TestCheckDepState` — 4 cases covering first-build, all-deps-installed, missing-dep, and malformed-`package.json` paths.
+
+### Performance
+
+- Smoke build is ~40% faster (~10s vs ~17s) because the SvelteKit template's leftover dev `node_modules/` (which a developer's local pnpm runs may create in the in-repo template) is no longer copied into every `learningfoundry build` output.
+
 ## [0.33.0] - 2026-04-29
 
 ### Added

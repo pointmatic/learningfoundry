@@ -460,6 +460,21 @@ Lesson markdown had no math support — `$...$` and `$$...$$` syntax was passed 
 - [x] Update CHANGELOG.md
 - [x] Verify: `pyve test -m smoke` passes 9/9 (Python smoke + 15 vitest + katex-CSS check)
 
+### Story H.i: v0.34.0 Preserve Install State + Smart Next-Steps Message [Done]
+
+`learningfoundry build` previously wiped the entire output dir on every regen via `shutil.rmtree(dst)` followed by a fresh template copy. That meant `node_modules/`, `pnpm-lock.yaml`, `build/`, and `.svelte-kit/` were all destroyed every time, forcing the user to `pnpm install` after every rebuild — turning what should be a fast iteration loop into a 30s+ delay. Worse, when a `learningfoundry` upgrade added a new JS dep (like v0.33.0 did with `katex`), the user had no signal that they needed to re-install — they'd `pnpm dev` against stale `node_modules/` and silently fail to load the new code (e.g. KaTeX).
+
+- [x] `src/learningfoundry/generator.py` — define `_PRESERVED_PATHS = ("node_modules", "pnpm-lock.yaml", "build", ".svelte-kit")`; `_atomic_copy()` now (a) passes them to `shutil.ignore_patterns()` so the template's own dev artifacts never ship, and (b) calls `_move_preserved()` to move them from the existing `dst` into the fresh tmp before the swap
+- [x] `src/learningfoundry/generator.py` — add `DepState` enum (`FIRST_BUILD`/`UNCHANGED`/`CHANGED`) and `check_dep_state(output_dir)` that compares declared deps in `package.json` against `node_modules/<name>/package.json` presence
+- [x] `src/learningfoundry/cli.py` — after `Build complete →`, print a state-aware next-steps line (install+build / ⚠️ deps changed / just build)
+- [x] Reword the "output dir already exists" log from WARNING to INFO with the new "preserving …" message
+- [x] `tests/test_generator.py::TestPreserveInstallState` — 5 cases (node_modules, pnpm-lock, build/, .svelte-kit/, template-files-still-refresh)
+- [x] `tests/test_generator.py::TestCheckDepState` — 4 cases (first-build, unchanged, changed, malformed-package-json)
+- [x] Update `test_overwrite_logs_warning` → `test_overwrite_logs_info` for the new INFO-level reword
+- [x] Bump version to v0.34.0
+- [x] Update CHANGELOG.md
+- [x] Verify: full Python suite passes 204/204 and `pyve test -m smoke` passes 9/9 (smoke ~40% faster since stray template node_modules no longer copied)
+
 
 ---
 

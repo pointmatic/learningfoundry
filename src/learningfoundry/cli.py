@@ -110,6 +110,25 @@ def build(
 
     click.echo(f"Build complete → {output_dir}")
 
+    from learningfoundry.generator import DepState, check_dep_state
+
+    state = check_dep_state(output_dir)
+    if state is DepState.FIRST_BUILD:
+        click.echo("")
+        click.echo(f"Next: cd {output_dir} && pnpm install && pnpm build")
+        click.echo("  (or `pnpm dev` for a live-reloading dev server)")
+    elif state is DepState.CHANGED:
+        click.echo("")
+        click.echo(
+            "⚠️  Dependencies changed since last install "
+            "(new packages in package.json)."
+        )
+        click.echo(f"   Run: cd {output_dir} && pnpm install && pnpm build")
+    else:
+        click.echo("")
+        click.echo(f"Next: cd {output_dir} && pnpm build")
+        click.echo("  (or `pnpm dev` for a live-reloading dev server)")
+
 
 # ---------------------------------------------------------------------------
 # validate
