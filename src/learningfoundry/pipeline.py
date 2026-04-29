@@ -133,8 +133,11 @@ def run_preview(
 ) -> None:
     """Build then launch a local preview server.
 
-    Runs ``run_build()``, then ``pnpm install`` and ``pnpm run dev --port``
-    in the generated project directory.
+    Runs ``run_build()``, then ``pnpm install`` (only when needed) and
+    ``pnpm run dev --port`` in the generated project directory. The install
+    step is skipped when ``check_dep_state(output_dir)`` reports
+    ``DepState.UNCHANGED`` — i.e. every dependency declared in the
+    generated ``package.json`` is already present in ``node_modules/``.
 
     Args:
         curriculum_path: Path to the curriculum YAML file.
@@ -150,6 +153,7 @@ def run_preview(
         GenerationError: If build or pnpm commands fail.
     """
     from learningfoundry.exceptions import GenerationError
+    from learningfoundry.generator import DepState, check_dep_state
 
     run_build(
         curriculum_path,
@@ -161,17 +165,21 @@ def run_preview(
         generator=generator,
     )
 
-    logger.info("Installing Node dependencies in %s", output_dir)
-    result = subprocess.run(
-        ["pnpm", "install"],
-        cwd=output_dir,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise GenerationError(
-            f"`pnpm install` failed in `{output_dir}`:\n{result.stderr}"
+    state = check_dep_state(output_dir)
+    if state is DepState.UNCHANGED:
+        logger.info("Dependencies up to date — skipping pnpm install.")
+    else:
+        logger.info("Installing Node dependencies in %s", output_dir)
+        result = subprocess.run(
+            ["pnpm", "install"],
+            cwd=output_dir,
+            capture_output=True,
+            text=True,
         )
+        if result.returncode != 0:
+            raise GenerationError(
+                f"`pnpm install` failed in `{output_dir}`:\n{result.stderr}"
+            )
 
     logger.info("Starting dev server on port %d", port)
     subprocess.run(

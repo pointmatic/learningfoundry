@@ -11,7 +11,8 @@ from learningfoundry.exceptions import (
     ContentResolutionError,
     CurriculumValidationError,
 )
-from learningfoundry.pipeline import run_build, run_validate
+from learningfoundry.generator import DepState
+from learningfoundry.pipeline import run_build, run_preview, run_validate
 from learningfoundry.resolver import ResolvedCurriculum
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -197,3 +198,71 @@ class TestRunValidate:
         )
         assert is_valid is False
         assert any("bad ref" in e for e in errors)
+
+
+class TestRunPreviewSkipsInstall:
+    """``run_preview`` should skip the slow ``pnpm install`` step when every
+    declared dependency is already present in ``node_modules/`` (i.e.
+    ``check_dep_state`` returns ``UNCHANGED``). This is what makes the
+    iterate-on-content loop fast: edit content → ``learningfoundry preview``
+    → dev server starts immediately."""
+
+    @staticmethod
+    def _was_called_with_install(mock_run: MagicMock) -> bool:
+        for call in mock_run.call_args_list:
+            args = call.args[0] if call.args else call.kwargs.get("args", [])
+            if isinstance(args, list) and args[:2] == ["pnpm", "install"]:
+                return True
+        return False
+
+    def test_unchanged_state_skips_pnpm_install(self, tmp_path: Path) -> None:
+        with (
+            patch("learningfoundry.pipeline.run_build"),
+            patch(
+                "learningfoundry.generator.check_dep_state",
+                return_value=DepState.UNCHANGED,
+            ),
+            patch("learningfoundry.pipeline.subprocess.run") as mock_sub,
+        ):
+            mock_sub.return_value = MagicMock(returncode=0, stderr="")
+            run_preview(VALID_CURRICULUM, tmp_path / "out", port=5174)
+        assert not self._was_called_with_install(mock_sub), (
+            "pnpm install should not have been invoked when DepState is UNCHANGED"
+        )
+        # `pnpm run dev` should still be called.
+        assert any(
+            (call.args[0] if call.args else []) == [
+                "pnpm", "run", "dev", "--port", "5174"
+            ]
+            for call in mock_sub.call_args_list
+        )
+
+    def test_first_build_state_runs_pnpm_install(self, tmp_path: Path) -> None:
+        with (
+            patch("learningfoundry.pipeline.run_build"),
+            patch(
+                "learningfoundry.generator.check_dep_state",
+                return_value=DepState.FIRST_BUILD,
+            ),
+            patch("learningfoundry.pipeline.subprocess.run") as mock_sub,
+        ):
+            mock_sub.return_value = MagicMock(returncode=0, stderr="")
+            run_preview(VALID_CURRICULUM, tmp_path / "out")
+        assert self._was_called_with_install(mock_sub), (
+            "pnpm install must run on FIRST_BUILD"
+        )
+
+    def test_changed_state_runs_pnpm_install(self, tmp_path: Path) -> None:
+        with (
+            patch("learningfoundry.pipeline.run_build"),
+            patch(
+                "learningfoundry.generator.check_dep_state",
+                return_value=DepState.CHANGED,
+            ),
+            patch("learningfoundry.pipeline.subprocess.run") as mock_sub,
+        ):
+            mock_sub.return_value = MagicMock(returncode=0, stderr="")
+            run_preview(VALID_CURRICULUM, tmp_path / "out")
+        assert self._was_called_with_install(mock_sub), (
+            "pnpm install must run on CHANGED (new deps in package.json)"
+        )

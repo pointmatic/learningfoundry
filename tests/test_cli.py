@@ -134,6 +134,66 @@ class TestBuildCommand:
         assert result.exit_code != 0
 
 
+class TestBuildNextStepsPrompt:
+    """The post-build prompt is the user's primary signpost to the next
+    command. It must consistently recommend `learningfoundry preview` (the
+    canonical iterate-on-content path) for every `DepState`, and surface a
+    distinct warning when dependencies have changed since the last install."""
+
+    def _invoke(
+        self, runner: CliRunner, tmp_path: Path, state: object
+    ) -> str:
+        from learningfoundry.generator import DepState
+
+        assert isinstance(state, DepState)
+        with (
+            patch("learningfoundry.pipeline.run_build"),
+            patch(
+                "learningfoundry.generator.check_dep_state", return_value=state
+            ),
+        ):
+            result = runner.invoke(
+                main,
+                [
+                    "build",
+                    "--config", str(VALID_CURRICULUM),
+                    "--output", str(tmp_path / "out"),
+                ],
+            )
+        assert result.exit_code == 0
+        return result.output
+
+    def test_first_build_recommends_preview(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        from learningfoundry.generator import DepState
+
+        out = self._invoke(runner, tmp_path, DepState.FIRST_BUILD)
+        assert "Next: learningfoundry preview" in out
+        assert "static export to deploy" in out
+        assert "Dependencies changed" not in out
+
+    def test_unchanged_recommends_preview(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        from learningfoundry.generator import DepState
+
+        out = self._invoke(runner, tmp_path, DepState.UNCHANGED)
+        assert "Next: learningfoundry preview" in out
+        assert "static export to deploy" in out
+        assert "Dependencies changed" not in out
+
+    def test_changed_warns_then_recommends_preview(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        from learningfoundry.generator import DepState
+
+        out = self._invoke(runner, tmp_path, DepState.CHANGED)
+        assert "Dependencies changed" in out
+        assert "learningfoundry preview" in out
+        assert "will reinstall" in out
+
+
 # ---------------------------------------------------------------------------
 # validate
 # ---------------------------------------------------------------------------

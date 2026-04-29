@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-04-29
+
+### Changed
+
+- **`learningfoundry preview` is now the canonical "see your work" command.** Previously the post-build prompt and the README disagreed: the CLI told users to `cd dist && pnpm install && pnpm build` (a static export that exits without serving), while the README told them to run `learningfoundry preview`. Users following whichever doc they read first ended up with redundant work or wasted `pnpm install` invocations. The CLI's post-build prompt now consistently points at `learningfoundry preview` for every `DepState`, with `cd dist && pnpm build` mentioned only as the "for a static export to deploy" alternative.
+  - `src/learningfoundry/cli.py` — collapsed the three-branch `DepState` prompt into a single message: `Next: learningfoundry preview` (with a `⚠️  Dependencies changed …` line prepended in the `CHANGED` case so the user knows the upcoming `learningfoundry preview` will reinstall).
+  - `README.md` — Quick Start step 3 now combines build+preview into one `learningfoundry preview` invocation; the `learningfoundry preview` reference section explicitly notes that it serves the SvelteKit project from source via Vite (not the `pnpm build` static output) and now skips `pnpm install` when nothing has changed.
+
+### Performance
+
+- **`learningfoundry preview` no longer runs `pnpm install` on every invocation.** It now consults `check_dep_state(output_dir)` and skips the install step entirely when the state is `UNCHANGED` (every declared dep is already present in `node_modules/`). Subsequent `learningfoundry preview` runs after a content edit go straight to `pnpm run dev`, saving 5–30 s per cycle. The install still runs unconditionally on `FIRST_BUILD` and `CHANGED` states.
+  - `src/learningfoundry/pipeline.py::run_preview` — imports `DepState` and `check_dep_state`; logs `Dependencies up to date — skipping pnpm install.` when the state is `UNCHANGED`.
+
+### Added (tests)
+
+- `tests/test_cli.py::TestBuildNextStepsPrompt` — 3 cases asserting the new build prompt wording for `FIRST_BUILD`, `UNCHANGED`, and `CHANGED` states (each must say `Next: learningfoundry preview`; only `CHANGED` mentions the dep-change warning).
+- `tests/test_pipeline.py::TestRunPreviewSkipsInstall` — 3 cases verifying that `run_preview` invokes `pnpm install` on `FIRST_BUILD` and `CHANGED` but not on `UNCHANGED`, while always invoking `pnpm run dev`.
+
 ## [0.35.0] - 2026-04-29
 
 ### Fixed

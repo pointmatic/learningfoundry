@@ -86,19 +86,16 @@ pip install "learningfoundry[quizazz]"
    # OK — curriculum is valid.
    ```
 
-3. **Build** the SvelteKit app:
-
-   ```bash
-   learningfoundry build
-   # Build complete → dist/
-   ```
-
-4. **Preview** locally (builds then starts a dev server):
+3. **Build and preview** locally:
 
    ```bash
    learningfoundry preview
    # Preview server started at http://localhost:5173
    ```
+
+   `learningfoundry preview` is the canonical "see your work" command — it builds the SvelteKit project, installs Node dependencies on first run (and again whenever they change), and starts a Vite dev server. On subsequent runs it skips the install step automatically.
+
+   `learningfoundry build` alone is also available if you want to generate the SvelteKit project without serving it (e.g. to inspect output, deploy a static export via `cd dist && pnpm build`, or wire into your own toolchain).
 
 ---
 
@@ -169,7 +166,9 @@ Options:
   --help                  Show this message and exit.
 ```
 
-Runs `pnpm install` and `pnpm run dev` in the generated project directory. Requires `pnpm` on `PATH`.
+Runs `learningfoundry build`, then `pnpm install` (skipped when every declared dependency is already present in `node_modules/`), then `pnpm run dev` in the generated project directory. Requires `pnpm` on `PATH`.
+
+This serves the SvelteKit project from source via Vite's dev server; it does **not** serve the static `pnpm build` output in `dist/build/`. For static deploys, use `cd dist && pnpm build` and host the resulting `dist/build/` directory on any static host.
 
 ---
 
