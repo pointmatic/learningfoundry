@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-04-27
+
+### Fixed
+
+- **Clicking "Finish" on the final lesson did nothing visible.** `Navigation.goNext()` correctly calls `onComplete?.()` when there is no next lesson; `LessonView.handleNavComplete()` correctly marks the lesson complete and bubbles the event up via its own `oncomplete` prop — but `routes/[module]/[lesson]/+page.svelte` never passed an `oncomplete` handler, so the chain ended silently. The lesson was marked complete in IndexedDB, but the user stayed on the same page with no feedback.
+  - `src/learningfoundry/sveltekit_template/src/routes/[module]/[lesson]/+page.svelte` — added `handleLessonComplete()` that calls `goto('/')`, returning the learner to the dashboard where progress badges reflect the completion.
+
 ## [0.30.0] - 2026-04-27
 
 ### Fixed

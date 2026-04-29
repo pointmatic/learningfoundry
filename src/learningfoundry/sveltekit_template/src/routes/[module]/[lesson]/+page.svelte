@@ -1,5 +1,6 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { curriculum, navigateTo } from '$lib/stores/curriculum.js';
 	import type { Lesson, Module } from '$lib/types/index.js';
@@ -24,6 +25,15 @@
 	$effect(() => {
 		if (moduleId && lessonId) navigateTo(moduleId, lessonId);
 	});
+
+	// Called when the user clicks "Finish" on the final lesson of the
+	// curriculum. Navigation.goNext() emits this when there is no next
+	// lesson; LessonView marks the lesson complete and bubbles it up here.
+	// Redirect to the home dashboard so the learner sees their updated
+	// progress and can pick what to do next.
+	function handleLessonComplete() {
+		void goto('/');
+	}
 </script>
 
 <svelte:head>
@@ -31,7 +41,11 @@
 </svelte:head>
 
 {#if currentLesson && currentModule}
-	<LessonView lesson={currentLesson} moduleId={currentModule.id} />
+	<LessonView
+		lesson={currentLesson}
+		moduleId={currentModule.id}
+		oncomplete={handleLessonComplete}
+	/>
 {:else if $curriculum}
 	<div class="flex h-full items-center justify-center">
 		<p class="text-gray-400">Lesson not found.</p>

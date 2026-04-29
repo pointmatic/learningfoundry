@@ -427,6 +427,15 @@ Every `learningfoundry build` run printed `Cannot call fetch eagerly during serv
 - [x] Update CHANGELOG.md
 - [x] Verify: `pyve test -m smoke` passes 7/7 with no SSR errors in build output
 
+### Story H.f: v0.31.0 Wire "Finish" Button to Return Home [Done]
+
+Clicking "Finish" on the final lesson did nothing visible. `Navigation.goNext()` calls `onComplete?.()` when there is no next lesson; `LessonView.handleNavComplete()` marks the lesson complete (IndexedDB) and bubbles via its own `oncomplete` prop. But `[module]/[lesson]/+page.svelte` never passed an `oncomplete` handler, so the chain ended silently — the lesson was marked complete but the learner stayed on the same page with no feedback.
+
+- [x] `src/learningfoundry/sveltekit_template/src/routes/[module]/[lesson]/+page.svelte` — add `handleLessonComplete()` that calls `goto('/')`; pass it as `oncomplete` to `<LessonView>`
+- [x] Bump version to v0.31.0
+- [x] Update CHANGELOG.md
+- [x] Verify: `pyve test -m smoke` passes 7/7
+
 
 ---
 
