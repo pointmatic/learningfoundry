@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-04-29
+
+### Added
+
+- **LaTeX math rendering in lesson markdown** via [KaTeX](https://katex.org/). Both inline (`$...$`) and display (`$$...$$`) syntax are supported and rendered to HTML at parse time — no runtime JS overhead per lesson view.
+  - `src/learningfoundry/sveltekit_template/package.json` — added `katex ^0.16.11` and `marked-katex-extension ^5.1.4` to dependencies
+  - `src/learningfoundry/sveltekit_template/src/lib/utils/markdown.ts` — registered `markedKatex({ throwOnError: false })` so malformed LaTeX renders the source verbatim instead of throwing
+  - `src/learningfoundry/sveltekit_template/src/app.css` — `@import 'katex/dist/katex.min.css';` so rendered formulas are styled
+
+### Added (tests)
+
+- `src/learningfoundry/sveltekit_template/src/lib/utils/markdown.test.ts` — 6 vitest cases covering blank input, headings, fenced code, inline math, display math, and graceful malformed-LaTeX handling
+- `tests/test_smoke_sveltekit.py::test_katex_styles_in_bundled_css` — regression guard asserting `.katex` rules land in the bundled CSS
+
 ## [0.32.0] - 2026-04-29
 
 ### Fixed

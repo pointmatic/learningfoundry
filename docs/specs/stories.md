@@ -447,6 +447,19 @@ Markdown headings (`#`, `##`, `###`, `####`), lists, and code blocks in lesson c
 - [x] Update CHANGELOG.md
 - [x] Verify: `pyve test -m smoke` passes 8/8 (Python smoke + vitest + new prose-CSS check)
 
+### Story H.h: v0.33.0 LaTeX Math Rendering via KaTeX [Done]
+
+Lesson markdown had no math support — `$...$` and `$$...$$` syntax was passed through as literal text. Add KaTeX rendering at parse time so authors can write inline (`$e^{i\pi}+1=0$`) and display (`$$ \int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi} $$`) formulas in any text block.
+
+- [x] Add `katex ^0.16.11` and `marked-katex-extension ^5.1.4` to `sveltekit_template/package.json` dependencies (runtime, since marked runs in the browser)
+- [x] Register the extension in `src/lib/utils/markdown.ts` via `marked.use(markedKatex({ throwOnError: false }))` so malformed LaTeX shows source verbatim instead of crashing
+- [x] Import the KaTeX stylesheet in `src/app.css` (`@import 'katex/dist/katex.min.css';`)
+- [x] Add `src/lib/utils/markdown.test.ts` (6 vitest cases): blank input, headings, fenced code, inline `$…$`, display `$$…$$`, malformed-LaTeX no-throw
+- [x] Add `tests/test_smoke_sveltekit.py::test_katex_styles_in_bundled_css` — `.katex` regression guard
+- [x] Bump version to v0.33.0
+- [x] Update CHANGELOG.md
+- [x] Verify: `pyve test -m smoke` passes 9/9 (Python smoke + 15 vitest + katex-CSS check)
+
 
 ---
 

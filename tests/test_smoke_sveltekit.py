@@ -110,6 +110,16 @@ class TestSvelteKitSmokeBuild:
         js_files = list(build_dir.rglob("*.js"))
         assert len(js_files) > 0
 
+    def test_katex_styles_in_bundled_css(self, compiled_app: Path) -> None:
+        """KaTeX CSS must be bundled so rendered math (via marked-katex-extension)
+        is styled. Regression guard for the math-rendering feature added in v0.33.0."""
+        css_files = list((compiled_app / "build").rglob("*.css"))
+        combined = "\n".join(f.read_text(encoding="utf-8") for f in css_files)
+        assert ".katex" in combined, (
+            "`.katex` styles not found in bundled CSS — KaTeX stylesheet "
+            "is not imported."
+        )
+
     def test_typography_prose_styles_in_bundled_css(
         self, compiled_app: Path
     ) -> None:
