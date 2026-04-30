@@ -93,6 +93,27 @@ The pipeline detects the relative image reference, copies the asset into the gen
 
 ---
 
+### Story I.c: Lesson Title vs Markdown H1 — Authoring Convention [Done]
+
+The generated lesson page renders the curriculum-yml `lesson.title` in a layout `<h1>` (`LessonView.svelte`) and then renders the markdown body — including the markdown's own `# Heading` — as an inline `<h1>` (via `marked` inside `TextBlock.svelte`'s `prose` block). When authors give both the same string the page shows the same title twice, looking duplicative and broken; as a side effect the page also has two `<h1>` elements which is poor for screen readers and SEO. There is no rendering bug — it is an authoring convention we never wrote down. Document the convention so authors avoid the trap from day one.
+
+**Recommended convention:**
+- `lesson.title` in `curriculum.yml` → short, navigation-shaped. Either a number (`"3"`), a label (`"Lesson 3"`), or label-plus-abbreviation (`"Lesson 3: Cultural Diffusion"`). This is the string that appears in the sidebar, the breadcrumb, the browser tab title, and the page header.
+- Markdown `# Heading` → the descriptive long-form title that complements (does not echo) the lesson title. Picture them on one line separated by a colon: `<lesson.title>: <markdown H1>` should read naturally and contain no repeated words.
+- Authors who genuinely have nothing to add in an H1 should omit the markdown `#` heading entirely and start the lesson with body prose. The layout `<h1>` already serves as the page title.
+
+**Out of scope (deferred to a follow-up story if the convention is not enough):**
+- Auto-detecting and demoting/eliminating a markdown leading `# H1` that matches `lesson.title`. Conventions are cheaper than enforcement; let's see if docs solve it before adding code.
+- Switching the layout `<h1>` to an `<h2>` so the markdown can own the page-level `<h1>`. Bigger semantic restructure; needs its own story.
+
+**Tasks:**
+
+- [x] `README.md` — new "Lesson titles and markdown headings" subsection under Curriculum YAML Format. Explain the two-headings situation (one from `curriculum.yml`, one from the markdown body), the recommended pattern (short navigational title in YAML, descriptive long-form `# H1` in the markdown), a good/bad side-by-side example, and the "just omit the H1" escape hatch. Add the new subsection to the Table of Contents.
+- [x] `docs/specs/features.md` — under **Inputs → Markdown content files**, add a one-paragraph cross-reference to the README convention so a future LLM reading the spec sees it.
+- [x] Mark Story I.c Done. No version bump (docs-only). No CHANGELOG entry (Keep-a-Changelog ties to versions).
+
+---
+
 ### Story I.b: v0.38.0 Reset Main Scroll on Lesson Navigation [Done]
 
 The lesson layout puts a fixed-height shell (`h-screen overflow-hidden`) with two inner scroll containers — a sidebar `<aside>` and a content `<main>` (`+layout.svelte`). SvelteKit's built-in scroll restoration only manages `window.scrollY`, so navigating from the bottom of one lesson (where the Next button lives) to the next lesson leaves `<main>` scrolled to the bottom — the new page renders, but the user lands at the footer of the lesson and has to manually scroll up to see the lesson title. Same root cause when clicking a lesson in the sidebar from the middle of the previous lesson.
@@ -113,6 +134,28 @@ The lesson layout puts a fixed-height shell (`h-screen overflow-hidden`) with tw
 - [x] Bump version to v0.38.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
 - [x] `CHANGELOG.md` — v0.38.0 entry under "Fixed".
 - [x] Verify: `pyve test` passes, `pyve test tests/test_smoke_sveltekit.py` passes (covers `pnpm test` → vitest in the generated template), `ruff` and `mypy` clean.
+
+---
+
+### Story I.d: v0.39.0 Render Module Descriptions on Dashboard [Done]
+
+`curriculum.yml` lets authors give each module a `description:` field; `schema_v1.py` defaults it to `""` and the resolver preserves it on `ResolvedModule`. The frontend `Module` TypeScript interface already declares `description: string`. But `ProgressDashboard.svelte` (the home page module cards) only rendered `mod.title` and the progress bar — descriptions were never shown.
+
+**Fix:** render `mod.description` as muted body text under the module title row when non-empty.
+
+**Tasks:**
+
+- [x] `src/learningfoundry/sveltekit_template/src/lib/components/ProgressDashboard.svelte` — `{#if mod.description}` paragraph between title row and `<ProgressBar>`.
+- [x] `tests/test_resolver.py` — `test_module_description_round_trips` with explicit YAML description.
+- [x] `tests/test_smoke_sveltekit.py` — assert `build/curriculum.json` carries `modules[0].description == "First module."` and `modules[1]` has empty/missing description.
+- [x] Bump version to v0.39.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.39.0 under "Added".
+- [x] Verify: `pyve test`, smoke, `ruff`, `mypy`.
+
+**Out of scope:**
+
+- `@testing-library/svelte` component tests (deferred).
+- Markdown in module descriptions (plain strings only in v1).
 
 ---
 

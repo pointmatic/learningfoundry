@@ -115,6 +115,8 @@ curriculum:
 
 Markdown files referenced by `text` content blocks. Standard markdown; no custom extensions in v1.
 
+**Lesson title vs. markdown H1 — authoring convention.** The generated lesson page renders the curriculum-yml `lesson.title` as the page's outer `<h1>` (in the layout) and then renders the markdown body — including any leading `# Heading` — inside the lesson content. Identical strings in the two places produce a duplicative-looking page. Authors are expected to keep the YAML `title:` short and navigation-shaped (e.g. `"Lesson 3"`, `"Lesson 3: Cultural Diffusion"`) and use the markdown `# H1` for a complementary descriptive long-form title — or omit the markdown heading entirely. See README → "Lesson titles and markdown headings" for the full convention with examples.
+
 **Co-located image assets.** Authors may reference images directly from a lesson's markdown using either the markdown form (`![alt](path)`, `![alt](path "title")`) or the HTML form (`<img src="path">`). Relative paths are resolved against the markdown file's own directory, so authors organise images alongside the markdown that uses them. Absolute URLs (`http://`, `https://`, protocol-relative `//`, root-absolute `/`, and `data:` URIs) pass through unchanged so authors can mix CDN-hosted and co-located images freely. Image refs inside fenced code blocks (``` ``` `` or `~~~`) are left as literal text — code samples that *show* image syntax are not silently rewritten.
 
 ### Global config file

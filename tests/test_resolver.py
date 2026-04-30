@@ -111,6 +111,37 @@ class TestResolvedTypes:
         assert result.version == "1.0.0"
         assert result.title == "Test"
 
+    def test_module_description_round_trips(self, tmp_path: Path) -> None:
+        """Module `description` from YAML is preserved on ResolvedModule for
+        the frontend dashboard. Emitted in curriculum.json for each module."""
+        c = CurriculumV1.model_validate({
+            "version": "1.0.0",
+            "curriculum": {
+                "title": "Test",
+                "modules": [
+                    {
+                        "id": "mod-01",
+                        "title": "Module One",
+                        "description": "First module.",
+                        "lessons": [
+                            {
+                                "id": "lesson-01",
+                                "title": "Lesson One",
+                                "content_blocks": [],
+                            }
+                        ],
+                    }
+                ],
+            },
+        })
+        result = resolve_curriculum(
+            c, tmp_path,
+            quiz_provider=MagicMock(),
+            exercise_provider=MagicMock(),
+            visualization_provider=MagicMock(),
+        )
+        assert result.modules[0].description == "First module."
+
 
 class TestTextBlockResolution:
     def test_text_block_reads_markdown(self, tmp_path: Path) -> None:

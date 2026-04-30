@@ -104,6 +104,8 @@ class TestSvelteKitSmokeBuild:
         assert isinstance(data, dict)
         assert "modules" in data
         assert len(data["modules"]) == 2
+        assert data["modules"][0]["description"] == "First module."
+        assert data["modules"][1].get("description", "") == ""
 
     def test_build_contains_js_assets(self, compiled_app: Path) -> None:
         build_dir = compiled_app / "build"

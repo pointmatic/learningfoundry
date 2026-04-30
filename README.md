@@ -16,6 +16,7 @@ A curriculum engine that turns a YAML curriculum definition into a deployable Sv
 - [Quick Start](#quick-start)
 - [CLI Reference](#cli-reference)
 - [Curriculum YAML Format](#curriculum-yaml-format)
+- [Lesson titles and markdown headings](#lesson-titles-and-markdown-headings)
 - [Images and assets](#images-and-assets)
 - [Configuration File](#configuration-file)
 - [Development Setup](#development-setup)
@@ -232,6 +233,79 @@ curriculum:
 - Every curriculum must have at least one module; every module at least one lesson.
 - All `ref` paths are resolved relative to `--base-dir` (default: directory containing the curriculum YAML).
 - Only YouTube URLs are accepted for `video` blocks (`youtube.com/watch?v=` or `youtu.be/`).
+
+---
+
+## Lesson titles and markdown headings
+
+Each lesson page renders **two** title strings, from two different sources:
+
+1. The **lesson title** from `curriculum.yml` (the `title:` on a lesson). Used by the sidebar, the breadcrumb, the browser tab, and the page's outer `<h1>`.
+2. The **leading heading** in the lesson's markdown file (the `# Heading` at the top, if any). Rendered inside the lesson body.
+
+If both strings are identical, the page renders the same title twice and looks broken. The fix is purely an authoring convention — there is no rendering bug to chase.
+
+### Convention
+
+- Keep the YAML `title:` **short and navigation-shaped**. Either a number (`"3"`), a label (`"Lesson 3"`), or label-plus-abbreviation (`"Lesson 3: Cultural Diffusion"`).
+- Make the markdown `# Heading` the **descriptive long-form title** that *complements* the YAML title — never echoes it. Imagine reading them together as `"<yaml title>: <markdown H1>"`; that sentence should flow naturally and contain no repeated words.
+- If the lesson genuinely has nothing extra to add in a heading, **omit the markdown `# Heading` entirely** and start the lesson with body prose. The page already has the YAML title rendered as its `<h1>`.
+
+### Examples
+
+**Good — complementary, reads as one sentence:**
+
+```yaml
+# curriculum.yml
+- id: lesson-03
+  title: "Lesson 3"
+```
+
+```markdown
+<!-- content/mod-01/lesson-03.md -->
+# The Diffusion of Cultural Artifacts
+
+Most cultural products fail. A reasonable estimate places the fraction…
+```
+
+Renders as:
+
+> **Lesson 3**
+> # The Diffusion of Cultural Artifacts
+> Most cultural products fail. …
+
+**Good — slightly more YAML detail, still no echo:**
+
+```yaml
+- id: lesson-03
+  title: "Lesson 3: Cultural Diffusion"
+```
+
+```markdown
+# Why Most Pop Releases Disappear
+```
+
+**Bad — duplicative; both titles render the same string:**
+
+```yaml
+- id: lesson-03
+  title: "The Diffusion of Cultural Artifacts"
+```
+
+```markdown
+# The Diffusion of Cultural Artifacts
+```
+
+**Also fine — no markdown heading at all:**
+
+```yaml
+- id: lesson-03
+  title: "Lesson 3: Cultural Diffusion"
+```
+
+```markdown
+Most cultural products fail. A reasonable estimate places the fraction…
+```
 
 ---
 

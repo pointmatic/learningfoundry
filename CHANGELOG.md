@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-04-29
+
+### Added
+
+- **Module `description` from `curriculum.yml` now appears on the course overview (home) page.** The field was parsed, resolved, and emitted in `curriculum.json` all along — `ProgressDashboard.svelte` simply never rendered it. Each module card now shows a muted one-line paragraph under the title when `description` is non-empty.
+  - `src/learningfoundry/sveltekit_template/src/lib/components/ProgressDashboard.svelte` — `{#if mod.description}` block with `text-xs leading-relaxed text-gray-500` between the title row and the progress bar (mirrored in workspace-root `sveltekit_template/` for parity with local copies).
+
+### Added (tests)
+
+- `tests/test_resolver.py::TestResolvedTypes::test_module_description_round_trips` — asserts a non-empty module `description` survives `resolve_curriculum()`.
+- `tests/test_smoke_sveltekit.py::TestSvelteKitSmokeBuild::test_curriculum_json_valid_in_build` — asserts `build/curriculum.json` carries the fixture's first-module description (`"First module."`) and the second module has an empty or omitted description.
+
 ## [0.38.0] - 2026-04-29
 
 ### Fixed

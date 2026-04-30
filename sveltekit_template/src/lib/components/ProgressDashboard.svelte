@@ -54,6 +54,9 @@
 					<h3 class="text-sm font-medium text-gray-800">{mod.title}</h3>
 					<span class="text-xs text-gray-500">{stats.done}/{stats.total} lessons</span>
 				</div>
+				{#if mod.description}
+					<p class="mb-2 text-xs leading-relaxed text-gray-500">{mod.description}</p>
+				{/if}
 				<ProgressBar percent={stats.pct} />
 
 				{#if mod.pre_assessment && quizScores[`pre:${mod.id}`]}
