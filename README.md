@@ -16,6 +16,7 @@ A curriculum engine that turns a YAML curriculum definition into a deployable Sv
 - [Quick Start](#quick-start)
 - [CLI Reference](#cli-reference)
 - [Curriculum YAML Format](#curriculum-yaml-format)
+- [Video blocks](#video-blocks)
 - [Lesson titles and markdown headings](#lesson-titles-and-markdown-headings)
 - [Images and assets](#images-and-assets)
 - [Configuration File](#configuration-file)
@@ -207,9 +208,11 @@ curriculum:
             - type: text
               ref: content/mod-01/lesson-01.md
 
-            # Video block — YouTube URL only
+            # Video block — `provider` selects the player (default: youtube)
             - type: video
               url: "https://www.youtube.com/watch?v=XXXXXXXXXXX"
+              # provider: youtube          # optional today; only youtube is implemented
+              # extensions: {}            # optional; player-specific payload (see "Video blocks")
 
             # Quiz block — requires learningfoundry[quizazz]
             - type: quiz
@@ -232,7 +235,19 @@ curriculum:
 - Module and lesson `id` values must be unique within their scope, and match the pattern `[a-z0-9][a-z0-9-]*`.
 - Every curriculum must have at least one module; every module at least one lesson.
 - All `ref` paths are resolved relative to `--base-dir` (default: directory containing the curriculum YAML).
-- Only YouTube URLs are accepted for `video` blocks (`youtube.com/watch?v=` or `youtu.be/`).
+- Only YouTube URLs are accepted for `video` blocks when `provider` is `youtube` (the default): `youtube.com/watch?v=` or `youtu.be/`.
+
+---
+
+## Video blocks
+
+Each `video` content block carries:
+
+- **`url`** — Watch URL for the provider (validated for YouTube when `provider: youtube`).
+- **`provider`** — Which player to use. Omitted in YAML means `youtube`. New providers (e.g. Vimeo) will add new literal values here together with resolver + frontend support.
+- **`extensions`** — Optional mapping of player-specific data. There is **no** cross-player generic schema: keys and shapes are defined per provider. Examples you might add later for YouTube: `chapters` (timestamp + title list), `transcript_ref` (path to WebVTT or plain text), `autoplay`. The build passes `extensions` through to `curriculum.json` unchanged; the Svelte app can grow per-provider components that read `content.extensions`.
+
+Older generated apps only had `url` in each video block’s `content`; the template still treats missing `provider` as `youtube`.
 
 ---
 

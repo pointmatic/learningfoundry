@@ -314,12 +314,13 @@ class TextBlock(BaseModel):
 
 class VideoBlock(BaseModel):
     type: str = "video"
-    url: str                        # YouTube URL
+    url: str
+    provider: str = "youtube"              # Literal["youtube"] today; extend per player
+    extensions: dict = {}                  # Player-specific (chapters, transcripts, …)
 
-    @field_validator("url")
-    @classmethod
-    def validate_youtube_url(cls, v: str) -> str:
-        """Validate YouTube URL format."""
+    @model_validator(mode="after")
+    def validate_url_for_provider(self):
+        """YouTube URL validation when provider is youtube."""
         ...
 
 class QuizBlock(BaseModel):

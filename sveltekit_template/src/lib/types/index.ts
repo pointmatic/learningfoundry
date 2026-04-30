@@ -10,8 +10,15 @@ export interface TextContent {
 	path: string;
 }
 
+/** Known video players (YAML `provider`); extend when backend adds literals. */
+export type VideoProvider = 'youtube';
+
 export interface VideoContent {
 	url: string;
+	/** Omitted in older curriculum.json; treated as `youtube`. */
+	provider?: VideoProvider;
+	/** Player-specific payload (chapters, transcripts, …). Omitted when empty. */
+	extensions?: Record<string, unknown>;
 }
 
 export interface QuizManifest {

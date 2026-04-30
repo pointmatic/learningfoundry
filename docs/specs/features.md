@@ -107,7 +107,7 @@ curriculum:
 
 **Content block types (v1):**
 - **text** — References a markdown file (`ref`). The most common content type.
-- **video** — A YouTube URL (`url`).
+- **video** — `url` (YouTube watch or youtu.be). Optional `provider` (default `youtube`). Optional `extensions` — a JSON object for player-specific data (e.g. chapters, transcript refs); the frontend interprets keys per provider so new players do not require a unified schema.
 - **quiz** — References a quizazz assessment definition file (`ref`).
 - **exercise** — References an nbfoundry exercise definition file (`ref`).
 

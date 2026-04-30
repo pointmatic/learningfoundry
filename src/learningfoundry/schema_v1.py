@@ -3,14 +3,18 @@
 """Pydantic models for curriculum YAML v1 schema."""
 
 import re
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 _ID_RE = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
-_YOUTUBE_RE = re.compile(
+YOUTUBE_URL_RE = re.compile(
     r"^https?://(www\.)?(youtube\.com/watch\?.*v=|youtu\.be/)[\w\-]+"
 )
+
+# Supported ``video`` block players. Extend with new literals (e.g. ``"vimeo"``)
+# when a resolver + frontend implementation exists.
+VideoProvider = Literal["youtube"]
 
 
 def _validate_id(v: str, field_name: str = "id") -> str:
@@ -33,19 +37,26 @@ class TextBlock(BaseModel):
 
 
 class VideoBlock(BaseModel):
+    """Video embed. ``provider`` selects the player; ``extensions`` carries
+    player-specific options (chapters, transcript refs, etc.) without
+    forcing a one-size-fits-all schema across providers.
+    """
+
     type: Literal["video"]
     url: str
+    provider: VideoProvider = "youtube"
+    extensions: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("url")
-    @classmethod
-    def validate_youtube_url(cls, v: str) -> str:
-        if not _YOUTUBE_RE.match(v):
-            raise ValueError(
-                f"Invalid YouTube URL `{v}`. "
-                "Expected format: https://www.youtube.com/watch?v=... "
-                "or https://youtu.be/..."
-            )
-        return v
+    @model_validator(mode="after")
+    def validate_url_for_provider(self) -> Self:
+        if self.provider == "youtube":
+            if not YOUTUBE_URL_RE.match(self.url):
+                raise ValueError(
+                    f"Invalid YouTube URL `{self.url}`. "
+                    "Expected format: https://www.youtube.com/watch?v=... "
+                    "or https://youtu.be/..."
+                )
+        return self
 
 
 class QuizBlock(BaseModel):

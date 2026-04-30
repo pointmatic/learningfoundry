@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-04-29
+
+### Added
+
+- **Video blocks declare a `provider` and optional `extensions`.** `provider` defaults to `youtube` so existing curricula are unchanged. `extensions` is an arbitrary JSON object carried verbatim through resolve → `curriculum.json` for player-specific features (chapters, transcripts, etc.) without a one-size-fits-all schema. Only `youtube` is implemented today; the Svelte `VideoBlock` dispatches on `provider` and treats missing `provider` in older JSON as `youtube`.
+  - `src/learningfoundry/schema_v1.py` — `VideoBlock` gains `provider: Literal["youtube"]` and `extensions: dict[str, Any]`; URL validation runs in a `@model_validator` per provider. `YOUTUBE_URL_RE` is the single regex shared with the resolver.
+  - `src/learningfoundry/resolver.py` — video `content` now includes `url`, `provider`, and `extensions`.
+  - `src/learningfoundry/sveltekit_template/src/lib/types/index.ts` — `VideoProvider` type and `VideoContent` optional fields.
+  - `src/learningfoundry/sveltekit_template/src/lib/components/VideoBlock.svelte` — provider branch for YouTube embed; placeholder branch for future providers. Workspace-root `sveltekit_template/` kept in sync.
+
+### Documentation
+
+- `README.md` — new "Video blocks" section and YAML comments for `provider` / `extensions`.
+- `docs/specs/features.md`, `docs/specs/tech-spec.md` — video block fields updated.
+
+### Added (tests)
+
+- `tests/test_schema_v1.py` — defaults, explicit `provider`, `extensions` dict.
+- `tests/test_resolver.py` — resolved `content` includes `provider` + `extensions`; extensions round-trip.
+- `tests/test_smoke_sveltekit.py` — `build/curriculum.json` video block includes `provider` and `extensions`.
+
 ## [0.39.0] - 2026-04-29
 
 ### Added

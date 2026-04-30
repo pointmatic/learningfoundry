@@ -159,6 +159,28 @@ The lesson layout puts a fixed-height shell (`h-screen overflow-hidden`) with tw
 
 ---
 
+### Story I.e: v0.40.0 Video 'provider' and 'extensions' [Done]
+
+Video blocks only had a `url`; the frontend was hard-coded to YouTube. Authors need an explicit **player** field so new providers (Vimeo, self-hosted, …) can be added without reshaping the whole curriculum schema, and a **bag for player-specific options** (chapters, transcripts, autoplay flags) that cannot be normalized across all players.
+
+**Design:**
+- YAML / Pydantic: `provider: youtube` (default), `extensions: {}` arbitrary JSON-serializable dict, passed through resolver into `curriculum.json` unchanged.
+- Resolver: validates URL against YouTube when `provider == youtube`; exports public `YOUTUBE_URL_RE` from `schema_v1` for a single regex source.
+- Frontend: `VideoContent` gains optional `provider` and `extensions`; `VideoBlock.svelte` dispatches on `provider` (default `youtube`), documents extensions for future per-provider UI.
+
+**Tasks:**
+
+- [x] `schema_v1.py` — `VideoBlock` with `provider`, `extensions`, `model_validator` for URL-by-provider; export `YOUTUBE_URL_RE`.
+- [x] `resolver.py` — emit `provider` + `extensions` in video `content`; import `YOUTUBE_URL_RE`.
+- [x] `sveltekit_template` — `VideoContent` + `VideoBlock.svelte` provider dispatch; mirror workspace-root `sveltekit_template/`.
+- [x] `tests/test_schema_v1.py`, `tests/test_resolver.py`, `tests/test_smoke_sveltekit.py` — coverage.
+- [x] `README.md`, `docs/specs/features.md`, `docs/specs/tech-spec.md`.
+- [x] Bump v0.40.0, `CHANGELOG.md`.
+
+**Out of scope:** Implementing chapters/transcript UI, new providers, autoplay.
+
+---
+
 ## Future
 
 <!--

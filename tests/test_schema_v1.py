@@ -74,6 +74,33 @@ class TestContentBlockTypes:
         )
         assert block.url == "https://youtu.be/abc123"
 
+    def test_video_block_default_provider_and_extensions(self) -> None:
+        block = VideoBlock.model_validate(
+            {"type": "video", "url": "https://www.youtube.com/watch?v=abc123"}
+        )
+        assert block.provider == "youtube"
+        assert block.extensions == {}
+
+    def test_video_block_explicit_provider(self) -> None:
+        block = VideoBlock.model_validate(
+            {
+                "type": "video",
+                "provider": "youtube",
+                "url": "https://www.youtube.com/watch?v=abc123",
+            }
+        )
+        assert block.provider == "youtube"
+
+    def test_video_block_extensions_dict(self) -> None:
+        block = VideoBlock.model_validate(
+            {
+                "type": "video",
+                "url": "https://youtu.be/xyz",
+                "extensions": {"chapters": [{"start": 0, "title": "A"}]},
+            }
+        )
+        assert block.extensions["chapters"][0]["title"] == "A"
+
     def test_quiz_block(self) -> None:
         block = QuizBlock.model_validate(
             {"type": "quiz", "source": "quizazz", "ref": "assessments/q.yml"}

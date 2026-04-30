@@ -3,7 +3,6 @@
 """Content resolver — resolves all content references in a parsed curriculum."""
 
 import logging
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -27,10 +26,6 @@ from learningfoundry.schema_v1 import (
 )
 
 logger = logging.getLogger("learningfoundry.resolver")
-
-_YOUTUBE_RE = re.compile(
-    r"^https?://(www\.)?(youtube\.com/watch\?.*v=|youtu\.be/)[\w\-]+"
-)
 
 
 @dataclass
@@ -301,15 +296,15 @@ def _resolve_text(
 
 
 def _resolve_video(block: VideoBlock, location: str) -> ResolvedContentBlock:
-    if not _YOUTUBE_RE.match(block.url):
-        raise ContentResolutionError(
-            f"{location}: invalid YouTube URL `{block.url}`."
-        )
     return ResolvedContentBlock(
         type="video",
         source=None,
         ref=None,
-        content={"url": block.url},
+        content={
+            "url": block.url,
+            "provider": block.provider,
+            "extensions": block.extensions,
+        },
     )
 
 

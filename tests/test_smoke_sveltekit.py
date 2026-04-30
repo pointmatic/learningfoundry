@@ -107,6 +107,18 @@ class TestSvelteKitSmokeBuild:
         assert data["modules"][0]["description"] == "First module."
         assert data["modules"][1].get("description", "") == ""
 
+    def test_curriculum_json_video_includes_provider_and_extensions(
+        self, compiled_app: Path
+    ) -> None:
+        data = json.loads(
+            (compiled_app / "build" / "curriculum.json").read_text()
+        )
+        blocks = data["modules"][0]["lessons"][0]["content_blocks"]
+        video = next(b for b in blocks if b["type"] == "video")
+        assert video["content"]["url"].startswith("https://www.youtube.com/")
+        assert video["content"]["provider"] == "youtube"
+        assert video["content"]["extensions"] == {}
+
     def test_build_contains_js_assets(self, compiled_app: Path) -> None:
         build_dir = compiled_app / "build"
         js_files = list(build_dir.rglob("*.js"))

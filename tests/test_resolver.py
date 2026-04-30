@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import ValidationError
 
 from learningfoundry.exceptions import ContentResolutionError
 from learningfoundry.resolver import (
@@ -335,11 +336,33 @@ class TestVideoBlockResolution:
         block = result.modules[0].lessons[0].content_blocks[0]
         assert block.type == "video"
         assert block.content["url"] == "https://www.youtube.com/watch?v=abc123"
+        assert block.content["provider"] == "youtube"
+        assert block.content["extensions"] == {}
 
-    def test_invalid_url_raises_content_resolution_error(
-        self, tmp_path: Path
-    ) -> None:
-        with pytest.raises(ValueError):
+    def test_video_extensions_preserved(self, tmp_path: Path) -> None:
+        c = _curriculum_with_blocks(
+            [
+                {
+                    "type": "video",
+                    "url": "https://www.youtube.com/watch?v=abc123",
+                    "extensions": {
+                        "chapters": [{"start_sec": 0, "title": "Intro"}],
+                    },
+                }
+            ]
+        )
+        result = resolve_curriculum(
+            c, tmp_path,
+            quiz_provider=MagicMock(),
+            exercise_provider=MagicMock(),
+            visualization_provider=MagicMock(),
+        )
+        block = result.modules[0].lessons[0].content_blocks[0]
+        ext = block.content["extensions"]
+        assert ext["chapters"][0]["title"] == "Intro"
+
+    def test_invalid_youtube_url_raises_at_parse_time(self) -> None:
+        with pytest.raises(ValidationError, match="YouTube"):
             _curriculum_with_blocks(
                 [{"type": "video", "url": "https://vimeo.com/12345"}]
             )
