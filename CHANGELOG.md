@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-04-29
+
+### Fixed
+
+- **Clicking "Next" at the end of a lesson no longer drops the user at the bottom of the new lesson.** The shell layout pins the viewport (`h-screen overflow-hidden`) and scrolls inside `<main>`, but SvelteKit's built-in scroll restoration only manages `window.scrollY`. As a result, navigating from the bottom of one lesson (where the Next button lives) left `<main>.scrollTop` at the previous bottom; the new page rendered correctly but landed at the footer. The same bug affected sidebar lesson clicks made from anywhere below the fold.
+  - `src/learningfoundry/sveltekit_template/src/routes/+layout.svelte` — bound a ref to the `<main>` element and registered an `afterNavigate` hook that resets `mainEl.scrollTop = 0` on every forward navigation. `popstate` (browser back/forward) is left alone so the browser's native scroll restoration still works for those.
+  - `src/learningfoundry/sveltekit_template/src/routes/layout.scroll.ts` (new) — extracted the reset logic into a pure helper (`resetMainScrollOnForwardNav`) so it can be unit-tested without mounting the full layout.
+
+### Added (tests)
+
+- `src/learningfoundry/sveltekit_template/src/routes/layout.scroll.test.ts` — 5 vitest cases verifying that `resetMainScrollOnForwardNav` resets `scrollTop` for `link`, `goto`, and `form` navigations, leaves it alone for `popstate`, and is a no-op when the element ref is undefined (the bound ref can be undefined during the first navigation before mount).
+
 ## [0.37.0] - 2026-04-29
 
 ### Added

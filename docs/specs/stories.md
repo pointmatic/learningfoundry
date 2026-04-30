@@ -10,6 +10,8 @@ For a high-level concept (why), see `concept.md`. For requirements and behavior 
 
 ## Phase I: Functional and UX Improvements
 
+---
+
 ### Story I.a: v0.37.0 Local Image Support — Co-located Assets and Markdown Rewriting [Done]
 
 learningfoundry has no first-class image support. Authors today have only two options, both bad:
@@ -89,6 +91,28 @@ The pipeline detects the relative image reference, copies the asset into the gen
 - [x] Update `CHANGELOG.md` with v0.37.0 entry under Added (image asset pipeline) and Changed (`_PRESERVED_PATHS` extended)
 - [x] Verify: `pyve test` passes, `pyve test -m smoke` passes, `ruff` and `mypy` clean
 
+---
+
+### Story I.b: v0.38.0 Reset Main Scroll on Lesson Navigation [Done]
+
+The lesson layout puts a fixed-height shell (`h-screen overflow-hidden`) with two inner scroll containers — a sidebar `<aside>` and a content `<main>` (`+layout.svelte`). SvelteKit's built-in scroll restoration only manages `window.scrollY`, so navigating from the bottom of one lesson (where the Next button lives) to the next lesson leaves `<main>` scrolled to the bottom — the new page renders, but the user lands at the footer of the lesson and has to manually scroll up to see the lesson title. Same root cause when clicking a lesson in the sidebar from the middle of the previous lesson.
+
+**Fix:** register an `afterNavigate` hook in `+layout.svelte` that resets the `<main>` element's `scrollTop` to `0` on every forward (non-`popstate`) navigation. Skipping `popstate` preserves the browser's natural back/forward scroll-restoration UX so a user pressing Back lands where they were before clicking through.
+
+**Out of scope (deferred to a follow-up story):**
+- Per-lesson scroll memory (revisiting a partially-read lesson lands where you left off). Needs a per-lesson scroll-position store keyed on `(moduleId, lessonId)`.
+- Smooth-scroll animation on reset. The instant default is fine for forward nav.
+
+**Tasks:**
+
+- [x] `src/learningfoundry/sveltekit_template/src/routes/+layout.svelte`:
+  - [x] `bind:this={mainEl}` on the existing `<main>` element
+  - [x] Import `afterNavigate` from `$app/navigation`
+  - [x] Register `afterNavigate(({ type }) => { if (mainEl && type !== 'popstate') mainEl.scrollTop = 0; })`
+- [x] `src/learningfoundry/sveltekit_template/src/routes/layout.test.ts` (new): vitest unit test that verifies the `afterNavigate` callback resets `scrollTop` to `0` for forward navigations and leaves it alone for `popstate`. Mock `$app/navigation`'s `afterNavigate` to capture the registered callback, then exercise it with both navigation types against a stub element.
+- [x] Bump version to v0.38.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.38.0 entry under "Fixed".
+- [x] Verify: `pyve test` passes, `pyve test tests/test_smoke_sveltekit.py` passes (covers `pnpm test` → vitest in the generated template), `ruff` and `mypy` clean.
 
 ---
 
