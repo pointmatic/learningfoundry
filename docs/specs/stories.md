@@ -525,6 +525,109 @@ All three trace to a single navigation defect introduced in I.g and missed by th
 
 ---
 
+### Story I.l: v0.47.0 — Reset Course Button [Planned]
+
+The subplan's "Deferred (documented, not implemented)" list has long included a course/module/lesson reset capability. Course-level reset is now **promoted to active scope** because (a) it is genuinely learner-facing — "I want to retake this course from scratch" — and (b) it is a much better dev/QA affordance than DevTools-level IndexedDB clearing for verifying I.k, I.m, and I.n fixes interactively. Per-module and per-lesson reset remain Deferred (independently useful but distinct UX problems). See `phase-I-progress-ux-subplan.md` → FR-P12.
+
+The button is pinned at the bottom of the sidebar `<aside>`, disabled when no learner activity exists for this curriculum and enabled as soon as any of `lesson_progress`, `quiz_scores`, `exercise_status` contains a row. Clicking it opens a confirmation dialog; on confirm, all three progress tables are truncated, the curriculum store position and any expanded sidebar module are cleared, and the learner is sent to `/`.
+
+**Tasks:**
+
+- [ ] `sveltekit_template/src/lib/db/progress.ts`:
+  - [ ] New `resetProgress(): Promise<void>` — `DELETE FROM lesson_progress; DELETE FROM quiz_scores; DELETE FROM exercise_status` then `persistDb()`. Single DB transaction.
+- [ ] `sveltekit_template/src/lib/utils/progress.ts` (new):
+  - [ ] Pure function `hasAnyProgress(store: Record<string, ModuleProgress>): boolean` — true if any module has any lesson with status other than `not_started`. Quiz scores and exercise statuses are reflected in `lesson_progress` via `markLessonInProgress`/`markLessonComplete` cascades; if a future feature lets either advance independently of lesson state, extend this helper to read from those tables directly.
+- [ ] `sveltekit_template/src/lib/components/ResetCourseButton.svelte` (new):
+  - [ ] Props: `disabled: boolean`.
+  - [ ] Disabled state styling: `text-gray-300 cursor-not-allowed`.
+  - [ ] Enabled state styling: `text-red-600 hover:bg-red-50` (muted destructive).
+  - [ ] On click (enabled only): show a confirmation. First cut may use `window.confirm("Reset all progress for this curriculum? This cannot be undone.")`; flag a follow-up for a styled `<dialog>` modal once basic plumbing is verified.
+  - [ ] On confirm: `await resetProgress(); currentPosition.set(null); await invalidateProgress($curriculum); await goto('/');` (the `currentPosition.set(null)` triggers the FR-P14 sidebar collapse path if Story I.n has shipped — this story should not depend on I.n landing first; it just sets the store and lets I.n's effect take over when present).
+- [ ] `sveltekit_template/src/routes/+layout.svelte`:
+  - [ ] Convert the `<aside>` to a flex column (`flex flex-col`) so the existing scrollable module list and the new reset button can share the column without the button scrolling away.
+  - [ ] Render `<ResetCourseButton disabled={!hasAnyProgress($progressStore)} />` at the bottom of the `<aside>` with `mt-auto` (or a separate `<footer>` block inside the aside) so it pins to the bottom even when the module list is short.
+- [ ] Tests (vitest):
+  - [ ] `progress.utils.test.ts`: `hasAnyProgress` returns false for `{}`; false when every lesson status is `not_started`; true with one `in_progress` lesson; true with one `complete` lesson; true with one `optional` lesson that has been touched.
+  - [ ] `db.progress.test.ts`: extend with a `resetProgress` case — pre-seed all three tables, run reset, then assert each `getX` returns null/empty.
+  - [ ] `ResetCourseButton.test.ts`: `disabled` prop suppresses click handler; enabled click invokes confirm and calls `resetProgress` only when confirm returns true; cancelled confirm does not call `resetProgress` and does not navigate.
+- [ ] Playwright e2e (extends I.k harness):
+  - [ ] `e2e/reset.spec.ts`: load curriculum → button is disabled → complete one text block (wait for the 1 s sentinel after Story I.m, or use a short block before I.m) → button enables → click reset → confirm dialog → on confirm, assert sidebar checkmark gone, module % returns to 0, dashboard text reads "0 of N completed", URL is `/`.
+- [ ] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
+- [ ] `docs/specs/features.md` — under FR-4 (Progress Tracking), document the reset capability and that it is course-scoped (not per-module/lesson in v1).
+- [ ] `docs/specs/tech-spec.md` — document the new `resetProgress` DB op and the `ResetCourseButton` component briefly.
+- [ ] `README.md` — short note under a "Resetting progress" subsection or under Curriculum YAML / runtime behaviour.
+- [ ] Bump version to v0.47.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [ ] `CHANGELOG.md` — v0.47.0 under "Added" (Reset course button + reactive activation).
+- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
+
+**Out of scope:**
+- Per-module reset and per-lesson reset (still Deferred).
+- Resetting an individual quiz score or exercise status without resetting its parent lesson.
+- Undo for reset (the action is destructive by design; the confirmation dialog is the safety net).
+- Cross-tab synchronisation of reset (other tabs viewing the curriculum won't update until they re-fetch progress).
+- Server-side / cloud-backed progress reset.
+
+---
+
+### Story I.m: v0.48.0 — Text Block End-of-Block Completion [Planned]
+
+FR-P1's text-block trigger fires whenever any portion of the block is in the viewport for 1 s. For a long lesson with one tall text block, simply landing on the page satisfies the trigger because the top of the block is always in view — the learner gets a completion event without ever scrolling to the actual lesson body. Refined trigger: a sentinel placed at the **end** of the rendered markdown must be continuously visible for 1 s. See `phase-I-progress-ux-subplan.md` → FR-P13.
+
+**Tasks:**
+
+- [ ] `sveltekit_template/src/lib/components/TextBlock.svelte`:
+  - [ ] Render a sentinel `<div bind:this={sentinelEl} aria-hidden="true" data-textblock-end></div>` immediately after the `{@html html}` rendering. Zero-size by default (no padding/margin); browsers treat it as observable for `IntersectionObserver` regardless.
+  - [ ] Switch the `IntersectionObserver` target from `blockEl` to `sentinelEl`. Keep `blockEl` bound for any future work that needs the wrapper (e.g. FR-P10 `$effect`-driven content swaps if a non-route-driven flow ever needs it), but rename it to `wrapperEl` if the binding is no longer functionally used to make the role explicit.
+  - [ ] Threshold remains `0.1`; debounce remains 1 s; single-fire `fired` guard unchanged.
+- [ ] Tests (vitest):
+  - [ ] `TextBlock.test.ts` — short block (sentinel in viewport at mount) fires `textcomplete` after 1 s. Regression check; matches old behaviour.
+  - [ ] `TextBlock.test.ts` — tall block, sentinel never intersects: simulate observer entries with `isIntersecting: false` for the sentinel; assert `textcomplete` does NOT fire after 1 s, 2 s, or 5 s.
+  - [ ] `TextBlock.test.ts` — tall block, sentinel becomes visible after a simulated scroll: dispatch a `isIntersecting: true` entry for the sentinel; assert `textcomplete` fires 1 s later.
+  - [ ] `TextBlock.test.ts` — sentinel briefly visible for less than 1 s (e.g. 700 ms then `isIntersecting: false`): assert `textcomplete` does not fire.
+- [ ] Playwright e2e (extends I.k harness):
+  - [ ] `e2e/text-block-bottom.spec.ts`: load a curriculum with one tall text block (height > viewport height); wait 5 s without scrolling; assert no sidebar checkmark and module % is 0. Scroll to the bottom of `<main>`; assert checkmark appears within 2 s of the sentinel becoming visible.
+- [ ] `docs/specs/features.md` — update FR-1's text-block completion description to reference end-of-block trigger and link to the rationale (or leave inline if compact).
+- [ ] `docs/specs/tech-spec.md` — update `TextBlock` description to mention the sentinel pattern.
+- [ ] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
+- [ ] Bump version to v0.48.0.
+- [ ] `CHANGELOG.md` — v0.48.0 under "Changed" (text-block completion now requires the bottom of the block to be in view, not just any portion).
+- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
+
+**Out of scope:**
+- Per-paragraph engagement tracking or scroll-percentage-based completion.
+- Reading-time estimation as an alternative completion signal.
+- Configurable per-block completion criteria (would need a curriculum YAML schema change).
+- Backporting the sentinel pattern to `VideoBlock`'s viewport fallback — that fallback only fires when the IFrame API itself is unavailable, an uncommon enough path that it doesn't justify the same refinement. Revisit if the fallback ever becomes the primary path.
+
+---
+
+### Story I.n: v0.49.0 — Clean Dashboard State on Finish [Planned]
+
+After I.k, clicking Finish on the last lesson sends the learner to `/` correctly, but the sidebar still shows the last module expanded with the last lesson highlighted. The learner just declared "I'm done" and the UI keeps marking that lesson as their current focus — jarring. Refined behaviour: Finish clears the active-lesson highlight and collapses the previously expanded module. See `phase-I-progress-ux-subplan.md` → FR-P14.
+
+**Tasks:**
+
+- [ ] `sveltekit_template/src/lib/components/Navigation.svelte`:
+  - [ ] In `goNext()`, the `next === null` branch becomes `currentPosition.set(null); void goto('/');` — the position clear runs first so the auto-expand effect in `ModuleList` reacts before the route change settles. Import `currentPosition` from `$lib/stores/curriculum.js`.
+- [ ] `sveltekit_template/src/lib/components/ModuleList.svelte`:
+  - [ ] Extend the existing auto-expand `$effect`: when `pos === null`, set `expandedModuleId = null` and `lastAutoExpandedModuleId = null`. The existing manual-toggle preservation logic (`pos.moduleId !== lastAutoExpandedModuleId`) is unchanged for the non-null case.
+- [ ] Tests (vitest):
+  - [ ] `Navigation.test.ts` — extend the I.k regression suite: `goNext` on a lesson with `next === null` calls `currentPosition.set(null)` and `goto('/')` (verify call order via mock).
+  - [ ] `ModuleList.test.ts` — when `currentPosition` transitions from `{moduleId: 'mod-01', lessonId: 'lesson-01'}` to `null`, both `expandedModuleId` and `lastAutoExpandedModuleId` reset to `null`. After the reset, a manual toggle still works (a regression check that the I.f fix is still intact).
+- [ ] Playwright e2e (extends I.k harness):
+  - [ ] `e2e/finish.spec.ts`: navigate to the last lesson, complete it, click Finish; assert URL is `/`, no sidebar `LessonList` row carries the active highlight (`bg-blue-100`), no module is expanded (no visible lesson list panel), and the curriculum-title link still works (clicking it does nothing visible since we're already at `/`, but doesn't error).
+- [ ] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
+- [ ] Bump version to v0.49.0.
+- [ ] `CHANGELOG.md` — v0.49.0 under "Changed" (Finish on the last lesson now clears the active-lesson highlight and collapses the previously expanded sidebar module).
+- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
+
+**Out of scope:**
+- Clearing sidebar state on navigations to `/` from sources other than Finish (e.g. clicking the curriculum-title link, browser back button).
+- A dedicated "Course complete" celebration screen — see Future.
+- Animated module collapse / lesson de-highlight transitions.
+
+---
+
 ## Future
 
 <!--

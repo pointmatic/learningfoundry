@@ -48,7 +48,7 @@
 
 Each content block independently reports when it has been sufficiently engaged with:
 
-- **Text block** — fires `textcomplete` after the block has been **continuously visible in the viewport for 1 second** (Intersection Observer + 1 s debounce timer). If the block is in the viewport on initial render, the 1-second clock starts immediately.
+- **Text block** — fires `textcomplete` after the block has been **continuously visible in the viewport for 1 second** (Intersection Observer + 1 s debounce timer). If the block is in the viewport on initial render, the 1-second clock starts immediately. **Amended post-v0.46.0 (see FR-P13 / Story I.n):** the trigger watches a sentinel at the *end* of the rendered markdown, not the whole block. Tall blocks no longer fire merely because their top edge is on screen.
 - **Video block** — fires `videocomplete` on the **YouTube IFrame Player API `ENDED` event** (player state `0`). If the IFrame API is unavailable or signals an error, falls back to an Intersection Observer with a **3-second** continuous-in-viewport threshold.
 - **Quiz block** — fires `quizcomplete` after the existing `QuizCompleteEvent` fires **and** `score / maxScore >= pass_threshold`. Default `pass_threshold = 0.0` (any quiz completion, regardless of score, fires the event). If the learner fails to meet the threshold, they can retry; the block fires on the first passing attempt.
 
@@ -165,7 +165,7 @@ The threshold is passed through the Python resolver into `curriculum.json` and c
 
 ### Deferred (documented, not implemented)
 
-- **Reset button** (course / module / lesson): defined, deferred to a future story.
+- **Reset button (per-module / per-lesson)**: course-level reset is promoted to active scope as FR-P12 / Story I.l v0.47.0. Per-module and per-lesson reset remain Deferred — independently useful but distinct UX problems.
 - **Per-lesson scroll memory** on revisit (deferred from Story I.b).
 - **Non-YouTube video providers**: the IFrame API path is YouTube-specific; other providers use the viewport fallback until their own story.
 
@@ -240,6 +240,35 @@ Introduce Playwright (or a comparably realistic harness) in `sveltekit_template/
 
 The harness lives in `sveltekit_template/e2e/` and runs against the built static site (`pnpm build && pnpm preview`) or `pnpm dev`. It is invoked from the smoke pipeline so `tests/test_smoke_sveltekit.py` fails on regression.
 
+### FR-P12: Reset Course Button
+
+A "Reset course" button at the bottom of the sidebar `<aside>` lets the learner wipe all locally-stored progress for the current curriculum. Originally listed as Deferred; promoted to active scope because (a) it is genuinely learner-facing ("I want to retake this course") and (b) it is a much better dev/QA affordance than DevTools-level IndexedDB clearing for verifying I.k, FR-P12, and FR-P13 fixes interactively.
+
+- **Activation:** disabled when no learner activity exists for this curriculum and enabled as soon as any of the progress tables (`lesson_progress`, `quiz_scores`, `exercise_status`) contains a row. Implementation pattern: a pure `hasAnyProgress(progressStoreValue)` helper subscribed to the reactive `progressStore`. (Quiz scores and exercise statuses still flow through the store via `invalidateProgress`; if a future feature lands in a separate store, extend `hasAnyProgress` to read it too.)
+- **Click flow:** confirmation dialog → on confirm, truncate the three progress tables, clear `currentPosition` and `expandedModuleId`, `invalidateProgress` to refresh the store to all-zero state, then `goto('/')` to land on a clean dashboard.
+- **Visual treatment:** muted destructive button (`text-red-600 hover:bg-red-50` enabled, `text-gray-300 cursor-not-allowed` disabled). Pinned to the bottom of the `<aside>` via flex-column layout, separate from the scrolling module list.
+- **Scope:** course-level reset only. Per-module and per-lesson reset remain Deferred — independently useful but distinct UX problems (where the affordance lives, what it touches when locking is involved).
+- **Non-goals:** the curriculum data itself is not deleted. `curriculum.json` is re-fetched on next render, identical to a first visit.
+
+### FR-P13: Text Block Completion Fires at End-of-Block
+
+Refines FR-P1's text-block trigger. The current `IntersectionObserver` watches the whole block element, so the top edge entering the viewport is enough to start the 1-second clock — for a tall lesson with one large text block, the learner gets a completion event without ever scrolling past the first paragraph.
+
+New trigger: a zero-size sentinel `<div data-textblock-end aria-hidden="true">` is rendered immediately after the markdown body. The observer watches the **sentinel**, not the block. `textcomplete` fires after the sentinel has been continuously in the viewport for 1 second.
+
+- **Short block (fits in viewport):** sentinel is visible at first render; fires after 1 s — same effective behaviour as before. Regression test asserts this.
+- **Tall block (taller than viewport):** sentinel is below the fold at first render; fires only when the learner scrolls until the sentinel intersects the viewport for 1 s.
+- **Resize / dynamic layout:** the observer doesn't depend on block size, only on whether the sentinel is in view. Window resize, image-load layout shifts, and font-load reflows are handled by the browser's intersection plumbing without extra code.
+- **Threshold and debounce remain identical** to FR-P1 (`threshold: 0.1`, 1-second timer, single-fire guard).
+
+### FR-P14: Clean Dashboard State on Finish
+
+When the learner clicks Finish on the last lesson, they currently land on `/` (after I.k) but the sidebar still shows the last module expanded with the last lesson highlighted. Refined behaviour: Finish clears the active-lesson highlight and collapses the module that was expanded.
+
+- **Mechanism:** Finish runs in `Navigation.goNext()` when `next === null`. Add `currentPosition.set(null)` immediately before the existing `goto('/')`.
+- **Sidebar collapse:** extend `ModuleList`'s auto-expand `$effect` so `expandedModuleId` and `lastAutoExpandedModuleId` reset to `null` when `$currentPosition === null`. The existing manual-toggle preservation logic is unaffected for non-null positions.
+- **Scope:** Finish only. The curriculum-title link in the sidebar header (which also `goto('/')`s) preserves sidebar state — that's incidental navigation, not a "done with lesson" signal.
+
 ---
 
 ## Story Map
@@ -252,3 +281,6 @@ The harness lives in `sveltekit_template/e2e/` and runs against the built static
 | I.i | v0.44.0 | Locking Configuration Schema | Python schema, resolver, config |
 | I.j | v0.45.0 | Locking and Unlocking UI | Frontend locked state, unlock cascade, optional lessons |
 | I.k | v0.46.0 | Lesson Navigation Lifecycle Fix and E2E Harness | FR-P9, FR-P10, FR-P11 — discovered post-shipping |
+| I.l | v0.47.0 | Reset Course Button | FR-P12 — promoted from Deferred |
+| I.m | v0.48.0 | Text Block End-of-Block Completion | FR-P13 — refines FR-P1 |
+| I.n | v0.49.0 | Clean Dashboard State on Finish | FR-P14 — sidebar cleanup on Finish |
