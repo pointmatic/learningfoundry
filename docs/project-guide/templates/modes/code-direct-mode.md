@@ -6,7 +6,7 @@ Implement stories rapidly with direct commits to main. Focus on feature completi
 
 For each story:
 
-1. **Read** the story's checklist from `docs/specs/stories.md`
+1. **Read** the story's checklist from `docs/specs/stories.md` — always re-fetch from disk with the `Read` tool at the start of each cycle. The developer may have edited the file since you last viewed it (added tasks, reworded scope, marked items done), so do not rely on prior conversation context for its contents.
 2. **Implement** all tasks in the checklist
 3. **Add copyright/license headers** to every new source file
 4. **Run tests** -- `{{ test_invocation }}` (fix failures before continuing)

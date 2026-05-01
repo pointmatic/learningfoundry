@@ -38,9 +38,10 @@ top-level `#` title — the wrapper provides it.
 
 ### Architecture Quirks
 
-**`sveltekit_template/` is the source of truth:**
-- The generated SvelteKit project in `build/` (or the configured output directory) is a copy produced by `generator.py`. Never edit files in the output directory — always edit `sveltekit_template/` and re-run `learningfoundry build`.
+**`src/learningfoundry/sveltekit_template/` is the source of truth:**
+- The generated SvelteKit project in `build/` (or the configured output directory) is a copy produced by `generator.py`. Never edit files in the output directory — always edit `src/learningfoundry/sveltekit_template/` and re-run `learningfoundry build`.
 - `curriculum.json` in the output is generated from the resolved curriculum; it does not exist in the template.
+- A workspace-root `sveltekit_template/` duplicate existed pre-v0.25.0 and was removed in v0.53.0 (Story I.r) to prevent drift. Do not re-create it; `generator.py` resolves `_TEMPLATE_DIR` from the package-internal path.
 
 **modelfoundry is NOT a direct dependency:**
 - `docs/specs/modelfoundry/` contains specs for modelfoundry (the ML training library), but learningfoundry does not import or invoke modelfoundry.

@@ -6,6 +6,8 @@ Stories with code changes include a version number (e.g., v0.1.0). Stories with 
 
 For a high-level concept (why), see `concept.md`. For requirements and behavior (what), see `features.md`. For implementation details (how), see `tech-spec.md`. For project-specific must-know facts, see `project-essentials.md` (`plan_phase` appends new facts per phase).
 
+> **Convention change (Story I.r, v0.53.0):** the workspace-root `sveltekit_template/` duplicate was removed. The package-internal copy at `src/learningfoundry/sveltekit_template/` is now the single source of truth — that's the path `generator.py` reads at runtime and the path stories should target. Do NOT add "Mirror to `src/learningfoundry/sveltekit_template/`" tasks to new stories; the prior phrasing inverted cause and effect and let the two copies drift. Existing `[Done]` story checklists keep their historical mirror tasks as a record of what happened at the time.
+
 ---
 
 ## Phase I: Functional and UX Improvements
@@ -767,7 +769,34 @@ This is a foundation story: no new product behaviour ships, but the testability 
 
 ---
 
-### Story I.r: v0.53.0 — Delete Dead Workspace-Root sveltekit_template Duplicate [Planned]
+### Story I.r: v0.53.0 — Dashboard "Continue" Regression Fix [Done]
+
+`ProgressDashboard.svelte`'s `moduleStats()` derives the per-module button text (`Start module →` vs. `Continue →`) from `done > 0`, where `done` counts only **complete** lessons. A module with an `opened` or `in_progress` lesson — but no completed ones — falls through to "Start module →" even though the sidebar correctly shows the lesson as `…` in-progress. v0.43.0 (Story I.h) used the rollup `mp.status` from `getModuleProgress`, which already correctly returns `'in_progress'` for any non-`not_started` lesson; v0.45.0 (Story I.j) replaced that branch with `done > 0` while introducing the `isModuleComplete` check for optional lessons. The `complete` half got more correct; the `in_progress` half regressed silently. Story I.p (`opened` status, v0.51.0) didn't introduce the bug but made it visible on every lesson click.
+
+The fix: restore the `mp.status === 'in_progress'` check for the in-progress branch; keep the existing `isModuleComplete` check for the complete branch (so optional-lessons handling is unchanged).
+
+**Coverage gap.** The existing `ProgressDashboard.test.ts` cases cover `curriculumTotals` (the curriculum-wide bar math) but no case asserts the per-module button text against an in-progress-but-not-complete state. The unit-level case added below would have caught it; the planned full real-DOM rewrite in Story I.t adds the matching mount-level case.
+
+**Tasks:**
+
+- [x] `src/learningfoundry/sveltekit_template/src/lib/components/ProgressDashboard.svelte` — in `moduleStats()`, replace the `done > 0` branch with `mp.status === 'in_progress'`. The `complete` branch and `isModuleComplete` lookup stay unchanged. Update the inline comment to note the rollup-vs-count semantics so a future "simplify" doesn't re-narrow it.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/components/progress-dashboard.helpers.ts` — if a `moduleStatus(mod, progress)` helper exists or is added, exercise it instead so the regression is locked at the helper layer too. If not, skip; the component-level test below is sufficient.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/components/ProgressDashboard.test.ts` — add three vitest cases against the existing helper-style harness (real-mount versions land in Story I.t):
+  - [x] Module with one `opened` lesson and zero `complete` lessons → status is `'in_progress'`, label is `'Continue →'`.
+  - [x] Module with one `in_progress` lesson and zero `complete` lessons → status is `'in_progress'`, label is `'Continue →'`.
+  - [x] Module with zero touched lessons → status is `'not_started'`, label is `'Start module →'` (regression-lock for the previously-correct path).
+- [x] Bump version to v0.53.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.53.0 under "Fixed" (dashboard "Start module" wrongly displayed for modules with opened/in-progress lessons; regression from v0.45.0 surfaced by v0.51.0), "Removed" (workspace-root `sveltekit_template/` duplicate; package copy is the single source of truth), and "Changed" (story-template language; `project-essentials.md` source-of-truth path).
+- [x] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py` (must include `pnpm test` + `pnpm build` succeeding against the package copy), `ruff`, `mypy`. The smoke test is the canonical check for Part 1 — if it passes, the deletion is safe.
+
+**Out of scope:**
+
+- Real-mount `ProgressDashboard` tests asserting the rendered "Continue" / "Start module" link text. That's Story I.t's scope; the helper-style cases added here are sufficient anti-regression coverage in the meantime.
+- Auditing other components for the same `done > 0` vs. `mp.status === 'in_progress'` mismatch. The rollup-vs-count distinction is specific to `ProgressDashboard`; sidebar `ModuleList` already reads `mp.status` correctly.
+
+---
+
+### Story I.s: v0.53.0 — Delete Dead Workspace-Root sveltekit_template Duplicate [Done]
 
 The repository carries two copies of the SvelteKit template: `sveltekit_template/` at the workspace root and `src/learningfoundry/sveltekit_template/` inside the package. Only the package copy runs at runtime — `generator.py` does `_TEMPLATE_DIR = Path(__file__).parent / "sveltekit_template"` and `_atomic_copy()`s that into the user's `build/` output. The root copy is dead code: nothing reads it.
 
@@ -779,15 +808,15 @@ The fix: delete the workspace-root copy and update story-template language so fu
 
 **Tasks:**
 
-- [ ] Delete `sveltekit_template/` (the workspace-root directory, **not** `src/learningfoundry/sveltekit_template/`).
-- [ ] Verify `generator.py`'s `_TEMPLATE_DIR` is unchanged (`Path(__file__).parent / "sveltekit_template"`) — no code change required, just confirmation.
-- [ ] `docs/specs/stories.md` — when adding subsequent stories, drop the "Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`" task. Existing `[Done]` story checklists keep their historical mirror tasks (they record what happened); only the template language for new stories changes. Add a note at the top of the document noting this convention change.
-- [ ] `docs/specs/project-essentials.md` — under "Architecture Quirks" the existing entry says "`sveltekit_template/` is the source of truth: The generated SvelteKit project in `build/` is a copy produced by `generator.py`. Never edit files in the output directory — always edit `sveltekit_template/` and re-run `learningfoundry build`." Update the path to `src/learningfoundry/sveltekit_template/` and add a one-line clarification that the workspace-root duplicate was removed in v0.53.0 to prevent drift.
-- [ ] `docs/specs/phase-I-progress-ux-subplan.md:200` — the relative-path link `../../sveltekit_template/src/lib/components/LessonView.svelte` resolves to the to-be-deleted root copy from this doc's directory. Repoint to `../../src/learningfoundry/sveltekit_template/src/lib/components/LessonView.svelte`.
-- [ ] CHANGELOG entries that mention "workspace-root `sveltekit_template/` kept in sync" stay as historical record — those entries describe what happened at the time and should not be rewritten.
-- [ ] Bump version to v0.53.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] `CHANGELOG.md` — v0.53.0 under "Removed" (workspace-root `sveltekit_template/` duplicate; package copy at `src/learningfoundry/sveltekit_template/` is now the single source of truth) and "Changed" (story-template language; `project-essentials.md` source-of-truth path).
-- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py` (must include `pnpm test` + `pnpm build` succeeding against the package copy), `ruff`, `mypy`. The smoke test is the canonical check — if it passes, the deletion is safe.
+- [x] Delete `sveltekit_template/` (the workspace-root directory, **not** `src/learningfoundry/sveltekit_template/`).
+- [x] Verify `generator.py`'s `_TEMPLATE_DIR` is unchanged (`Path(__file__).parent / "sveltekit_template"`) — no code change required, just confirmation.
+- [x] `docs/specs/stories.md` — when adding subsequent stories, drop the "Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`" task. Existing `[Done]` story checklists keep their historical mirror tasks (they record what happened); only the template language for new stories changes. Add a note at the top of the document noting this convention change.
+- [x] `docs/specs/project-essentials.md` — under "Architecture Quirks" the existing entry says "`sveltekit_template/` is the source of truth: The generated SvelteKit project in `build/` is a copy produced by `generator.py`. Never edit files in the output directory — always edit `sveltekit_template/` and re-run `learningfoundry build`." Update the path to `src/learningfoundry/sveltekit_template/` and add a one-line clarification that the workspace-root duplicate was removed in v0.53.0 to prevent drift.
+- [x] `docs/specs/phase-I-progress-ux-subplan.md:200` — the relative-path link `../../sveltekit_template/src/lib/components/LessonView.svelte` resolves to the to-be-deleted root copy from this doc's directory. Repoint to `../../src/learningfoundry/sveltekit_template/src/lib/components/LessonView.svelte`.
+- [x] CHANGELOG entries that mention "workspace-root `sveltekit_template/` kept in sync" stay as historical record — those entries describe what happened at the time and should not be rewritten.
+- [x] Bump version to v0.53.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`. (Shipped together with Story I.r in the same v0.53.0 release; the story split happened mid-execution and the deletion was already done in the same commit as the dashboard fix.)
+- [x] `CHANGELOG.md` — v0.53.0 under "Removed" (workspace-root `sveltekit_template/` duplicate; package copy is the single source of truth) and "Changed" (story-template language; `project-essentials.md` source-of-truth path). The "Fixed" entry referenced here was for the dashboard regression and is covered by Story I.r's CHANGELOG entry under the same v0.53.0 heading.
+- [x] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py` (must include `pnpm test` + `pnpm build` succeeding against the package copy), `ruff`, `mypy`. The smoke test is the canonical check for Part 1 — if it passes, the deletion is safe.
 
 **Out of scope:**
 
@@ -797,7 +826,7 @@ The fix: delete the workspace-root copy and update story-template language so fu
 - Adding a `pre-commit` hook to prevent re-creating the workspace-root copy. If someone re-creates it intentionally they'll have a reason; if they re-create it by accident the story-template language change in this story is the leading defence.
 
 ---
-### Story I.s: v0.54.0 — Backfill Lesson-Render-Pipeline Real-DOM Tests [Planned]
+### Story I.t: v0.54.0 — Backfill Lesson-Render-Pipeline Real-DOM Tests [Planned]
 
 Stories I.k, I.m, I.o, and I.p deferred component-level mount coverage on the lesson-rendering pipeline because Svelte 5 + vitest mounting wasn't supported until Story I.q (v0.52.0). With the resolve-conditions config now in place and proven by [mount.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/mount.test.ts), the deferred coverage on the highest-regression-risk components (`TextBlock`, `VideoBlock`, `LessonView`) can land without infrastructure work. These three components hit two real-world regressions in the last fortnight (the v0.48.0 zero-area sentinel; the v0.46.0 stale-video-iframe), both of which the helper-style tests passed through unaware. Real-DOM coverage is what would have caught either at the unit-test layer.
 
@@ -819,7 +848,6 @@ The existing helper-style tests stay — they remain useful for debugging the ti
   - [ ] New case: mount with two blocks, simulate `blockcomplete` for both, assert `markLessonComplete` was called, `invalidateProgress` was called with the curriculum, and `onlessoncomplete` fired. (FR-P15 complete transition.)
   - [ ] New case: stub `getLessonProgress` to return `{status: 'complete'}`; mount; assert `markLessonOpened` and `onlessonopen` fire (every mount opens), but `onlessonengage` and `onlessoncomplete` do NOT fire — no transition occurs on revisit. (FR-P15 revisit suppression.)
   - [ ] New case: mount with `lesson.content_blocks = []`; assert `markLessonOpened` → `onlessonopen` → `markLessonComplete` → `onlessoncomplete` fire in that order with no engage event in between. (FR-P15 zero-block edge case.)
-- [ ] Mirror to `src/learningfoundry/sveltekit_template/` (or whichever copy is canonical after Story I.r ships — if I.r ships first, this story has only one location to update; if I.r ships after, both copies still need to be updated).
 - [ ] Bump version to v0.54.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
 - [ ] `CHANGELOG.md` — v0.54.0 under "Added" (real-DOM lesson-render-pipeline test coverage: TextBlock observer callback path, VideoBlock URL-change + fallback wiring, LessonView lifecycle event firing).
 - [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`. The new tests should all pass on first run; any failure indicates a real bug uncovered by the tighter coverage (treat as a fix-before-merge, not a test-tuning exercise).
@@ -833,11 +861,11 @@ The existing helper-style tests stay — they remain useful for debugging the ti
 
 ---
 
-### Story I.t: v0.55.0 — Backfill Sidebar / Dashboard / Button Real-DOM Tests [Planned]
+### Story I.u: v0.55.0 — Backfill Sidebar / Dashboard / Button Real-DOM Tests [Planned]
 
-Companion to Story I.s. Where I.s targets the lesson-render pipeline (high regression risk), this one targets the navigation / dashboard / button chrome. The existing helper-style tests cover the decision logic correctly but cannot catch markup, ARIA, or click-wiring bugs. This story adds parallel real-mount tests for `ModuleList`, `LessonList`, `Navigation`, `ProgressDashboard`, and `ResetCourseButton`.
+Companion to Story I.t. Where I.t targets the lesson-render pipeline (high regression risk), this one targets the navigation / dashboard / button chrome. The existing helper-style tests cover the decision logic correctly but cannot catch markup, ARIA, or click-wiring bugs. This story adds parallel real-mount tests for `ModuleList`, `LessonList`, `Navigation`, `ProgressDashboard`, and `ResetCourseButton`.
 
-The combined surface is wider than I.s but lower-risk. None of these components has hit a production regression in recent history; the value here is closing the long tail of "the test passes, but the rendered DOM doesn't match what the user sees" gaps.
+The combined surface is wider than I.t but lower-risk. None of these components has hit a production regression in recent history; the value here is closing the long tail of "the test passes, but the rendered DOM doesn't match what the user sees" gaps.
 
 **Tasks:**
 
@@ -899,3 +927,4 @@ The `archive_stories` mode preserves this section verbatim when archiving storie
 - **Lifecycle timestamps** — `opened_at`, `engaged_at` columns symmetric with the existing `completed_at`. Deferred from FR-P15 with the explicit reasoning that adding one timestamp at a time yields asymmetric coverage; a coherent treatment covers all transitions, picks a retention/decimation policy, and integrates with whatever telemetry/export story is current at the time.
 - **Spaced repetition / adaptive sequencing**
 - **Multi-curriculum dashboard**
+- **Advanced Testing Infrastructure** - See docs/specs/future-testing-infra-plan.md  

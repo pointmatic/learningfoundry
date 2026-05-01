@@ -16,7 +16,10 @@ from learningfoundry.resolver import (
 )
 
 TEMPLATE_DIR = (
-    Path(__file__).parent.parent / "sveltekit_template"
+    Path(__file__).parent.parent
+    / "src"
+    / "learningfoundry"
+    / "sveltekit_template"
 )
 
 

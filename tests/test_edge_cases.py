@@ -21,7 +21,12 @@ from learningfoundry.schema_v1 import CurriculumV1
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 VALID_CURRICULUM = FIXTURES_DIR / "valid-curriculum.yml"
-TEMPLATE_DIR = Path(__file__).parent.parent / "sveltekit_template"
+TEMPLATE_DIR = (
+    Path(__file__).parent.parent
+    / "src"
+    / "learningfoundry"
+    / "sveltekit_template"
+)
 
 
 # ---------------------------------------------------------------------------

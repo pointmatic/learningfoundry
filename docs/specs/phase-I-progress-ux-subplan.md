@@ -197,7 +197,7 @@ This single defect produces all three bugs:
 
 - **Bug 1** — `LessonView.onMount` is the only call site for `markLessonInProgress` and the only path that reads existing lesson progress to pre-fill state. Because the component never re-mounts, only the very first lesson the user reaches by direct URL ever fires `markLessonInProgress`. If that lesson is not visibly engaged with long enough to trigger every block's completion event, `markLessonComplete` is also never called. Nothing is ever written to `lesson_progress` and the entire downstream progress UX (sidebar checkmarks, module bars, curriculum bar) sits at zero forever.
 - **Bug 2** — `allBlocksComplete` and `completedBlocks` are component-instance state. They become *sticky* across "navigations": once any lesson has fired all its block events, `allBlocksComplete` is `true` for every subsequent lesson the user reaches, until they hard-refresh. Conversely, the FR-P2 revisit pre-fill never gets a chance to run on a re-mount because there is no re-mount.
-- **Bug 3** — even after the navigation defect is fixed and `LessonView` re-mounts, a latent issue remains in [LessonView.svelte:68](../../sveltekit_template/src/lib/components/LessonView.svelte#L68): `{#each lesson.content_blocks as block, i (i)}` keys by index, so any future flow that swaps blocks while `LessonView` stays mounted will reuse the same `<VideoBlock>` instance with new `block` props. `VideoBlock` has no `$effect` watching `content.url`, so the player is never destroyed/recreated. The new URL is silently ignored. (This is what was actually observed before the navigation fix, because the same `LessonView` was being asked to show a new lesson's blocks via prop change rather than re-mount.)
+- **Bug 3** — even after the navigation defect is fixed and `LessonView` re-mounts, a latent issue remains in [LessonView.svelte:68](../../src/learningfoundry/sveltekit_template/src/lib/components/LessonView.svelte#L68): `{#each lesson.content_blocks as block, i (i)}` keys by index, so any future flow that swaps blocks while `LessonView` stays mounted will reuse the same `<VideoBlock>` instance with new `block` props. `VideoBlock` has no `$effect` watching `content.url`, so the player is never destroyed/recreated. The new URL is silently ignored. (This is what was actually observed before the navigation fix, because the same `LessonView` was being asked to show a new lesson's blocks via prop change rather than re-mount.)
 
 ### Why the v0.41–0.45 test harness did not catch this
 
@@ -238,7 +238,7 @@ Introduce Playwright (or a comparably realistic harness) in `sveltekit_template/
 - Returning to a previously completed lesson via sidebar click → Next/Finish enabled immediately.
 - Two lessons with `video` blocks at the same index → only the new video's iframe is in the DOM after navigation.
 
-The harness lives in `sveltekit_template/e2e/` and runs against the built static site (`pnpm build && pnpm preview`) or `pnpm dev`. It is invoked from the smoke pipeline so `tests/test_smoke_sveltekit.py` fails on regression.
+The harness lives in `src/learningfoundry/sveltekit_template/e2e/` and runs against the built static site (`pnpm build && pnpm preview`) or `pnpm dev`. It is invoked from the smoke pipeline so `tests/test_smoke_sveltekit.py` fails on regression.
 
 ### FR-P12: Reset Course Button
 

@@ -1,7 +1,7 @@
 // Copyright 2026 Pointmatic
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
-import { curriculumTotals } from './progress-dashboard.helpers.js';
+import { curriculumTotals, moduleStatus } from './progress-dashboard.helpers.js';
 import type { Module, ModuleProgress, LessonProgress } from '$lib/types/index.js';
 
 function makeModule(id: string, lessonCount: number): Module {
@@ -114,5 +114,69 @@ describe('curriculumTotals (ProgressDashboard)', () => {
 		expect(result.totalLessons).toBe(3);
 		expect(result.totalComplete).toBe(0);
 		expect(result.overallPct).toBe(0);
+	});
+});
+
+describe('moduleStatus (Story I.r — "Continue" button regression fix)', () => {
+	function progressWith(
+		mod: Module,
+		statuses: Record<string, LessonProgress['status']>
+	): ModuleProgress {
+		const lessons: Record<string, LessonProgress> = {};
+		for (const lesson of mod.lessons) {
+			const status = statuses[lesson.id] ?? 'not_started';
+			lessons[lesson.id] = makeLessonProgress(mod.id, lesson.id, status);
+		}
+		// Mirror the rollup that `getModuleProgress` produces in the DB layer
+		// (any non-`not_started` lesson → module-level `in_progress`; all
+		// `complete` → `complete`).
+		const all = Object.values(lessons);
+		const moduleStatus: ModuleProgress['status'] = all.every(
+			(l) => l.status === 'complete'
+		)
+			? 'complete'
+			: all.some((l) => l.status !== 'not_started')
+				? 'in_progress'
+				: 'not_started';
+		return {
+			moduleId: mod.id,
+			status: moduleStatus,
+			lessons,
+			preAssessment: null,
+			postAssessment: null
+		};
+	}
+
+	it("module with one 'opened' lesson and zero complete → in_progress (Continue →)", () => {
+		const m1 = makeModule('mod-01', 3);
+		const progress = {
+			'mod-01': progressWith(m1, { 'lesson-01': 'opened' })
+		};
+		expect(moduleStatus(m1, progress)).toBe('in_progress');
+	});
+
+	it("module with one 'in_progress' lesson and zero complete → in_progress (Continue →)", () => {
+		const m1 = makeModule('mod-01', 3);
+		const progress = {
+			'mod-01': progressWith(m1, { 'lesson-02': 'in_progress' })
+		};
+		expect(moduleStatus(m1, progress)).toBe('in_progress');
+	});
+
+	it('module with zero touched lessons → not_started (Start module →)', () => {
+		const m1 = makeModule('mod-01', 3);
+		const progress = { 'mod-01': progressWith(m1, {}) };
+		expect(moduleStatus(m1, progress)).toBe('not_started');
+	});
+
+	it('module with all lessons complete → complete (✓ Complete badge)', () => {
+		const m1 = makeModule('mod-01', 2);
+		const progress = {
+			'mod-01': progressWith(m1, {
+				'lesson-01': 'complete',
+				'lesson-02': 'complete'
+			})
+		};
+		expect(moduleStatus(m1, progress)).toBe('complete');
 	});
 });

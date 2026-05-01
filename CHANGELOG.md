@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-05-01
+
+### Fixed
+
+- **Dashboard "Start module →" wrongly displayed for modules with active-but-incomplete lessons.** `ProgressDashboard.svelte`'s `moduleStats()` derived per-module status from `done > 0` (count of `complete` lessons), so a module with an `opened` or `in_progress` lesson — but zero completed lessons — fell back to "Start module →" even though the sidebar correctly showed the lesson as `…`. Regression introduced in v0.45.0 (Story I.j) when the in-progress branch was narrowed from the rollup `mp.status` to a count check, made visible on every lesson click by v0.51.0 (Story I.p, `opened` status). Fix: restore the rollup-based check (`mp.status === 'in_progress'`); optional-lessons handling via `isModuleComplete` is unchanged. Logic extracted into a new `moduleStatus(mod, progress, curriculum?)` helper in `progress-dashboard.helpers.ts` with four anti-regression unit cases (`opened`, `in_progress`, `not_started`, `complete`).
+
+### Removed
+
+- **Workspace-root `sveltekit_template/` duplicate.** The template was duplicated into `src/learningfoundry/sveltekit_template/` in v0.25.0 (PyPI wheel-shipping prep) and `_TEMPLATE_DIR` was repointed at the package copy, but the original at the repo root was never deleted. Nothing read it — verified across Python source, GitHub workflows, `.vscode/settings.json`, `pyproject.toml`, and `.gitignore` (the `*/sveltekit_template/*` and `**/sveltekit_template/static/sql-wasm.wasm` globs match the package copy after deletion). The two copies had already drifted on `curriculum.ts`, `+layout.svelte`, `app.css`, `markdown.ts`, and several test files. Deleting it eliminates the drift hazard and removes a confusing "mirror" step from every story.
+
+### Changed
+
+- `src/learningfoundry/sveltekit_template/` is now the documented single source of truth. `docs/specs/project-essentials.md` "Architecture Quirks" entry updated; `docs/specs/stories.md` gains a top-of-document convention note instructing future stories not to add `sveltekit_template/` "mirror" tasks; one stale relative-path link in `docs/specs/phase-I-progress-ux-subplan.md` repointed at the package copy.
+
 ## [0.52.0] - 2026-05-01
 
 ### Added

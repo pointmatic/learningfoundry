@@ -2,7 +2,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import type { Curriculum, Module, ModuleProgress, QuizScore } from '$lib/types/index.js';
-	import { getOptionalLessons, isModuleComplete } from '$lib/utils/locking.js';
+	import { getOptionalLessons } from '$lib/utils/locking.js';
+	import { moduleStatus } from './progress-dashboard.helpers.js';
 	import ProgressBar from './ProgressBar.svelte';
 
 	interface Props {
@@ -27,14 +28,9 @@
 			return { done: 0, total, pct: 0, status: 'not_started' };
 		}
 		const done = Object.values(mp.lessons).filter((l) => l.status === 'complete').length;
-		const complete = curriculum
-			? isModuleComplete(mod.id, curriculum, progress)
-			: mp.status === 'complete';
-		const status: ModuleStatus = complete
-			? 'complete'
-			: done > 0
-				? 'in_progress'
-				: 'not_started';
+		// Status delegated to the helper so the rollup-vs-count distinction
+		// (anti-regression for v0.45–v0.52) is locked at the helper layer.
+		const status = moduleStatus(mod, progress, curriculum);
 		return { done, total, pct: Math.round((done / total) * 100), status };
 	}
 

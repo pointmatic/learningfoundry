@@ -6,7 +6,7 @@ Implement stories using test-driven development (TDD). Write a failing test befo
 
 For each story:
 
-1. **Read** the story's checklist from `docs/specs/stories.md`
+1. **Read** the story's checklist from `docs/specs/stories.md` — always re-fetch from disk with the `Read` tool at the start of each cycle. The developer may have edited the file since you last viewed it (added tasks, reworded scope, marked items done), so do not rely on prior conversation context for its contents.
 2. For each task in the checklist:
    a. **Write a failing test** that describes the expected behavior
    b. **Run the test** -- confirm it fails (red)
