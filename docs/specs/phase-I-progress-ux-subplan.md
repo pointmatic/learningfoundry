@@ -181,6 +181,67 @@ The threshold is passed through the Python resolver into `curriculum.json` and c
 
 ---
 
+## Discovered Post-Shipping (after v0.45.0)
+
+Three independent user-visible bugs reproduced consistently against any multi-lesson curriculum with at least one video block:
+
+1. **No progress is ever recorded** — no checkmarks in the sidebar, no module % advancement, no curriculum-level progress bar movement, regardless of how long the learner spends in lessons or how many they "finish."
+2. **Next/Finish is deactivated when revisiting a previously completed lesson** — the button does not honour the FR-P2 "if already `complete`, pre-fill set so button is immediately active" contract.
+3. **Old video block remains visible when navigating between two lessons that both contain a `video` block** — the new lesson's URL is silently ignored and the original player keeps playing.
+
+### Root cause
+
+A single navigation defect in `Navigation.goNext()` and `LessonList.handleClick()` cascades into all three symptoms. The Story I.g task list specifies that `Navigation.goNext()` calls `navigateTo(next.moduleId, next.lessonId)`, and `LessonList.handleClick()` does the same on sidebar lesson clicks. But `navigateTo` is the *curriculum-store* helper at `stores/curriculum.ts` — it sets `currentPosition` and nothing else. The lesson route `[module]/[lesson]/+page.svelte` derives the rendered lesson from `page.params`, not from `currentPosition`. So in-app "navigation" updates the sidebar highlight and the `nextLesson` / `previousLesson` derived stores, but **the URL never changes** and `LessonView` is never re-mounted for the next lesson. The user stays on whichever lesson they originally landed on directly.
+
+This single defect produces all three bugs:
+
+- **Bug 1** — `LessonView.onMount` is the only call site for `markLessonInProgress` and the only path that reads existing lesson progress to pre-fill state. Because the component never re-mounts, only the very first lesson the user reaches by direct URL ever fires `markLessonInProgress`. If that lesson is not visibly engaged with long enough to trigger every block's completion event, `markLessonComplete` is also never called. Nothing is ever written to `lesson_progress` and the entire downstream progress UX (sidebar checkmarks, module bars, curriculum bar) sits at zero forever.
+- **Bug 2** — `allBlocksComplete` and `completedBlocks` are component-instance state. They become *sticky* across "navigations": once any lesson has fired all its block events, `allBlocksComplete` is `true` for every subsequent lesson the user reaches, until they hard-refresh. Conversely, the FR-P2 revisit pre-fill never gets a chance to run on a re-mount because there is no re-mount.
+- **Bug 3** — even after the navigation defect is fixed and `LessonView` re-mounts, a latent issue remains in [LessonView.svelte:68](../../sveltekit_template/src/lib/components/LessonView.svelte#L68): `{#each lesson.content_blocks as block, i (i)}` keys by index, so any future flow that swaps blocks while `LessonView` stays mounted will reuse the same `<VideoBlock>` instance with new `block` props. `VideoBlock` has no `$effect` watching `content.url`, so the player is never destroyed/recreated. The new URL is silently ignored. (This is what was actually observed before the navigation fix, because the same `LessonView` was being asked to show a new lesson's blocks via prop change rather than re-mount.)
+
+### Why the v0.41–0.45 test harness did not catch this
+
+- **Vitest tests with `$app/navigation` mocked.** Stories I.f and I.g specified tests that mock `goto` (e.g. *"Test: Finish button calls `goto('/')` on last lesson (mock `$app/navigation`)"*). These tests assert that the *navigation function is called* — they do not assert that the *rendered lesson swapped* or that the URL changed. A mocked `goto` hides the absence of a real call.
+- **No assertion on the `goNext` → URL effect link.** The Story I.g `LessonView.test.ts` task asserted button-disabled gating and `markLessonComplete` invocation but did not exercise the `<Navigation>` button's `onclick` and observe that the next lesson actually rendered.
+- **No end-to-end harness.** There is no Playwright (or equivalent) browser test in the template, so the cascade from "click Next" → URL change → `+page.svelte` re-derivation → `LessonView` re-mount → `markLessonInProgress` for the new lesson was never exercised end-to-end.
+
+### Plan delta
+
+Two new feature requirements complete the navigation/lifecycle contract that FR-P2 implicitly assumed, plus a test-harness requirement. They are added below; Story I.k implements all three.
+
+### FR-P9: Lesson Navigation Actually Changes the URL
+
+In-app lesson navigation must update the SvelteKit URL (`/${moduleId}/${lessonId}`) so the lesson route re-derives `lesson` and `module` from `page.params` and `LessonView` re-mounts. The `currentPosition` store remains the source of truth for "which lesson is highlighted" but stops being a parallel routing mechanism.
+
+- `Navigation.goNext()`: `if (next) goto(\`/${next.moduleId}/${next.lessonId}\`); else goto('/')`.
+- `Navigation.goPrev()`: `if (prev) goto(\`/${prev.moduleId}/${prev.lessonId}\`)`.
+- `LessonList.handleClick(lessonId)`: `goto(\`/${moduleId}/${lessonId}\`)` (replacing the bare `navigateTo` call).
+- `ProgressDashboard.resumeFirst(mod)`: `goto(\`/${mod.id}/${target.id}\`)`.
+- `currentPosition` is updated as a side effect of route changes (the existing `$effect` in `[module]/[lesson]/+page.svelte` already does this — no new wiring needed).
+- `navigateTo()` is kept for places where store-only updates are intentional (none currently exist; the helper becomes a thin wrapper used only by the route's URL→store sync). Alternatively, rename it to `setPositionFromRoute()` to remove the foot-gun name; chosen approach is at the implementor's discretion.
+
+### FR-P10: Component Lifecycle Invariants for Lesson and Block Swaps
+
+Codify the lifecycle contracts that FR-P2 and I.g assumed but never enforced:
+
+- **LessonView re-mounts per lesson.** Either via the route naturally tearing down `[module]/[lesson]/+page.svelte`'s subtree on URL change (the SvelteKit-default behaviour once FR-P9 is in place), or explicitly via `{#key lesson.id}<LessonView … />{/key}` in `+page.svelte`. The chosen mechanism must guarantee `onMount` runs for each distinct `(moduleId, lessonId)` the learner reaches.
+- **Content block iteration keys on identity, not index.** `LessonView`'s `{#each}` keys on a stable per-block identity (e.g. `block.ref ?? block.url ?? \`${block.type}-${i}\``). The intent: when blocks are added, removed, or have their content swapped, Svelte tears down the right instances and creates new ones rather than reusing slots.
+- **VideoBlock reacts to `content.url` changes.** Even with a stable iteration key, `VideoBlock` carries an `$effect` that destroys and re-creates the YouTube player when `content.url` changes within the same component instance. This keeps the player aligned with its content if the parent ever does choose to update props in place.
+
+### FR-P11: End-to-End Test Harness
+
+Introduce Playwright (or a comparably realistic harness) in `sveltekit_template/` to exercise the routing + lifecycle cascade that vitest with mocked `$app/navigation` cannot reach. Smoke tests must include:
+
+- Sidebar lesson click → URL updates → new lesson title rendered.
+- Next button on a complete lesson → URL advances by one in `lessonSequence` order.
+- Lesson visibly engaged for long enough to fire all block events → checkmark appears in sidebar and module % advances, *without* a page reload.
+- Returning to a previously completed lesson via sidebar click → Next/Finish enabled immediately.
+- Two lessons with `video` blocks at the same index → only the new video's iframe is in the DOM after navigation.
+
+The harness lives in `sveltekit_template/e2e/` and runs against the built static site (`pnpm build && pnpm preview`) or `pnpm dev`. It is invoked from the smoke pipeline so `tests/test_smoke_sveltekit.py` fails on regression.
+
+---
+
 ## Story Map
 
 | Story | Version | Title | Focus |
@@ -190,3 +251,4 @@ The threshold is passed through the Python resolver into `curriculum.json` and c
 | I.h | v0.43.0 | Curriculum Progress Bar | Dashboard total-progress bar, reactive store |
 | I.i | v0.44.0 | Locking Configuration Schema | Python schema, resolver, config |
 | I.j | v0.45.0 | Locking and Unlocking UI | Frontend locked state, unlock cascade, optional lessons |
+| I.k | v0.46.0 | Lesson Navigation Lifecycle Fix and E2E Harness | FR-P9, FR-P10, FR-P11 — discovered post-shipping |
