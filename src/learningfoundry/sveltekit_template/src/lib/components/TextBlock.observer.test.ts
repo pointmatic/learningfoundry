@@ -1,51 +1,93 @@
 // Copyright 2026 Pointmatic
 // SPDX-License-Identifier: Apache-2.0
 //
-// Anti-regression coverage for the v0.48.0 sentinel zero-area trap.
+// Real-DOM coverage for `TextBlock.svelte` — guards against the v0.48.0
+// regression where the end-of-block sentinel had `height: 0`, causing
+// `IntersectionObserver`'s `intersectionRatio` to degenerate to zero
+// against the configured `0.1` threshold and the `isIntersecting`
+// branch to never fire (no `textcomplete` → no `markLessonComplete` →
+// no progress at all).
 //
-// In v0.48.0 the end-of-block sentinel was rendered as
-//   <div bind:this={sentinelEl} aria-hidden="true" data-textblock-end></div>
-// — zero area, which makes `IntersectionObserver` compute
-// `intersectionRatio = 0` against the configured `0.1` threshold and
-// the `isIntersecting` branch never fires in real browsers. Net effect:
-// no `textcomplete`, no `markLessonComplete`, no progress at all.
-//
-// We tried mounting `TextBlock` with `@testing-library/svelte` and with
-// Svelte's server `render` API to capture the observed element directly,
-// but Svelte 5 + vitest + the SvelteKit vite plugin compile components
-// in client mode by default and the server renderer trips on
-// `get_first_child`. Reworking that compilation path is its own
-// infrastructure story; until then we lock the regression at the
-// source-template layer with a string assertion. This is brittle to
-// formatting but cheap, fast, and catches the specific class of bug.
-// The e2e harness (`progress.spec.ts`, `text-block-bottom.spec.ts`)
-// is the canonical cross-check that the markup actually behaves.
-import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+// Mounts the component via `@testing-library/svelte` (enabled by the
+// `resolve.conditions: ['browser']` vite-config addition in Story I.q),
+// stubs `IntersectionObserver` to capture the observed element, and
+// asserts the captured element is the sentinel and carries a non-zero
+// inline height.
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render } from '@testing-library/svelte';
+import TextBlock from './TextBlock.svelte';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const TEXT_BLOCK_SRC = readFileSync(resolve(HERE, 'TextBlock.svelte'), 'utf-8');
+interface CapturedObserver {
+	target: Element | null;
+}
 
-describe('TextBlock end-of-block sentinel (source invariants)', () => {
-	it('renders a sentinel with `data-textblock-end`', () => {
-		expect(TEXT_BLOCK_SRC).toMatch(/data-textblock-end/);
+function stubIntersectionObserver(): CapturedObserver {
+	const captured: CapturedObserver = { target: null };
+	class FakeObserver {
+		observe(el: Element) {
+			captured.target = el;
+		}
+		unobserve() {}
+		disconnect() {}
+		takeRecords() {
+			return [];
+		}
+	}
+	vi.stubGlobal(
+		'IntersectionObserver',
+		FakeObserver as unknown as typeof IntersectionObserver
+	);
+	return captured;
+}
+
+describe('TextBlock real-DOM IntersectionObserver target', () => {
+	let captured: CapturedObserver;
+
+	beforeEach(() => {
+		captured = stubIntersectionObserver();
 	});
 
-	it('sentinel carries a non-zero inline height (anti-regression)', () => {
-		// The sentinel must have an explicit non-zero `height` so the
-		// observer's `intersectionRatio` is meaningful against `threshold: 0.1`.
-		const sentinelTag = TEXT_BLOCK_SRC.match(/<div[^>]*data-textblock-end[^>]*>/)?.[0];
-		expect(sentinelTag, 'sentinel <div> not found in TextBlock.svelte').toBeDefined();
-		expect(sentinelTag).toMatch(/style="[^"]*height:\s*1px/);
+	afterEach(() => {
+		vi.unstubAllGlobals();
 	});
 
-	it('observes the sentinel, not the wrapper', () => {
-		// `observer.observe(...)` must target `sentinelEl`, not any prior
-		// wrapper binding. If a future refactor reintroduces a wrapper
-		// binding and observes that, this assertion catches it before the
-		// regression reaches the e2e layer.
-		expect(TEXT_BLOCK_SRC).toMatch(/observer\.observe\(sentinelEl\)/);
+	it('observes the end-of-block sentinel, not the wrapper', () => {
+		render(TextBlock, {
+			props: {
+				content: { markdown: '# Hello\n\nBody text.', path: 'fake/path.md' },
+				ontextcomplete: () => {}
+			}
+		});
+		expect(captured.target).not.toBeNull();
+		expect((captured.target as HTMLElement).hasAttribute('data-textblock-end')).toBe(true);
+	});
+
+	it('observed sentinel has non-zero inline height (anti-regression)', () => {
+		render(TextBlock, {
+			props: {
+				content: { markdown: 'Just some prose.', path: 'fake/path.md' },
+				ontextcomplete: () => {}
+			}
+		});
+		const el = captured.target as HTMLElement;
+		expect(el).not.toBeNull();
+		// jsdom doesn't lay out, so `getBoundingClientRect()` is unreliable;
+		// the inline `style.height` is what the browser reads at runtime to
+		// give the observer a non-degenerate ratio.
+		expect(el.style.height).toBe('1px');
+	});
+
+	it('does not observe the prose wrapper directly', () => {
+		render(TextBlock, {
+			props: {
+				content: { markdown: 'Some prose.', path: 'fake/path.md' },
+				ontextcomplete: () => {}
+			}
+		});
+		const el = captured.target as HTMLElement;
+		expect(el).not.toBeNull();
+		// The wrapper (`<div class="prose ...">`) does NOT carry the
+		// sentinel marker, so observing it would slip past this assertion.
+		expect(el.classList.contains('prose')).toBe(false);
 	});
 });

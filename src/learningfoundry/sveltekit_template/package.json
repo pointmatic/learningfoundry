@@ -27,6 +27,8 @@
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@tailwindcss/typography": "^0.5.16",
     "@tailwindcss/vite": "^4.0.0",
+    "@testing-library/jest-dom": "^6.6.0",
+    "@testing-library/svelte": "^5.2.0",
     "@types/sql.js": "^1.4.11",
     "jsdom": "^25.0.0",
     "prettier": "^3.0.0",

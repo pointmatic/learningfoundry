@@ -727,7 +727,7 @@ This story splits the conflation along three dimensions: a status-enum extension
 
 ---
 
-### Story I.q: v0.52.0 — Vitest Component Mount Support for Svelte 5 [Planned]
+### Story I.q: v0.52.0 — Vitest Component Mount Support for Svelte 5 [Done]
 
 Stories I.o and I.p both deferred component-level vitest coverage with the same root-cause caveat: mounting a Svelte 5 component inside vitest's jsdom environment trips `lifecycle_function_unavailable` (`mount(...) is not available on the server`), and falling back to Svelte's server `render` API trips `get_first_child` because the SvelteKit vite plugin compiles the component in client mode regardless. As a result, several test goals from those stories were either skipped, downgraded to source-text assertions (`TextBlock.observer.test.ts`), or relegated to the e2e layer (`LessonView` lifecycle event firing, `VideoBlock` URL-change re-mount). The e2e layer eventually catches these regressions, but the feedback loop is minutes (full pnpm install + Playwright + browser launch) instead of seconds, and the e2e harness is skipped entirely when Chromium isn't installed.
 
@@ -737,25 +737,25 @@ This is a foundation story: no new product behaviour ships, but the testability 
 
 **Tasks:**
 
-- [ ] `sveltekit_template/vite.config.ts`:
-  - [ ] Add a vitest-only `resolve.conditions: ['browser']` block guarded by `process.env.VITEST` so production `vite build` is unaffected. Document the guard with a one-line comment pointing at this story / FR-P15-Q3 (Svelte 5 mount in jsdom).
-  - [ ] Verify the existing `test: { environment: 'jsdom' }` block stays put — the fix is at the resolution layer, not the environment layer.
-- [ ] `sveltekit_template/package.json`:
-  - [ ] Add `@testing-library/svelte` as a dev dependency (re-add what was removed in I.o once the config supports it).
-  - [ ] Add `@testing-library/jest-dom` if `expect(...).toBeInTheDocument()` style matchers are wanted; otherwise skip and use plain DOM assertions.
-- [ ] `sveltekit_template/src/lib/components/TextBlock.observer.test.ts` (rewrite):
-  - [ ] Replace the source-text assertions with a real mount: render `<TextBlock>` via `@testing-library/svelte`, stub `IntersectionObserver` to capture the observed element, assert (a) the captured element has `[data-textblock-end]` and (b) `getBoundingClientRect().height > 0` (or the inline `style.height === '1px'` if jsdom doesn't lay out reliably).
-  - [ ] Keep the source-text assertions in place during the transition if useful, or delete them — the mount test is strictly stronger.
-- [ ] `sveltekit_template/src/lib/components/mount.test.ts` (new, smoke):
-  - [ ] One trivial test that mounts the simplest possible component (e.g. a fresh inline `<button>Hi</button>` Svelte component or a re-mount of an existing leaf like `ProgressBar`) and asserts the resulting DOM. Smoke check that the resolve-conditions fix is in place and didn't silently revert.
-- [ ] `docs/specs/project-essentials.md`:
-  - [ ] Add a one-paragraph entry under "Workflow Rules" or a new "Testing" subsection: "Svelte 5 component mounts in vitest require `resolve.conditions: ['browser']` in `vite.config.ts`. Don't remove the `process.env.VITEST` guard — production `vite build` must not pick up the browser conditions or it will mis-bundle SSR-only code paths."
-- [ ] Verify by re-enabling one previously-deferred test (and only one — others are follow-up scope):
-  - [ ] Re-instate the FR-P15 / Story I.p `LessonView.test.ts` "on mount, `markLessonOpened` is called and `onlessonopen` fires" case via real mount + mock DB. Assert the call ordering: `markLessonOpened` resolves before `onlessonopen` fires.
-- [ ] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
-- [ ] Bump version to v0.52.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] `CHANGELOG.md` — v0.52.0 under "Added" (Svelte 5 component mount support in vitest; `@testing-library/svelte` dev dependency restored; one re-instated `LessonView` mount test) and "Changed" (`vite.config.ts` adds `resolve.conditions: ['browser']` under `process.env.VITEST`).
-- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`. Confirm `pnpm build` still produces a working static site (the resolve-conditions guard must not leak into production builds).
+- [x] `sveltekit_template/vite.config.ts`:
+  - [x] Add a vitest-only `resolve.conditions: ['browser']` block guarded by `process.env.VITEST` so production `vite build` is unaffected. Document the guard with a one-line comment pointing at this story / FR-P15-Q3 (Svelte 5 mount in jsdom).
+  - [x] Verify the existing `test: { environment: 'jsdom' }` block stays put — the fix is at the resolution layer, not the environment layer.
+- [x] `sveltekit_template/package.json`:
+  - [x] Add `@testing-library/svelte` as a dev dependency (re-add what was removed in I.o once the config supports it).
+  - [x] Add `@testing-library/jest-dom` if `expect(...).toBeInTheDocument()` style matchers are wanted; otherwise skip and use plain DOM assertions.
+- [x] `sveltekit_template/src/lib/components/TextBlock.observer.test.ts` (rewrite):
+  - [x] Replace the source-text assertions with a real mount: render `<TextBlock>` via `@testing-library/svelte`, stub `IntersectionObserver` to capture the observed element, assert (a) the captured element has `[data-textblock-end]` and (b) `getBoundingClientRect().height > 0` (or the inline `style.height === '1px'` if jsdom doesn't lay out reliably).
+  - [x] Keep the source-text assertions in place during the transition if useful, or delete them — the mount test is strictly stronger.
+- [x] `sveltekit_template/src/lib/components/mount.test.ts` (new, smoke):
+  - [x] One trivial test that mounts the simplest possible component (e.g. a fresh inline `<button>Hi</button>` Svelte component or a re-mount of an existing leaf like `ProgressBar`) and asserts the resulting DOM. Smoke check that the resolve-conditions fix is in place and didn't silently revert.
+- [x] `docs/specs/project-essentials.md`:
+  - [x] Add a one-paragraph entry under "Workflow Rules" or a new "Testing" subsection: "Svelte 5 component mounts in vitest require `resolve.conditions: ['browser']` in `vite.config.ts`. Don't remove the `process.env.VITEST` guard — production `vite build` must not pick up the browser conditions or it will mis-bundle SSR-only code paths."
+- [x] Verify by re-enabling one previously-deferred test (and only one — others are follow-up scope):
+  - [x] Re-instate the FR-P15 / Story I.p `LessonView.test.ts` "on mount, `markLessonOpened` is called and `onlessonopen` fires" case via real mount + mock DB. Assert the call ordering: `markLessonOpened` resolves before `onlessonopen` fires.
+- [x] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
+- [x] Bump version to v0.52.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.52.0 under "Added" (Svelte 5 component mount support in vitest; `@testing-library/svelte` dev dependency restored; one re-instated `LessonView` mount test) and "Changed" (`vite.config.ts` adds `resolve.conditions: ['browser']` under `process.env.VITEST`).
+- [x] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`. Confirm `pnpm build` still produces a working static site (the resolve-conditions guard must not leak into production builds).
 
 **Out of scope:**
 
@@ -766,6 +766,115 @@ This is a foundation story: no new product behaviour ships, but the testability 
 - Re-evaluating Storybook or other component-rendering harnesses.
 
 ---
+
+### Story I.r: v0.53.0 — Delete Dead Workspace-Root sveltekit_template Duplicate [Planned]
+
+The repository carries two copies of the SvelteKit template: `sveltekit_template/` at the workspace root and `src/learningfoundry/sveltekit_template/` inside the package. Only the package copy runs at runtime — `generator.py` does `_TEMPLATE_DIR = Path(__file__).parent / "sveltekit_template"` and `_atomic_copy()`s that into the user's `build/` output. The root copy is dead code: nothing reads it.
+
+**Origin (verified from git history):** the root copy was the original location in v0.12.0; `generator.py` walked up to it via `Path(__file__).parent.parent.parent / "sveltekit_template"`. v0.25.0 ("Final Polish and Release Prep") copied the template *into* the package so it would ship inside the PyPI wheel and changed `_TEMPLATE_DIR` to the in-package path. The root copy was supposed to be deleted at that point but wasn't. Every story since has carried a "mirror to `src/learningfoundry/sveltekit_template`" task — phrasing inverted from runtime reality, which has caused steady confusion and steady drift. The two copies already differ on `curriculum.ts`, `+layout.svelte`, `app.css`, and `markdown.ts`; several test files exist only in the package version.
+
+**Verified zero runtime/CI/IDE coupling:** no Python source references the root path, no GitHub workflow references either copy, no `.vscode/settings.json` reference. `pyproject.toml`'s coverage `omit = ["*/sveltekit_template/*"]` and `.gitignore`'s `**/sveltekit_template/static/sql-wasm.wasm` match both copies and remain valid after deletion.
+
+The fix: delete the workspace-root copy and update story-template language so future work doesn't reintroduce the mirroring step.
+
+**Tasks:**
+
+- [ ] Delete `sveltekit_template/` (the workspace-root directory, **not** `src/learningfoundry/sveltekit_template/`).
+- [ ] Verify `generator.py`'s `_TEMPLATE_DIR` is unchanged (`Path(__file__).parent / "sveltekit_template"`) — no code change required, just confirmation.
+- [ ] `docs/specs/stories.md` — when adding subsequent stories, drop the "Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`" task. Existing `[Done]` story checklists keep their historical mirror tasks (they record what happened); only the template language for new stories changes. Add a note at the top of the document noting this convention change.
+- [ ] `docs/specs/project-essentials.md` — under "Architecture Quirks" the existing entry says "`sveltekit_template/` is the source of truth: The generated SvelteKit project in `build/` is a copy produced by `generator.py`. Never edit files in the output directory — always edit `sveltekit_template/` and re-run `learningfoundry build`." Update the path to `src/learningfoundry/sveltekit_template/` and add a one-line clarification that the workspace-root duplicate was removed in v0.53.0 to prevent drift.
+- [ ] `docs/specs/phase-I-progress-ux-subplan.md:200` — the relative-path link `../../sveltekit_template/src/lib/components/LessonView.svelte` resolves to the to-be-deleted root copy from this doc's directory. Repoint to `../../src/learningfoundry/sveltekit_template/src/lib/components/LessonView.svelte`.
+- [ ] CHANGELOG entries that mention "workspace-root `sveltekit_template/` kept in sync" stay as historical record — those entries describe what happened at the time and should not be rewritten.
+- [ ] Bump version to v0.53.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [ ] `CHANGELOG.md` — v0.53.0 under "Removed" (workspace-root `sveltekit_template/` duplicate; package copy at `src/learningfoundry/sveltekit_template/` is now the single source of truth) and "Changed" (story-template language; `project-essentials.md` source-of-truth path).
+- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py` (must include `pnpm test` + `pnpm build` succeeding against the package copy), `ruff`, `mypy`. The smoke test is the canonical check — if it passes, the deletion is safe.
+
+**Out of scope:**
+
+- Restructuring `pyproject.toml`'s coverage glob or `.gitignore` patterns. The current globs match both copies; they continue to work after the root copy is gone with no false positives.
+- Auditing every relative-path doc link for unrelated dead references. Only fix ones that point at the deleted directory.
+- Migrating the package copy to a different location (e.g. `src/learningfoundry/templates/sveltekit/`). The current package-internal path is fine; renaming has no upside and breaks every link in the `[Done]` history.
+- Adding a `pre-commit` hook to prevent re-creating the workspace-root copy. If someone re-creates it intentionally they'll have a reason; if they re-create it by accident the story-template language change in this story is the leading defence.
+
+---
+### Story I.s: v0.54.0 — Backfill Lesson-Render-Pipeline Real-DOM Tests [Planned]
+
+Stories I.k, I.m, I.o, and I.p deferred component-level mount coverage on the lesson-rendering pipeline because Svelte 5 + vitest mounting wasn't supported until Story I.q (v0.52.0). With the resolve-conditions config now in place and proven by [mount.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/mount.test.ts), the deferred coverage on the highest-regression-risk components (`TextBlock`, `VideoBlock`, `LessonView`) can land without infrastructure work. These three components hit two real-world regressions in the last fortnight (the v0.48.0 zero-area sentinel; the v0.46.0 stale-video-iframe), both of which the helper-style tests passed through unaware. Real-DOM coverage is what would have caught either at the unit-test layer.
+
+The existing helper-style tests stay — they remain useful for debugging the timer/debounce logic in isolation. This story adds parallel real-mount tests that exercise the markup and the runtime observer / player wiring.
+
+**Tasks:**
+
+- [ ] `sveltekit_template/src/lib/components/TextBlock.observer.test.ts` (extend, do not delete I.q's coverage):
+  - [ ] Add a case that simulates the `IntersectionObserver` callback firing with `isIntersecting: true` for the captured sentinel target, advances fake timers by 1 s, and asserts `ontextcomplete` was invoked exactly once. The current I.q tests verify *which* element is observed and that it has the right shape; this case verifies the runtime callback path the observer would actually take.
+  - [ ] Add a case that simulates `isIntersecting: true` followed by `isIntersecting: false` before 1 s elapses, advances timers, and asserts `ontextcomplete` was NOT invoked (regression-lock for the early-leave cancel path).
+  - [ ] Capture the observer-callback function via the `IntersectionObserver` constructor stub: `vi.stubGlobal('IntersectionObserver', ...)` where the fake records both the target and the callback so the test can drive it directly.
+- [ ] `sveltekit_template/src/lib/components/VideoBlock.test.ts` (rewrite from helper-only to mount-based):
+  - [ ] Keep the existing `createViewportTracker` cases — they still document the fallback timer logic.
+  - [ ] New case: mount `<VideoBlock>` with a YouTube URL, assert `(window as any).YT` script-tag injection happened (via `document.querySelector('script[src*="youtube.com/iframe_api"]')`) and that the `[id^="yt-player-"]` placeholder element rendered.
+  - [ ] New case: mount with one URL, then re-render with a different URL via prop update; capture `YT.Player` calls (stubbed) and assert (a) the previous player's `destroy()` was called, (b) a new player was created with the new `videoId` extracted from the new URL, (c) the internal `fired` flag was reset (proxy: `onvideocomplete` can fire again on the new player's `ENDED` state). Use `vi.useFakeTimers()` and `vi.stubGlobal('YT', ...)` per the existing pattern.
+  - [ ] New case: mount without `window.YT`; advance timers past the 5 s fallback threshold; assert the viewport-fallback `IntersectionObserver` was attached to the wrapper element. (Catches the regression where the fallback path silently breaks.)
+- [ ] `sveltekit_template/src/lib/components/LessonView.test.ts` (extend; the I.q ordering case stays):
+  - [ ] New case: mount `<LessonView>` with one block, simulate a `blockcomplete` event, assert `markLessonInProgress` was called and `onlessonengage` fired with `{moduleId, lessonId}`. (FR-P15 engage transition.)
+  - [ ] New case: mount with two blocks, simulate `blockcomplete` for both, assert `markLessonComplete` was called, `invalidateProgress` was called with the curriculum, and `onlessoncomplete` fired. (FR-P15 complete transition.)
+  - [ ] New case: stub `getLessonProgress` to return `{status: 'complete'}`; mount; assert `markLessonOpened` and `onlessonopen` fire (every mount opens), but `onlessonengage` and `onlessoncomplete` do NOT fire — no transition occurs on revisit. (FR-P15 revisit suppression.)
+  - [ ] New case: mount with `lesson.content_blocks = []`; assert `markLessonOpened` → `onlessonopen` → `markLessonComplete` → `onlessoncomplete` fire in that order with no engage event in between. (FR-P15 zero-block edge case.)
+- [ ] Mirror to `src/learningfoundry/sveltekit_template/` (or whichever copy is canonical after Story I.r ships — if I.r ships first, this story has only one location to update; if I.r ships after, both copies still need to be updated).
+- [ ] Bump version to v0.54.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [ ] `CHANGELOG.md` — v0.54.0 under "Added" (real-DOM lesson-render-pipeline test coverage: TextBlock observer callback path, VideoBlock URL-change + fallback wiring, LessonView lifecycle event firing).
+- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`. The new tests should all pass on first run; any failure indicates a real bug uncovered by the tighter coverage (treat as a fix-before-merge, not a test-tuning exercise).
+
+**Out of scope:**
+
+- Replacing `createViewportTracker` and `createBlockTracker` helper tests entirely. Those tests are fast, debug-friendly, and document the timer/debounce contracts in isolation — keep them as a layered defence below the new mount tests.
+- Real Chromium-driven `IntersectionObserver` testing (e.g. via `@vitest/browser`). The stubbed-observer + drive-the-callback pattern is sufficient at the unit-test layer; the e2e harness covers the real-browser version.
+- Mounting `ContentBlock.svelte` directly. It's a thin dispatcher with no logic of its own; testing it adds no coverage that the per-block tests don't already give.
+- Per-block lifecycle events at the `ContentBlock` level. Story I.p explicitly out-of-scoped this; revisit when a subscriber appears.
+
+---
+
+### Story I.t: v0.55.0 — Backfill Sidebar / Dashboard / Button Real-DOM Tests [Planned]
+
+Companion to Story I.s. Where I.s targets the lesson-render pipeline (high regression risk), this one targets the navigation / dashboard / button chrome. The existing helper-style tests cover the decision logic correctly but cannot catch markup, ARIA, or click-wiring bugs. This story adds parallel real-mount tests for `ModuleList`, `LessonList`, `Navigation`, `ProgressDashboard`, and `ResetCourseButton`.
+
+The combined surface is wider than I.s but lower-risk. None of these components has hit a production regression in recent history; the value here is closing the long tail of "the test passes, but the rendered DOM doesn't match what the user sees" gaps.
+
+**Tasks:**
+
+- [ ] `sveltekit_template/src/lib/components/ModuleList.test.ts` (new — `module-list.test.ts` keeps its helper coverage):
+  - [ ] Mount `<ModuleList>` with two modules (one locked) and assert: locked module renders a Lucide `<svg>` Lock icon next to the title, expanded panel (`<LessonList>`) is NOT in the DOM for the locked module even after a click on its header, unlocked module renders without the Lock icon and expands its `<LessonList>` on click.
+  - [ ] Mount with the active module highlighted; assert `border-l-blue-500 bg-blue-50` classes are present on the active `<li>` only.
+- [ ] `sveltekit_template/src/lib/components/LessonList.test.ts` (new):
+  - [ ] Mount with a mix of statuses (`not_started`, `in_progress`, `complete`, `optional`, `opened`); assert each row's status `<span>` text matches `○`/`…`/`✓`/`◇`/`…` respectively.
+  - [ ] Mount with one locked lesson; assert the locked row carries `aria-disabled="true"` and `cursor-not-allowed`; click the locked row and assert `goto` was NOT called.
+  - [ ] Mount with no locked lessons; click a row; assert `goto` was called with `/${moduleId}/${lessonId}`.
+- [ ] `sveltekit_template/src/lib/components/Navigation.test.ts` (extend — the helper cases stay):
+  - [ ] Mount `<Navigation>` with `disabled={true}`; assert the Next/Finish button has the native `disabled` attribute and the `opacity-50 cursor-not-allowed` classes.
+  - [ ] Mount with `disabled={false}` and a non-null `nextLesson` store value; click the button; assert `goto` was called with the expected path string and `currentPosition.set(null)` was NOT called.
+  - [ ] Mount with `nextLesson` null (Finish state); click; assert `currentPosition.set(null)` was called BEFORE `goto('/')` (FR-P14 ordering — verify via mock call order).
+- [ ] `sveltekit_template/src/lib/components/ProgressDashboard.test.ts` (extend):
+  - [ ] Mount with three modules and partial progress; assert each module card renders the `<ProgressBar>` with the expected percent (parse the inline `style="width: …%"` attribute).
+  - [ ] Mount with `totalLessons = 0`; assert the curriculum-level summary bar is NOT rendered (the existing helper test covers the math; this test confirms the `{#if totalLessons > 0}` gate).
+  - [ ] Mount with one module fully complete and one not; assert the complete module renders "✓ Complete" and the incomplete module renders the "Start module →" / "Continue →" button.
+- [ ] `sveltekit_template/src/lib/components/ResetCourseButton.test.ts` (rewrite — the inline-handler-copy stays as documentation but the assertions now run against a real mount):
+  - [ ] Mount `<ResetCourseButton disabled={true}>`; assert the rendered `<button>` has `disabled` attribute and `cursor-not-allowed text-gray-300`; programmatic `.click()` does not invoke the handler (verify via mocked `resetProgress` having zero calls).
+  - [ ] Mount with `disabled={false}` and `confirmFn={() => false}`; click; assert `resetProgress` was NOT called.
+  - [ ] Mount with `disabled={false}` and `confirmFn={() => true}`; click; assert `resetProgress`, `currentPosition.set(null)`, `invalidateProgress`, and `goto('/')` all ran in that order.
+- [ ] Mirror to `src/learningfoundry/sveltekit_template/` (same Story I.r dependency note as I.s).
+- [ ] Bump version to v0.55.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [ ] `CHANGELOG.md` — v0.55.0 under "Added" (real-DOM sidebar / dashboard / button test coverage).
+- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
+
+**Out of scope:**
+
+- Replacing the existing helper tests (`module-list.test.ts`, `navigation.test.ts`, the `curriculumTotals` ProgressDashboard cases). They stay alongside the new mount tests — pure logic remains the fastest debugging surface.
+- Visual regression / screenshot testing. Out of scope from I.q; remains so.
+- Mounting `+layout.svelte` itself. The layout's logic is already covered by `layout.test.ts`'s helper tests + `layout.scroll.test.ts`'s targeted unit tests + the e2e harness. No additional mount-based assertion improves on what those three layers already check.
+- Mounting route components (`+page.svelte`, `[module]/[lesson]/+page.svelte`). Routing-driven mounts belong in the e2e layer where SvelteKit's own machinery is in play.
+- Cross-component integration tests (mount a sidebar with a real lesson view alongside it). Component-level mount + e2e is the right two-tier split; integration in the middle is duplicative.
+
+---
+
 
 ## Future
 

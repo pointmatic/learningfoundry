@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-05-01
+
+### Added
+
+- **Svelte 5 component mount support in vitest** (Story I.q). Component tests can now `render(...)` from `@testing-library/svelte` directly, replacing the source-text and helper-only workarounds used in v0.50.0 and v0.51.0. New [mount.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/mount.test.ts) smoke fails loudly if the config silently reverts. [TextBlock.observer.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/TextBlock.observer.test.ts) rewritten to mount the real component, stub `IntersectionObserver`, capture the observed element, and assert it is the sentinel with non-zero inline height. One previously-deferred I.p case re-instated in [LessonView.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/LessonView.test.ts): asserts `markLessonOpened` resolves before `onlessonopen` fires (lifecycle ordering contract).
+- `@testing-library/svelte` and `@testing-library/jest-dom` dev dependencies.
+
+### Changed
+
+- `vite.config.ts` adds `resolve: process.env.VITEST ? { conditions: ['browser'] } : undefined`. Vitest pulls Svelte's browser entry so `mount(...)` works in jsdom; production `vite build` is unaffected (the conditions block is gated on the env var). Documented in `project-essentials.md` under a new "Testing" subsection so the guard isn't stripped in a future "simplify".
+
 ## [0.51.0] - 2026-05-01
 
 ### Added

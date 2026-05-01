@@ -70,6 +70,13 @@ top-level `#` title — the wrapper provides it.
 - The sidebar visually merges `opened` and `in_progress` into the `…` icon — the data distinction exists for analytics / future hooks, not for direct learner display. Don't add a separate sidebar symbol for `opened`.
 - `markLessonOpened` is upgrade-only and never demotes a more advanced status.
 
+### Testing
+
+**Svelte 5 component mounts in vitest require `resolve.conditions: ['browser']` (Story I.q):**
+- `vite.config.ts` sets `resolve: process.env.VITEST ? { conditions: ['browser'] } : undefined`. Without the conditions block, vitest pulls Svelte's SSR build and `mount(...)` throws `lifecycle_function_unavailable`.
+- Do **not** strip the `process.env.VITEST` guard. Production `vite build` must not pick up the browser conditions or it will mis-bundle SSR-only code paths in the static adapter output.
+- Component tests use `@testing-library/svelte`'s `render(...)`. See `mount.test.ts` for the smoke check that the config is wired correctly; if downstream component tests start failing with cryptic `lifecycle_function_unavailable` errors, run `mount.test.ts` first — it fails loudly and obviously when the config silently reverted.
+
 ### Hidden Coupling
 
 **Provider protocols ↔ dependency specs:**
