@@ -114,6 +114,26 @@ export async function updateExerciseStatus(
 }
 
 // ---------------------------------------------------------------------------
+// Reset (course-scoped)
+// ---------------------------------------------------------------------------
+
+/**
+ * Truncate every progress table for the current curriculum and persist.
+ * Course-level reset only; per-module / per-lesson reset is deferred.
+ */
+export async function resetProgress(): Promise<void> {
+	const db = await getDb();
+	db.exec(
+		`BEGIN;
+		 DELETE FROM lesson_progress;
+		 DELETE FROM quiz_scores;
+		 DELETE FROM exercise_status;
+		 COMMIT;`
+	);
+	await persistDb();
+}
+
+// ---------------------------------------------------------------------------
 // Module progress summary
 // ---------------------------------------------------------------------------
 

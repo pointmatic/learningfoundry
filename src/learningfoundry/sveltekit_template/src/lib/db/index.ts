@@ -7,6 +7,7 @@ export {
 	getQuizScore,
 	markLessonComplete,
 	markLessonInProgress,
+	resetProgress,
 	saveQuizScore,
 	updateExerciseStatus
 } from './progress.js';

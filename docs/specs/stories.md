@@ -525,7 +525,7 @@ All three trace to a single navigation defect introduced in I.g and missed by th
 
 ---
 
-### Story I.l: v0.47.0 — Reset Course Button [Planned]
+### Story I.l: v0.47.0 — Reset Course Button [Done]
 
 The subplan's "Deferred (documented, not implemented)" list has long included a course/module/lesson reset capability. Course-level reset is now **promoted to active scope** because (a) it is genuinely learner-facing — "I want to retake this course from scratch" — and (b) it is a much better dev/QA affordance than DevTools-level IndexedDB clearing for verifying I.k, I.m, and I.n fixes interactively. Per-module and per-lesson reset remain Deferred (independently useful but distinct UX problems). See `phase-I-progress-ux-subplan.md` → FR-P12.
 
@@ -533,32 +533,32 @@ The button is pinned at the bottom of the sidebar `<aside>`, disabled when no le
 
 **Tasks:**
 
-- [ ] `sveltekit_template/src/lib/db/progress.ts`:
-  - [ ] New `resetProgress(): Promise<void>` — `DELETE FROM lesson_progress; DELETE FROM quiz_scores; DELETE FROM exercise_status` then `persistDb()`. Single DB transaction.
-- [ ] `sveltekit_template/src/lib/utils/progress.ts` (new):
-  - [ ] Pure function `hasAnyProgress(store: Record<string, ModuleProgress>): boolean` — true if any module has any lesson with status other than `not_started`. Quiz scores and exercise statuses are reflected in `lesson_progress` via `markLessonInProgress`/`markLessonComplete` cascades; if a future feature lets either advance independently of lesson state, extend this helper to read from those tables directly.
-- [ ] `sveltekit_template/src/lib/components/ResetCourseButton.svelte` (new):
-  - [ ] Props: `disabled: boolean`.
-  - [ ] Disabled state styling: `text-gray-300 cursor-not-allowed`.
-  - [ ] Enabled state styling: `text-red-600 hover:bg-red-50` (muted destructive).
-  - [ ] On click (enabled only): show a confirmation. First cut may use `window.confirm("Reset all progress for this curriculum? This cannot be undone.")`; flag a follow-up for a styled `<dialog>` modal once basic plumbing is verified.
-  - [ ] On confirm: `await resetProgress(); currentPosition.set(null); await invalidateProgress($curriculum); await goto('/');` (the `currentPosition.set(null)` triggers the FR-P14 sidebar collapse path if Story I.n has shipped — this story should not depend on I.n landing first; it just sets the store and lets I.n's effect take over when present).
-- [ ] `sveltekit_template/src/routes/+layout.svelte`:
-  - [ ] Convert the `<aside>` to a flex column (`flex flex-col`) so the existing scrollable module list and the new reset button can share the column without the button scrolling away.
-  - [ ] Render `<ResetCourseButton disabled={!hasAnyProgress($progressStore)} />` at the bottom of the `<aside>` with `mt-auto` (or a separate `<footer>` block inside the aside) so it pins to the bottom even when the module list is short.
-- [ ] Tests (vitest):
-  - [ ] `progress.utils.test.ts`: `hasAnyProgress` returns false for `{}`; false when every lesson status is `not_started`; true with one `in_progress` lesson; true with one `complete` lesson; true with one `optional` lesson that has been touched.
-  - [ ] `db.progress.test.ts`: extend with a `resetProgress` case — pre-seed all three tables, run reset, then assert each `getX` returns null/empty.
-  - [ ] `ResetCourseButton.test.ts`: `disabled` prop suppresses click handler; enabled click invokes confirm and calls `resetProgress` only when confirm returns true; cancelled confirm does not call `resetProgress` and does not navigate.
-- [ ] Playwright e2e (extends I.k harness):
-  - [ ] `e2e/reset.spec.ts`: load curriculum → button is disabled → complete one text block (wait for the 1 s sentinel after Story I.m, or use a short block before I.m) → button enables → click reset → confirm dialog → on confirm, assert sidebar checkmark gone, module % returns to 0, dashboard text reads "0 of N completed", URL is `/`.
-- [ ] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
-- [ ] `docs/specs/features.md` — under FR-4 (Progress Tracking), document the reset capability and that it is course-scoped (not per-module/lesson in v1).
-- [ ] `docs/specs/tech-spec.md` — document the new `resetProgress` DB op and the `ResetCourseButton` component briefly.
-- [ ] `README.md` — short note under a "Resetting progress" subsection or under Curriculum YAML / runtime behaviour.
-- [ ] Bump version to v0.47.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] `CHANGELOG.md` — v0.47.0 under "Added" (Reset course button + reactive activation).
-- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
+- [x] `sveltekit_template/src/lib/db/progress.ts`:
+  - [x] New `resetProgress(): Promise<void>` — `DELETE FROM lesson_progress; DELETE FROM quiz_scores; DELETE FROM exercise_status` then `persistDb()`. Single DB transaction.
+- [x] `sveltekit_template/src/lib/utils/progress.ts` (new):
+  - [x] Pure function `hasAnyProgress(store: Record<string, ModuleProgress>): boolean` — true if any module has any lesson with status other than `not_started`. Quiz scores and exercise statuses are reflected in `lesson_progress` via `markLessonInProgress`/`markLessonComplete` cascades; if a future feature lets either advance independently of lesson state, extend this helper to read from those tables directly.
+- [x] `sveltekit_template/src/lib/components/ResetCourseButton.svelte` (new):
+  - [x] Props: `disabled: boolean`.
+  - [x] Disabled state styling: `text-gray-300 cursor-not-allowed`.
+  - [x] Enabled state styling: `text-red-600 hover:bg-red-50` (muted destructive).
+  - [x] On click (enabled only): show a confirmation. First cut may use `window.confirm("Reset all progress for this curriculum? This cannot be undone.")`; flag a follow-up for a styled `<dialog>` modal once basic plumbing is verified.
+  - [x] On confirm: `await resetProgress(); currentPosition.set(null); await invalidateProgress($curriculum); await goto('/');` (the `currentPosition.set(null)` triggers the FR-P14 sidebar collapse path if Story I.n has shipped — this story should not depend on I.n landing first; it just sets the store and lets I.n's effect take over when present).
+- [x] `sveltekit_template/src/routes/+layout.svelte`:
+  - [x] Convert the `<aside>` to a flex column (`flex flex-col`) so the existing scrollable module list and the new reset button can share the column without the button scrolling away.
+  - [x] Render `<ResetCourseButton disabled={!hasAnyProgress($progressStore)} />` at the bottom of the `<aside>` with `mt-auto` (or a separate `<footer>` block inside the aside) so it pins to the bottom even when the module list is short.
+- [x] Tests (vitest):
+  - [x] `progress.utils.test.ts`: `hasAnyProgress` returns false for `{}`; false when every lesson status is `not_started`; true with one `in_progress` lesson; true with one `complete` lesson; true with one `optional` lesson that has been touched.
+  - [x] `db.progress.test.ts`: extend with a `resetProgress` case — pre-seed all three tables, run reset, then assert each `getX` returns null/empty.
+  - [x] `ResetCourseButton.test.ts`: `disabled` prop suppresses click handler; enabled click invokes confirm and calls `resetProgress` only when confirm returns true; cancelled confirm does not call `resetProgress` and does not navigate.
+- [x] Playwright e2e (extends I.k harness):
+  - [x] `e2e/reset.spec.ts`: load curriculum → button is disabled → complete one text block (wait for the 1 s sentinel after Story I.m, or use a short block before I.m) → button enables → click reset → confirm dialog → on confirm, assert sidebar checkmark gone, module % returns to 0, dashboard text reads "0 of N completed", URL is `/`.
+- [x] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
+- [x] `docs/specs/features.md` — under FR-4 (Progress Tracking), document the reset capability and that it is course-scoped (not per-module/lesson in v1).
+- [x] `docs/specs/tech-spec.md` — document the new `resetProgress` DB op and the `ResetCourseButton` component briefly.
+- [x] `README.md` — short note under a "Resetting progress" subsection or under Curriculum YAML / runtime behaviour.
+- [x] Bump version to v0.47.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.47.0 under "Added" (Reset course button + reactive activation).
+- [x] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
 
 **Out of scope:**
 - Per-module reset and per-lesson reset (still Deferred).

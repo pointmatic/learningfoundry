@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-05-01
+
+### Added
+
+- **Reset course button.** New `ResetCourseButton.svelte` pinned at the bottom of the sidebar (`mt-auto`). Disabled until any progress exists in the curriculum (any `lesson_progress` row whose status is not `not_started`); reactive activation via the existing `progressStore`. Clicking opens a `window.confirm` dialog; on accept it calls the new `resetProgress()` DB op (single-transaction `DELETE FROM lesson_progress; quiz_scores; exercise_status`), clears `currentPosition`, refreshes the progress store, and routes to `/`. Pure helpers `hasAnyProgress` (in `$lib/utils/progress.ts`) and the new `resetProgress` DB op are independently unit-tested.
+
 ## [0.46.0] - 2026-05-01
 
 ### Fixed

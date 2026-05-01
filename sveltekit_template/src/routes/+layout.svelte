@@ -4,7 +4,9 @@
 	import { curriculum, modules } from '$lib/stores/curriculum.js';
 	import { progressStore, invalidateProgress } from '$lib/stores/progress.js';
 	import ModuleList from '$lib/components/ModuleList.svelte';
+	import ResetCourseButton from '$lib/components/ResetCourseButton.svelte';
 	import { lockedModuleIds } from '$lib/utils/locking.js';
+	import { hasAnyProgress } from '$lib/utils/progress.js';
 
 	interface Props {
 		children: import('svelte').Snippet;
@@ -35,6 +37,10 @@
 		{:else}
 			<p class="text-sm text-gray-400">Loading…</p>
 		{/if}
+
+		<div class="mt-auto pt-4">
+			<ResetCourseButton disabled={!hasAnyProgress($progressStore)} />
+		</div>
 	</aside>
 
 	<!-- Main content -->
