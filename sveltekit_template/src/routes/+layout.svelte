@@ -4,6 +4,7 @@
 	import { curriculum, modules } from '$lib/stores/curriculum.js';
 	import { progressStore, invalidateProgress } from '$lib/stores/progress.js';
 	import ModuleList from '$lib/components/ModuleList.svelte';
+	import { lockedModuleIds } from '$lib/utils/locking.js';
 
 	interface Props {
 		children: import('svelte').Snippet;
@@ -24,8 +25,13 @@
 		<a href="/" class="mb-6 text-lg font-bold text-blue-600">
 			{$curriculum?.title ?? 'LearningFoundry'}
 		</a>
-		{#if $modules.length}
-			<ModuleList modules={$modules} progress={$progressStore} />
+		{#if $modules.length && $curriculum}
+			<ModuleList
+				modules={$modules}
+				progress={$progressStore}
+				curriculum={$curriculum}
+				lockedModules={lockedModuleIds($curriculum, $progressStore)}
+			/>
 		{:else}
 			<p class="text-sm text-gray-400">Loading…</p>
 		{/if}

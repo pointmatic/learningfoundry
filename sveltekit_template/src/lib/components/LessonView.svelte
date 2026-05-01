@@ -45,6 +45,11 @@
 		completedBlocks = new Set(completedBlocks);
 		if (completedBlocks.size === lesson.content_blocks.length) {
 			await markLessonComplete(moduleId, lesson.id);
+			// Refreshing the progress store is enough to drive the
+			// `unlock_module_on_complete` cascade: locking utilities in
+			// `$lib/utils/locking.ts` re-derive sibling-optional and
+			// next-module-unlocked state from the new `complete` status —
+			// no additional DB write or extra invalidation is required.
 			await invalidateProgress($curriculum);
 		}
 	}

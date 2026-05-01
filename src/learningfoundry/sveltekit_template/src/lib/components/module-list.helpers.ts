@@ -42,6 +42,50 @@ export function activeModuleClass(
 }
 
 /**
+ * Decide how a click on a module header should be handled.
+ *
+ * - `'noop'` — module is locked; click is suppressed.
+ * - `'collapse'` — clicking the currently-expanded module collapses it.
+ * - module id — expand the clicked module.
+ */
+export function resolveModuleHeaderClick(
+	clickedId: string,
+	expandedModuleId: string | null,
+	lockedModules: Set<string>
+): { kind: 'noop' } | { kind: 'collapse' } | { kind: 'expand'; id: string } {
+	if (lockedModules.has(clickedId)) return { kind: 'noop' };
+	if (expandedModuleId === clickedId) return { kind: 'collapse' };
+	return { kind: 'expand', id: clickedId };
+}
+
+/**
+ * Decide how a click on a lesson row should be handled.
+ *
+ * - `'noop'` — lesson is locked; click is suppressed.
+ * - `'navigate'` — proceed to navigate to the lesson.
+ */
+export function resolveLessonClick(
+	lessonId: string,
+	lockedLessons: Set<string>
+): 'noop' | 'navigate' {
+	return lockedLessons.has(lessonId) ? 'noop' : 'navigate';
+}
+
+/**
+ * Sidebar lesson status icon — accounts for `optional` rendering.
+ */
+export function lessonStatusIcon(
+	lessonId: string,
+	status: 'complete' | 'in_progress' | 'not_started' | undefined,
+	optionalLessons: Set<string>
+): string {
+	if (status === 'complete') return '✓';
+	if (status === 'in_progress') return '…';
+	if (optionalLessons.has(lessonId)) return '◇';
+	return '○';
+}
+
+/**
  * Determine what action the Next/Finish button should perform.
  *
  * - `'navigate'` — there is a next lesson; `navigateTo(next)`.

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-04-30
+
+### Added
+
+- **Locking and unlocking UI.** Frontend implementation of the locking model introduced in v0.44.0:
+  - New `$lib/utils/locking.ts` with pure functions `isModuleLocked`, `isLessonLocked`, `getOptionalLessons`, `isModuleComplete`, plus convenience set helpers `lockedModuleIds` / `lockedLessonIds`.
+  - `ModuleList.svelte` renders a Lucide `Lock` icon, suppresses expansion, and skips the active-module highlight for locked modules.
+  - `LessonList.svelte` shows a `◇` indicator for optional lessons (sibling lessons within a module whose `unlock_module_on_complete` lesson has been completed) and renders locked lessons as muted, non-clickable rows.
+  - `ProgressDashboard.svelte` uses `isModuleComplete` for per-module status (treats optional lessons as not blocking module completion) while still counting all completed lessons toward the curriculum-level progress bar.
+  - Type extensions: `LessonStatus` gains `'optional'`; `Lesson.unlock_module_on_complete?`, `Module.locked?`, `Curriculum.locking?`, and a new `LockingConfig` interface.
+  - The unlock cascade is fully reactive: completing an `unlock_module_on_complete` lesson refreshes `progressStore` once via `invalidateProgress`, and all locked/optional state re-derives automatically — no extra DB writes or store updates required.
+
 ## [0.44.0] - 2026-04-30
 
 ### Added

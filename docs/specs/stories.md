@@ -403,7 +403,7 @@ modules:
 
 ---
 
-### Story I.j: v0.45.0 — Locking and Unlocking UI [Planned]
+### Story I.j: v0.45.0 — Locking and Unlocking UI [Done]
 
 Frontend implementation of the locking/unlocking system. Depends on I.i (schema + `curriculum.json` locking fields) and I.g (reactive progress store + block completion model).
 
@@ -423,48 +423,48 @@ Optional state is **derived at render time** from curriculum config + progress s
 
 **Tasks:**
 
-- [ ] `sveltekit_template/src/lib/types/index.ts`:
-  - [ ] `LessonStatus` gains `'optional'`
-  - [ ] `Lesson` interface gains `unlockModuleOnComplete?: boolean`
-  - [ ] `Module` interface gains `locked?: boolean`
-  - [ ] `Curriculum` interface gains `locking?: LockingConfig`
-  - [ ] New `LockingConfig` TypeScript interface: `{ sequential: boolean; lessonSequential: boolean }`
-- [ ] `sveltekit_template/src/lib/utils/locking.ts` (new):
-  - [ ] `resolveLocking(curriculum, globalLocking)`: returns effective `LockingConfig` (curriculum overrides global; per-module `locked` is a separate pass)
-  - [ ] `isModuleLocked(moduleIndex, curriculum, progress, globalLocking): boolean`: locked if (a) explicit `module.locked === true`, or (b) sequential mode + previous module not complete; first module is never locked by sequential rule alone
-  - [ ] `isLessonLocked(moduleId, lessonIndex, curriculum, progress, globalLocking): boolean`: locked if lesson_sequential mode and previous lesson in same module not complete
-  - [ ] `getOptionalLessons(moduleId, curriculum, progress): Set<string>`: returns IDs of sibling lessons that are optional (key lesson for this module is `complete` in progress)
-  - [ ] `isModuleComplete(moduleId, curriculum, progress): boolean`: all non-optional lessons are `complete` (uses `getOptionalLessons` to exclude optional lessons from the requirement)
-- [ ] `sveltekit_template/src/routes/+layout.svelte`:
-  - [ ] Import `isModuleLocked`, `isLessonLocked`, `getOptionalLessons` from `$lib/utils/locking.ts`
-  - [ ] Derive per-module locked state and per-lesson locked/optional state from `$curriculum`, `$progressStore`, and global config
-  - [ ] Pass derived locked/optional state to `<ModuleList>`
-- [ ] `sveltekit_template/src/lib/components/ModuleList.svelte`:
-  - [ ] Accept `lockedModules: Set<string>` prop
-  - [ ] Locked module card: `onclick` is no-op; `aria-disabled="true"`; show `<Lock size={14}>` (Lucide) next to module title; do not render `<LessonList>` or `<ProgressBar>` expand panel
-  - [ ] Do not apply active-module highlight to a locked module
-- [ ] `sveltekit_template/src/lib/components/LessonList.svelte`:
-  - [ ] Accept `optionalLessons: Set<string>` and `lockedLessons: Set<string>` props (both default `new Set()`)
-  - [ ] Locked lesson: `cursor-not-allowed text-gray-300`; click handler is no-op
-  - [ ] Optional lesson: `statusIcon` returns `◇`; `statusClass` returns `text-gray-400`
-  - [ ] Update `statusIcon` and `statusClass` to handle `optional` status (from progress store) and locked override (from `lockedLessons` prop)
-- [ ] `sveltekit_template/src/lib/components/LessonView.svelte`:
-  - [ ] After `markLessonComplete` and `invalidateProgress`, check `lesson.unlockModuleOnComplete`; if true, call `invalidateProgress($curriculum)` again (the progress store re-derive will pick up the new `complete` status and `getOptionalLessons` / `isModuleLocked` will return the updated state automatically — no extra DB write needed)
-- [ ] `sveltekit_template/src/lib/components/ProgressDashboard.svelte`:
-  - [ ] Accept `optionalLessons` per module; use `isModuleComplete` for per-module status badge (excludes optional lessons from requirement)
-  - [ ] Curriculum-level bar: continue counting all completed lessons (optional or not) toward `totalComplete`
-- [ ] Tests (vitest):
-  - [ ] `locking.test.ts`:
-    - [ ] `isModuleLocked`: first module never locked; second module locked when sequential + first module incomplete; unlocked when first module complete; `locked: false` override beats sequential rule; `locked: true` override forces locked even when previous complete
-    - [ ] `isLessonLocked`: lesson 2 locked when `lessonSequential` + lesson 1 incomplete; unlocked when lesson 1 complete
-    - [ ] `getOptionalLessons`: returns empty set before key lesson complete; returns all sibling IDs after key lesson complete
-    - [ ] `isModuleComplete`: false while non-optional lessons incomplete; true when all non-optional done; optional lessons do not block completion
-  - [ ] `ModuleList.test.ts`: locked module header click is no-op; lock icon rendered; lesson list not rendered for locked module
-  - [ ] `LessonList.test.ts`: locked lesson click is no-op; optional lesson shows `◇`; complete lesson shows `✓`
-- [ ] Mirror all changes to `src/learningfoundry/sveltekit_template/`
-- [ ] Bump version to v0.45.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`
-- [ ] `CHANGELOG.md` — v0.45.0 under "Added"
-- [ ] Verify: `pyve test`, smoke, `ruff`, `mypy`
+- [x] `sveltekit_template/src/lib/types/index.ts`:
+  - [x] `LessonStatus` gains `'optional'`
+  - [x] `Lesson` interface gains `unlockModuleOnComplete?: boolean`
+  - [x] `Module` interface gains `locked?: boolean`
+  - [x] `Curriculum` interface gains `locking?: LockingConfig`
+  - [x] New `LockingConfig` TypeScript interface: `{ sequential: boolean; lessonSequential: boolean }`
+- [x] `sveltekit_template/src/lib/utils/locking.ts` (new):
+  - [x] `resolveLocking(curriculum, globalLocking)`: returns effective `LockingConfig` (curriculum overrides global; per-module `locked` is a separate pass)
+  - [x] `isModuleLocked(moduleIndex, curriculum, progress, globalLocking): boolean`: locked if (a) explicit `module.locked === true`, or (b) sequential mode + previous module not complete; first module is never locked by sequential rule alone
+  - [x] `isLessonLocked(moduleId, lessonIndex, curriculum, progress, globalLocking): boolean`: locked if lesson_sequential mode and previous lesson in same module not complete
+  - [x] `getOptionalLessons(moduleId, curriculum, progress): Set<string>`: returns IDs of sibling lessons that are optional (key lesson for this module is `complete` in progress)
+  - [x] `isModuleComplete(moduleId, curriculum, progress): boolean`: all non-optional lessons are `complete` (uses `getOptionalLessons` to exclude optional lessons from the requirement)
+- [x] `sveltekit_template/src/routes/+layout.svelte`:
+  - [x] Import `isModuleLocked`, `isLessonLocked`, `getOptionalLessons` from `$lib/utils/locking.ts`
+  - [x] Derive per-module locked state and per-lesson locked/optional state from `$curriculum`, `$progressStore`, and global config
+  - [x] Pass derived locked/optional state to `<ModuleList>`
+- [x] `sveltekit_template/src/lib/components/ModuleList.svelte`:
+  - [x] Accept `lockedModules: Set<string>` prop
+  - [x] Locked module card: `onclick` is no-op; `aria-disabled="true"`; show `<Lock size={14}>` (Lucide) next to module title; do not render `<LessonList>` or `<ProgressBar>` expand panel
+  - [x] Do not apply active-module highlight to a locked module
+- [x] `sveltekit_template/src/lib/components/LessonList.svelte`:
+  - [x] Accept `optionalLessons: Set<string>` and `lockedLessons: Set<string>` props (both default `new Set()`)
+  - [x] Locked lesson: `cursor-not-allowed text-gray-300`; click handler is no-op
+  - [x] Optional lesson: `statusIcon` returns `◇`; `statusClass` returns `text-gray-400`
+  - [x] Update `statusIcon` and `statusClass` to handle `optional` status (from progress store) and locked override (from `lockedLessons` prop)
+- [x] `sveltekit_template/src/lib/components/LessonView.svelte`:
+  - [x] After `markLessonComplete` and `invalidateProgress`, check `lesson.unlockModuleOnComplete`; if true, call `invalidateProgress($curriculum)` again (the progress store re-derive will pick up the new `complete` status and `getOptionalLessons` / `isModuleLocked` will return the updated state automatically — no extra DB write needed)
+- [x] `sveltekit_template/src/lib/components/ProgressDashboard.svelte`:
+  - [x] Accept `optionalLessons` per module; use `isModuleComplete` for per-module status badge (excludes optional lessons from requirement)
+  - [x] Curriculum-level bar: continue counting all completed lessons (optional or not) toward `totalComplete`
+- [x] Tests (vitest):
+  - [x] `locking.test.ts`:
+    - [x] `isModuleLocked`: first module never locked; second module locked when sequential + first module incomplete; unlocked when first module complete; `locked: false` override beats sequential rule; `locked: true` override forces locked even when previous complete
+    - [x] `isLessonLocked`: lesson 2 locked when `lessonSequential` + lesson 1 incomplete; unlocked when lesson 1 complete
+    - [x] `getOptionalLessons`: returns empty set before key lesson complete; returns all sibling IDs after key lesson complete
+    - [x] `isModuleComplete`: false while non-optional lessons incomplete; true when all non-optional done; optional lessons do not block completion
+  - [x] `ModuleList.test.ts`: locked module header click is no-op; lock icon rendered; lesson list not rendered for locked module
+  - [x] `LessonList.test.ts`: locked lesson click is no-op; optional lesson shows `◇`; complete lesson shows `✓`
+- [x] Mirror all changes to `src/learningfoundry/sveltekit_template/`
+- [x] Bump version to v0.45.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`
+- [x] `CHANGELOG.md` — v0.45.0 under "Added"
+- [x] Verify: `pyve test`, smoke, `ruff`, `mypy`
 
 **Out of scope:**
 - Reset button (course / module / lesson)

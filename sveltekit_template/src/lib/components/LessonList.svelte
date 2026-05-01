@@ -2,19 +2,27 @@
 <script lang="ts">
 	import { currentPosition, navigateTo } from '$lib/stores/curriculum.js';
 	import type { Lesson, LessonProgress } from '$lib/types/index.js';
+	import { lessonStatusIcon, resolveLessonClick } from './module-list.helpers.js';
 
 	interface Props {
 		moduleId: string;
 		lessons: Lesson[];
 		progress?: Record<string, LessonProgress>;
+		optionalLessons?: Set<string>;
+		lockedLessons?: Set<string>;
 	}
-	let { moduleId, lessons, progress = {} }: Props = $props();
+	let {
+		moduleId,
+		lessons,
+		progress = {},
+		optionalLessons = new Set(),
+		lockedLessons = new Set()
+	}: Props = $props();
 
 	function statusIcon(lessonId: string): string {
 		const s = progress[lessonId]?.status;
-		if (s === 'complete') return '✓';
-		if (s === 'in_progress') return '…';
-		return '○';
+		const concrete = s === 'optional' ? undefined : s;
+		return lessonStatusIcon(lessonId, concrete, optionalLessons);
 	}
 
 	function statusClass(lessonId: string): string {
@@ -23,21 +31,32 @@
 		if (s === 'in_progress') return 'text-blue-500';
 		return 'text-gray-400';
 	}
+
+	function handleClick(lessonId: string) {
+		if (resolveLessonClick(lessonId, lockedLessons) === 'noop') return;
+		navigateTo(moduleId, lessonId);
+	}
 </script>
 
 <ul class="space-y-1">
 	{#each lessons as lesson (lesson.id)}
 		{@const isActive =
 			$currentPosition?.moduleId === moduleId && $currentPosition?.lessonId === lesson.id}
+		{@const locked = lockedLessons.has(lesson.id)}
 		<li>
 			<button
-				onclick={() => navigateTo(moduleId, lesson.id)}
+				onclick={() => handleClick(lesson.id)}
 				class="flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-sm transition-colors
-					{isActive
-					? 'bg-blue-100 font-medium text-blue-700'
-					: 'text-gray-700 hover:bg-gray-100'}"
+					{locked
+					? 'cursor-not-allowed text-gray-300'
+					: isActive
+						? 'bg-blue-100 font-medium text-blue-700'
+						: 'text-gray-700 hover:bg-gray-100'}"
+				aria-disabled={locked}
 			>
-				<span class="shrink-0 text-xs {statusClass(lesson.id)}">{statusIcon(lesson.id)}</span>
+				<span class="shrink-0 text-xs {locked ? 'text-gray-300' : statusClass(lesson.id)}"
+					>{statusIcon(lesson.id)}</span
+				>
 				<span class="truncate">{lesson.title}</span>
 			</button>
 		</li>

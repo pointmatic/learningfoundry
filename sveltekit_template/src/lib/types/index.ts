@@ -86,6 +86,8 @@ export interface Lesson {
 	id: string;
 	title: string;
 	content_blocks: ContentBlock[];
+	/** When this lesson completes, mark sibling lessons in this module as optional and unlock the next module. */
+	unlock_module_on_complete?: boolean;
 }
 
 export interface Module {
@@ -95,6 +97,13 @@ export interface Module {
 	pre_assessment: QuizManifest | null;
 	post_assessment: QuizManifest | null;
 	lessons: Lesson[];
+	/** Per-module override. `null`/omitted = inherit from curriculum/global locking config. */
+	locked?: boolean | null;
+}
+
+export interface LockingConfig {
+	sequential: boolean;
+	lesson_sequential: boolean;
 }
 
 export interface Curriculum {
@@ -102,13 +111,14 @@ export interface Curriculum {
 	title: string;
 	description: string;
 	modules: Module[];
+	locking?: LockingConfig;
 }
 
 // ---------------------------------------------------------------------------
 // Progress tracking
 // ---------------------------------------------------------------------------
 
-export type LessonStatus = 'not_started' | 'in_progress' | 'complete';
+export type LessonStatus = 'not_started' | 'in_progress' | 'complete' | 'optional';
 export type ModuleStatus = 'not_started' | 'in_progress' | 'complete';
 
 export interface LessonProgress {

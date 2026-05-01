@@ -1,28 +1,48 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
 	import { navigateTo } from '$lib/stores/curriculum.js';
-	import type { Module, ModuleProgress, QuizScore } from '$lib/types/index.js';
+	import type { Curriculum, Module, ModuleProgress, QuizScore } from '$lib/types/index.js';
+	import { getOptionalLessons, isModuleComplete } from '$lib/utils/locking.js';
 	import ProgressBar from './ProgressBar.svelte';
 
 	interface Props {
 		modules: Module[];
 		progress: Record<string, ModuleProgress>;
 		quizScores?: Record<string, QuizScore>;
+		curriculum?: Curriculum | null;
 	}
-	let { modules, progress, quizScores = {} }: Props = $props();
+	let { modules, progress, quizScores = {}, curriculum = null }: Props = $props();
 
-	function moduleStats(mod: Module) {
+	type ModuleStatus = 'not_started' | 'in_progress' | 'complete';
+
+	function moduleStats(mod: Module): {
+		done: number;
+		total: number;
+		pct: number;
+		status: ModuleStatus;
+	} {
 		const mp = progress[mod.id];
 		const total = mod.lessons.length;
-		if (!mp || total === 0) return { done: 0, total, pct: 0, status: 'not_started' };
+		if (!mp || total === 0) {
+			return { done: 0, total, pct: 0, status: 'not_started' };
+		}
 		const done = Object.values(mp.lessons).filter((l) => l.status === 'complete').length;
-		return { done, total, pct: Math.round((done / total) * 100), status: mp.status };
+		const complete = curriculum
+			? isModuleComplete(mod.id, curriculum, progress)
+			: mp.status === 'complete';
+		const status: ModuleStatus = complete
+			? 'complete'
+			: done > 0
+				? 'in_progress'
+				: 'not_started';
+		return { done, total, pct: Math.round((done / total) * 100), status };
 	}
 
 	function resumeFirst(mod: Module) {
 		const mp = progress[mod.id];
+		const optional = curriculum ? getOptionalLessons(mod.id, curriculum, progress) : new Set<string>();
 		const firstIncomplete = mod.lessons.find(
-			(l) => mp?.lessons[l.id]?.status !== 'complete'
+			(l) => !optional.has(l.id) && mp?.lessons[l.id]?.status !== 'complete'
 		);
 		const target = firstIncomplete ?? mod.lessons[0];
 		if (target) navigateTo(mod.id, target.id);

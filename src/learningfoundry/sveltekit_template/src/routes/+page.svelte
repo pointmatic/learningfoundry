@@ -15,7 +15,7 @@
 		{#if $curriculum.description}
 			<p class="mb-8 text-gray-500">{$curriculum.description}</p>
 		{/if}
-		<ProgressDashboard modules={$modules} progress={$progressStore} />
+		<ProgressDashboard modules={$modules} progress={$progressStore} curriculum={$curriculum} />
 	</div>
 {:else}
 	<div class="flex h-full items-center justify-center">

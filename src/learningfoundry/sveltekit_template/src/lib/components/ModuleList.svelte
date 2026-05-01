@@ -1,15 +1,25 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
 	import { currentPosition } from '$lib/stores/curriculum.js';
-	import type { Module, ModuleProgress } from '$lib/types/index.js';
+	import type { Curriculum, Module, ModuleProgress } from '$lib/types/index.js';
+	import { getOptionalLessons, lockedLessonIds } from '$lib/utils/locking.js';
+	import { resolveModuleHeaderClick } from './module-list.helpers.js';
 	import LessonList from './LessonList.svelte';
 	import ProgressBar from './ProgressBar.svelte';
+	import Lock from 'lucide-svelte/icons/lock';
 
 	interface Props {
 		modules: Module[];
 		progress?: Record<string, ModuleProgress>;
+		curriculum?: Curriculum | null;
+		lockedModules?: Set<string>;
 	}
-	let { modules, progress = {} }: Props = $props();
+	let {
+		modules,
+		progress = {},
+		curriculum = null,
+		lockedModules = new Set()
+	}: Props = $props();
 
 	let expandedModuleId = $state<string | null>(null);
 	let lastAutoExpandedModuleId = $state<string | null>(null);
@@ -24,7 +34,9 @@
 	}
 
 	function toggleModule(id: string) {
-		expandedModuleId = expandedModuleId === id ? null : id;
+		const action = resolveModuleHeaderClick(id, expandedModuleId, lockedModules);
+		if (action.kind === 'noop') return;
+		expandedModuleId = action.kind === 'collapse' ? null : action.id;
 	}
 
 	// Auto-expand the module containing the current lesson.
@@ -44,30 +56,44 @@
 	<ul class="space-y-2">
 		{#each modules as mod (mod.id)}
 			{@const pct = modulePercent(mod)}
-			{@const isExpanded = expandedModuleId === mod.id}
+			{@const locked = lockedModules.has(mod.id)}
+			{@const isExpanded = !locked && expandedModuleId === mod.id}
+			{@const optional = curriculum ? getOptionalLessons(mod.id, curriculum, progress) : new Set<string>()}
+			{@const lockedLessons = curriculum ? lockedLessonIds(mod.id, curriculum, progress) : new Set<string>()}
 			<li
 				class="rounded-lg border border-gray-200 bg-white
-					{mod.id === $currentPosition?.moduleId
+					{!locked && mod.id === $currentPosition?.moduleId
 					? 'border-l-2 border-l-blue-500 bg-blue-50'
 					: ''}"
 			>
 				<button
 					onclick={() => toggleModule(mod.id)}
-					class="flex w-full items-center justify-between px-4 py-3 text-left"
+					class="flex w-full items-center justify-between px-4 py-3 text-left
+						{locked ? 'cursor-not-allowed text-gray-400' : ''}"
 					aria-expanded={isExpanded}
+					aria-disabled={locked}
 				>
-					<span class="text-sm font-medium text-gray-800">{mod.title}</span>
+					<span class="flex items-center gap-2 text-sm font-medium {locked ? 'text-gray-400' : 'text-gray-800'}">
+						{#if locked}
+							<Lock size={14} aria-hidden="true" />
+						{/if}
+						{mod.title}
+					</span>
 					<span class="text-xs text-gray-400">{pct}%</span>
 				</button>
-				<div class="px-4 pb-2">
-					<ProgressBar percent={pct} />
-				</div>
+				{#if !locked}
+					<div class="px-4 pb-2">
+						<ProgressBar percent={pct} />
+					</div>
+				{/if}
 				{#if isExpanded}
 					<div class="border-t border-gray-100 px-2 pb-2 pt-1">
 						<LessonList
 							moduleId={mod.id}
 							lessons={mod.lessons}
 							progress={progress[mod.id]?.lessons}
+							optionalLessons={optional}
+							lockedLessons={lockedLessons}
 						/>
 					</div>
 				{/if}
