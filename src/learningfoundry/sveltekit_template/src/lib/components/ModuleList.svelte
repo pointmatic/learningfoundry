@@ -3,7 +3,7 @@
 	import { currentPosition } from '$lib/stores/curriculum.js';
 	import type { Curriculum, Module, ModuleProgress } from '$lib/types/index.js';
 	import { getOptionalLessons, lockedLessonIds } from '$lib/utils/locking.js';
-	import { resolveModuleHeaderClick } from './module-list.helpers.js';
+	import { computeAutoExpand, resolveModuleHeaderClick } from './module-list.helpers.js';
 	import LessonList from './LessonList.svelte';
 	import ProgressBar from './ProgressBar.svelte';
 	import Lock from 'lucide-svelte/icons/lock';
@@ -42,12 +42,15 @@
 	// Auto-expand the module containing the current lesson.
 	// Only fire when `currentPosition.moduleId` changes to a *new* value;
 	// `lastAutoExpandedModuleId` breaks the self-dependency that previously
-	// caused manual toggles to revert immediately.
+	// caused manual toggles to revert immediately. When the position is
+	// cleared (Finish on the last lesson, FR-P14), collapse the previously
+	// expanded module so the dashboard sidebar starts from a clean slate.
 	$effect(() => {
 		const pos = $currentPosition;
-		if (pos && pos.moduleId !== lastAutoExpandedModuleId) {
-			expandedModuleId = pos.moduleId;
-			lastAutoExpandedModuleId = pos.moduleId;
+		const next = computeAutoExpand(pos?.moduleId ?? null, lastAutoExpandedModuleId);
+		if (next) {
+			expandedModuleId = next.expandedModuleId;
+			lastAutoExpandedModuleId = next.lastAutoExpandedModuleId;
 		}
 	});
 </script>

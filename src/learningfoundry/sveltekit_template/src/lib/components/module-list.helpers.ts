@@ -8,18 +8,33 @@
  */
 
 /**
- * Determine whether the sidebar should auto-expand a module because the
- * current navigation position has moved to a new module.
+ * Determine how the sidebar should react to a change in the current
+ * navigation position.
  *
- * Returns the new `expandedModuleId` and `lastAutoExpandedModuleId` values,
- * or `null` if no auto-expand should happen (i.e. the module was already
- * auto-expanded or there is no current position).
+ * Returns:
+ * - `null` — no change required (position is null and nothing was
+ *   previously auto-expanded; or the current module already matches
+ *   the last auto-expanded module).
+ * - `{ expandedModuleId: null, lastAutoExpandedModuleId: null }` — the
+ *   position was just cleared (FR-P14: Finish on the last lesson);
+ *   collapse the previously expanded module and forget the auto-expand
+ *   anchor so the next manual toggle starts from a clean slate.
+ * - `{ expandedModuleId, lastAutoExpandedModuleId }` — auto-expand the
+ *   new module (and remember it as the auto-expand anchor so manual
+ *   toggles aren't reverted; see Story I.f).
  */
 export function computeAutoExpand(
-	currentModuleId: string | undefined,
+	currentModuleId: string | null | undefined,
 	lastAutoExpandedModuleId: string | null
-): { expandedModuleId: string; lastAutoExpandedModuleId: string } | null {
-	if (!currentModuleId) return null;
+): { expandedModuleId: string | null; lastAutoExpandedModuleId: string | null } | null {
+	if (!currentModuleId) {
+		// Position cleared. Only emit a reset if we previously auto-expanded
+		// — otherwise we'd loop forever rewriting the same null values.
+		if (lastAutoExpandedModuleId !== null) {
+			return { expandedModuleId: null, lastAutoExpandedModuleId: null };
+		}
+		return null;
+	}
 	if (currentModuleId === lastAutoExpandedModuleId) return null;
 	return {
 		expandedModuleId: currentModuleId,

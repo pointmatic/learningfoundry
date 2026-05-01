@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-05-01
+
+### Changed
+
+- **Finish on the last lesson now clears the active-lesson highlight and collapses the previously expanded sidebar module.** When `Navigation.goNext()` finds no next lesson it now sets `currentPosition` to `null` *before* `goto('/')` so the sidebar's auto-expand effect sees the null transition; `computeAutoExpand` was extended to emit a reset (`{expandedModuleId: null, lastAutoExpandedModuleId: null}`) when position clears after a prior auto-expand. Result: landing on the dashboard after Finish shows no module expanded and no lesson row carrying the active highlight, instead of leaving the previously focused lesson visually marked as the learner's current location. The I.f manual-toggle preservation behavior is unchanged (the reset only fires on the position-cleared transition).
+
 ## [0.48.0] - 2026-05-01
 
 ### Changed

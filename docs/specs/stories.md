@@ -601,25 +601,25 @@ FR-P1's text-block trigger fires whenever any portion of the block is in the vie
 
 ---
 
-### Story I.n: v0.49.0 — Clean Dashboard State on Finish [Planned]
+### Story I.n: v0.49.0 — Clean Dashboard State on Finish [Done]
 
 After I.k, clicking Finish on the last lesson sends the learner to `/` correctly, but the sidebar still shows the last module expanded with the last lesson highlighted. The learner just declared "I'm done" and the UI keeps marking that lesson as their current focus — jarring. Refined behaviour: Finish clears the active-lesson highlight and collapses the previously expanded module. See `phase-I-progress-ux-subplan.md` → FR-P14.
 
 **Tasks:**
 
-- [ ] `sveltekit_template/src/lib/components/Navigation.svelte`:
-  - [ ] In `goNext()`, the `next === null` branch becomes `currentPosition.set(null); void goto('/');` — the position clear runs first so the auto-expand effect in `ModuleList` reacts before the route change settles. Import `currentPosition` from `$lib/stores/curriculum.js`.
-- [ ] `sveltekit_template/src/lib/components/ModuleList.svelte`:
-  - [ ] Extend the existing auto-expand `$effect`: when `pos === null`, set `expandedModuleId = null` and `lastAutoExpandedModuleId = null`. The existing manual-toggle preservation logic (`pos.moduleId !== lastAutoExpandedModuleId`) is unchanged for the non-null case.
-- [ ] Tests (vitest):
-  - [ ] `Navigation.test.ts` — extend the I.k regression suite: `goNext` on a lesson with `next === null` calls `currentPosition.set(null)` and `goto('/')` (verify call order via mock).
-  - [ ] `ModuleList.test.ts` — when `currentPosition` transitions from `{moduleId: 'mod-01', lessonId: 'lesson-01'}` to `null`, both `expandedModuleId` and `lastAutoExpandedModuleId` reset to `null`. After the reset, a manual toggle still works (a regression check that the I.f fix is still intact).
-- [ ] Playwright e2e (extends I.k harness):
-  - [ ] `e2e/finish.spec.ts`: navigate to the last lesson, complete it, click Finish; assert URL is `/`, no sidebar `LessonList` row carries the active highlight (`bg-blue-100`), no module is expanded (no visible lesson list panel), and the curriculum-title link still works (clicking it does nothing visible since we're already at `/`, but doesn't error).
-- [ ] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
-- [ ] Bump version to v0.49.0.
-- [ ] `CHANGELOG.md` — v0.49.0 under "Changed" (Finish on the last lesson now clears the active-lesson highlight and collapses the previously expanded sidebar module).
-- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
+- [x] `sveltekit_template/src/lib/components/Navigation.svelte`:
+  - [x] In `goNext()`, the `next === null` branch becomes `currentPosition.set(null); void goto('/');` — the position clear runs first so the auto-expand effect in `ModuleList` reacts before the route change settles. Import `currentPosition` from `$lib/stores/curriculum.js`.
+- [x] `sveltekit_template/src/lib/components/ModuleList.svelte`:
+  - [x] Extend the existing auto-expand `$effect`: when `pos === null`, set `expandedModuleId = null` and `lastAutoExpandedModuleId = null`. The existing manual-toggle preservation logic (`pos.moduleId !== lastAutoExpandedModuleId`) is unchanged for the non-null case.
+- [x] Tests (vitest):
+  - [x] `Navigation.test.ts` — extend the I.k regression suite: `goNext` on a lesson with `next === null` calls `currentPosition.set(null)` and `goto('/')` (verify call order via mock).
+  - [x] `ModuleList.test.ts` — when `currentPosition` transitions from `{moduleId: 'mod-01', lessonId: 'lesson-01'}` to `null`, both `expandedModuleId` and `lastAutoExpandedModuleId` reset to `null`. After the reset, a manual toggle still works (a regression check that the I.f fix is still intact).
+- [x] Playwright e2e (extends I.k harness):
+  - [x] `e2e/finish.spec.ts`: navigate to the last lesson, complete it, click Finish; assert URL is `/`, no sidebar `LessonList` row carries the active highlight (`bg-blue-100`), no module is expanded (no visible lesson list panel), and the curriculum-title link still works (clicking it does nothing visible since we're already at `/`, but doesn't error).
+- [x] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
+- [x] Bump version to v0.49.0.
+- [x] `CHANGELOG.md` — v0.49.0 under "Changed" (Finish on the last lesson now clears the active-lesson highlight and collapses the previously expanded sidebar module).
+- [x] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
 
 **Out of scope:**
 - Clearing sidebar state on navigations to `/` from sources other than Finish (e.g. clicking the curriculum-title link, browser back button).

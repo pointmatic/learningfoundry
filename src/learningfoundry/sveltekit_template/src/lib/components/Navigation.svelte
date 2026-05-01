@@ -2,7 +2,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
-	import { nextLesson, previousLesson } from '$lib/stores/curriculum.js';
+	import { currentPosition, nextLesson, previousLesson } from '$lib/stores/curriculum.js';
 	import { resolveGoNext, resolveGoPrev } from './navigation.helpers.js';
 
 	interface Props {
@@ -15,7 +15,12 @@
 
 	function goNext() {
 		const action = resolveGoNext(disabled, next);
-		if (action.kind === 'goto') void goto(action.url);
+		if (action.kind === 'noop') return;
+		// Clear the position *before* `goto` so the sidebar's auto-expand
+		// effect sees the null transition and collapses the previously
+		// expanded module before the route change settles.
+		if (action.clearPosition) currentPosition.set(null);
+		void goto(action.url);
 	}
 
 	function goPrev() {

@@ -9,16 +9,26 @@
  */
 import type { NavPosition } from '$lib/stores/curriculum.js';
 
-export type NavAction = { kind: 'noop' } | { kind: 'goto'; url: string };
+export type NavAction =
+	| { kind: 'noop' }
+	| { kind: 'goto'; url: string; clearPosition?: boolean };
 
-/** Resolve the action for the Next/Finish button click. */
+/**
+ * Resolve the action for the Next/Finish button click.
+ *
+ * On Finish (`next === null`) the action carries `clearPosition: true`
+ * so the caller wipes `currentPosition` *before* `goto('/')` runs —
+ * that lets the sidebar's auto-expand effect see the null transition
+ * and collapse the previously expanded module before the URL change
+ * settles (FR-P14).
+ */
 export function resolveGoNext(
 	disabled: boolean,
 	next: NavPosition | null
 ): NavAction {
 	if (disabled) return { kind: 'noop' };
 	if (next) return { kind: 'goto', url: `/${next.moduleId}/${next.lessonId}` };
-	return { kind: 'goto', url: '/' };
+	return { kind: 'goto', url: '/', clearPosition: true };
 }
 
 /** Resolve the action for the Previous button click. */
