@@ -1,0 +1,77 @@
+{
+	"version": "1.0.0",
+	"title": "E2E Fixture",
+	"description": "Synthetic curriculum used by Playwright e2e tests to exercise lesson completion, sidebar reactivity, and tall-block scroll-to-complete without depending on the smoke build's ever-changing fixture.",
+	"locking": { "sequential": false, "lesson_sequential": false },
+	"assets": [],
+	"modules": [
+		{
+			"id": "mod-01",
+			"title": "Module One",
+			"description": "Short-text completion + tall-text scroll.",
+			"locked": null,
+			"pre_assessment": null,
+			"post_assessment": null,
+			"lessons": [
+				{
+					"id": "lesson-01",
+					"title": "Short Lesson",
+					"unlock_module_on_complete": false,
+					"content_blocks": [
+						{
+							"type": "text",
+							"source": null,
+							"ref": "content/mod-01/lesson-01.md",
+							"content": {
+								"markdown": "Hello. This is a short text block whose sentinel sits inside the viewport on first render, so it should fire `textcomplete` after the 1 s debounce.",
+								"path": "content/mod-01/lesson-01.md"
+							}
+						}
+					]
+				},
+				{
+					"id": "lesson-02",
+					"title": "Tall Lesson",
+					"unlock_module_on_complete": false,
+					"content_blocks": [
+						{
+							"type": "text",
+							"source": null,
+							"ref": "content/mod-01/lesson-02.md",
+							"content": {
+								"markdown": "# Tall block\n\nThis lesson is long enough that the end-of-block sentinel sits below the fold on initial render.\n\n<div style=\"height: 200vh\"> </div>\n\nThe sentinel only intersects the viewport once `<main>` has been scrolled to the bottom — completion must NOT fire before that scroll, and it MUST fire within 2 s of reaching the bottom.",
+								"path": "content/mod-01/lesson-02.md"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "mod-02",
+			"title": "Module Two",
+			"description": "Trailing module so the curriculum has at least three lessons total.",
+			"locked": null,
+			"pre_assessment": null,
+			"post_assessment": null,
+			"lessons": [
+				{
+					"id": "lesson-01",
+					"title": "Trailing Short Lesson",
+					"unlock_module_on_complete": false,
+					"content_blocks": [
+						{
+							"type": "text",
+							"source": null,
+							"ref": "content/mod-02/lesson-01.md",
+							"content": {
+								"markdown": "Trailing lesson body. Provides a destination for navigation tests.",
+								"path": "content/mod-02/lesson-01.md"
+							}
+						}
+					]
+				}
+			]
+		}
+	]
+}

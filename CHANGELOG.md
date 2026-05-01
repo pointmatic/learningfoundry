@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-05-01
+
+### Fixed
+
+- **Text-block completion regression introduced in v0.48.0.** The end-of-block sentinel was rendered with `height: 0`, causing `IntersectionObserver` to compute `intersectionRatio = 0` against the configured `0.1` threshold and the `isIntersecting` branch to never fire in real browsers. Net effect: lessons were never marked complete (no sidebar `✓`, no module % movement, no curriculum-bar movement), and revisits couldn't pre-fill the Next/Finish enabled state. The sentinel now renders as `<div data-textblock-end style="height: 1px">` — invisible to learners but observable by the browser. The vitest helper-only suite was unchanged by the regression because it never instantiated a real observer; the e2e harness was unchanged because the spec asserted only sentinel presence rather than actual completion.
+
+### Added
+
+- **TextBlock sentinel anti-regression vitest coverage** ([TextBlock.observer.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/TextBlock.observer.test.ts)): three source-template assertions covering the v0.48.0 zero-area trap — sentinel exists with `data-textblock-end`, carries inline `style="height: 1px"`, and is the element passed to `observer.observe()`. Source-text assertions are brittle to formatting but reliable; mounting Svelte 5 components in vitest (via `@testing-library/svelte` or `svelte/server`) collided with the SvelteKit vite plugin's client-mode compilation, so the canonical cross-check that the markup actually behaves is the e2e harness.
+- **Lesson-completion e2e tests** ([progress.spec.ts](src/learningfoundry/sveltekit_template/e2e/progress.spec.ts)): three new cases exercising the FR-P11 user-visible outcome — short-text-block lesson transitions to `✓` in the sidebar without reload; dashboard "X of N completed" increments after completion; revisiting a complete lesson pre-fills Next/Finish as enabled.
+- **Tall-text-block scroll-to-complete e2e tests** ([text-block-bottom.spec.ts](src/learningfoundry/sveltekit_template/e2e/text-block-bottom.spec.ts)): rewritten from the prior "structural existence" check. Tall lesson does NOT complete without scroll; scrolling `<main>` to the bottom triggers `✓` within 2 s.
+- **Dedicated e2e curriculum fixture** ([e2e/fixtures/curriculum.json](src/learningfoundry/sveltekit_template/e2e/fixtures/curriculum.json) + [e2e/README.md](src/learningfoundry/sveltekit_template/e2e/README.md)): self-contained 3-lesson fixture covering short-text completion and tall-text scroll-to-complete. Specs install a `page.route('**/curriculum.json', …)` interception in `beforeEach` so the harness is decoupled from the smoke build's curriculum drift.
+
 ## [0.49.0] - 2026-05-01
 
 ### Changed

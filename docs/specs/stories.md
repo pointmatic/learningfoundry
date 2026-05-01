@@ -628,6 +628,49 @@ After I.k, clicking Finish on the last lesson sends the learner to `/` correctly
 
 ---
 
+### Story I.o: v0.50.0 — Restore Text-Block Completion and Harden E2E Coverage [Done]
+
+After v0.49.0 shipped, lesson completion stopped firing and recording entirely against real curricula: no sidebar checkmarks, no module % advancement, no curriculum-bar movement, and lesson revisits looked indistinguishable from first visits. Bisecting localised the regression to **v0.48.0 (Story I.m)**, masked by I.n shipping immediately after.
+
+`TextBlock.svelte`'s I.m sentinel — `<div bind:this={sentinelEl} aria-hidden="true" data-textblock-end></div>` — has zero area (no content, no `min-height`, default block-level `height: 0`). The `IntersectionObserver` retained FR-P1's `threshold: 0.1`. With a zero-area target, `intersectionRatio = intersectionArea / targetArea` degenerates and never crosses 0.1; in real browsers, the observer's `isIntersecting: true` branch never fires. `textcomplete` is never emitted, `markLessonComplete` is never called, no row hits `lesson_progress`, and the on-revisit `getLessonProgress` returns `not_started`. See `phase-I-progress-ux-subplan.md` → "Addendum: Regression Discovered After v0.49.0".
+
+The fix itself is one line. The bulk of the story is closing the three test gaps that let the regression reach `[Done]` and then ship through I.n undetected — the I.k–I.n harness asserted the cheapest checkable surface near each change rather than the user-visible outcome (vitest tested a `createViewportTracker` helper without ever instantiating a real `IntersectionObserver`; `e2e/text-block-bottom.spec.ts` was watered down to a sentinel-element-attached check; `e2e/progress.spec.ts` stops at `not_started → in_progress` rather than `→ complete` as FR-P11 specified).
+
+**Tasks:**
+
+- [x] Fix the sentinel — `sveltekit_template/src/lib/components/TextBlock.svelte`:
+  - [x] Give the sentinel observable area: `<div bind:this={sentinelEl} aria-hidden="true" data-textblock-end style="height: 1px;"></div>`. 1 px is invisible to the learner and large enough for `IntersectionObserver` to compute a non-degenerate `intersectionRatio` against the configured 0.1 threshold.
+  - [x] Update the existing block comment to explain why a non-zero height is required (one short line: "1 px height keeps the observer firing — a zero-area target degenerates intersectionRatio to 0").
+- [x] Vitest — exercise the real observer, not just the helper. `sveltekit_template/src/lib/components/TextBlock.test.ts` (extend, do not delete):
+  - [x] Add `@testing-library/svelte` as a dev dependency if not already present.
+  - [x] New test: mount `<TextBlock>` with `@testing-library/svelte`; capture the actual element passed to `IntersectionObserver.observe()` (stub the constructor to record the target). Assert the recorded target's `getBoundingClientRect()` reports a non-zero `height`. This catches the "sentinel is zero-area" class of bug at the unit-test layer.
+  - [x] Keep the existing `createViewportTracker` callback tests — they remain useful for the timer/debounce logic; just no longer the only line of defence.
+- [x] Playwright — add a real completion smoke test. `sveltekit_template/e2e/progress.spec.ts` (extend):
+  - [x] New test: navigate to a short text-block lesson (sentinel in viewport at first render); wait at least 1.5 s for the completion timer to fire; assert the sidebar status icon for that lesson transitions from `…` to `✓` *without page reload*. Use `page.locator('aside nav ul ul button').first()` and a `toHaveText('✓')` assertion with a generous timeout.
+  - [x] New test: complete lesson 1 as above, then click another lesson, then click back to lesson 1; assert the Next/Finish button is enabled immediately (revisit pre-fill working — FR-P2 / I.g revisit semantics).
+  - [x] New test: complete lesson 1; assert the dashboard's overall "X of N completed" text increments by 1 — closes FR-P11's "module % advances" bullet.
+- [x] Playwright — make the tall-block scroll case actually run. `sveltekit_template/e2e/text-block-bottom.spec.ts` (rewrite):
+  - [x] Drop the "structural existence" check. Use a fixture (smoke or dedicated; see next task) with one text block taller than the viewport.
+  - [x] Test 1: load the lesson; wait 5 s without scrolling; assert the sidebar status icon does NOT transition to `✓` (fail-closed semantics for tall blocks).
+  - [x] Test 2: scroll `<main>` to the bottom (via `page.locator('main').evaluate(el => el.scrollTo(0, el.scrollHeight))`); assert the sidebar status icon becomes `✓` within 2 s of the sentinel reaching viewport.
+- [x] Decouple e2e fixtures from content drift. `sveltekit_template/e2e/`:
+  - [x] Add `e2e/fixtures/curriculum.json` — a small hand-authored or generated curriculum with: one short text-block lesson (for the progress completion test), one tall text-block lesson (for the bottom-of-block scroll test), and at least three lessons total so navigation sequences are exercisable.
+  - [x] Update `playwright.config.ts` to serve `e2e/fixtures/curriculum.json` instead of the smoke-built one when running e2e (e.g. via a Vite alias, a static file copy in a `globalSetup` script, or a per-test `page.route('/curriculum.json', …)` interception).
+  - [x] `e2e/README.md` (new): document the fixture and how to regenerate it from a YAML source if desired.
+- [x] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
+- [x] Bump version to v0.50.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.50.0 under "Fixed" (text-block completion regression introduced in v0.48.0; lessons no longer fail to mark complete, sidebar checkmarks reappear, revisits correctly pre-fill the Next button) and "Added" (real-DOM TextBlock vitest coverage; lesson-completion e2e tests covering FR-P11; tall-text-block scroll-to-complete e2e test; dedicated `e2e/fixtures/` curriculum decoupled from smoke fixture drift).
+- [x] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
+
+**Out of scope:**
+- Per-paragraph engagement tracking, scroll-percentage thresholds, reading-time estimation (still Out of Scope from FR-P13).
+- Visual regression testing infrastructure (screenshot diffs).
+- Network mocking / record-replay for e2e tests.
+- Auditing every other component for the same zero-area-target trap. `VideoBlock`'s viewport fallback uses the wrapper element (non-zero size); other observers in the codebase, if any, are out of scope here and can be checked opportunistically when touched.
+- Backporting the harness improvements to a CI pipeline configuration if one does not yet exist for the SvelteKit template — that's a separate infrastructure story.
+
+---
+
 ## Future
 
 <!--

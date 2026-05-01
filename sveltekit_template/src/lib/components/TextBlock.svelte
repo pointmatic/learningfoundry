@@ -11,12 +11,15 @@
 	let { content, ontextcomplete }: Props = $props();
 
 	const html = $derived(renderMarkdown(content.markdown));
-	// Observe a zero-size sentinel placed at the *end* of the rendered
-	// markdown rather than the wrapper itself. Otherwise a tall block fires
+	// Observe a 1-px sentinel placed at the *end* of the rendered markdown
+	// rather than the wrapper itself. Otherwise a tall block fires
 	// `textcomplete` simply because the top of the block is in view on
 	// initial render — the learner would never have to scroll to the lesson
 	// body. With the sentinel, completion requires the bottom of the block
-	// to be in view for 1 s.
+	// to be in view for 1 s. The 1-px height keeps `IntersectionObserver`
+	// firing — a zero-area target degenerates `intersectionRatio` to 0
+	// against the configured 0.1 threshold and the `isIntersecting` branch
+	// never trips (regression fixed in v0.50.0).
 	let sentinelEl: HTMLDivElement | undefined = $state();
 	let fired = false;
 
@@ -54,5 +57,5 @@
 
 <div class="prose prose-slate max-w-none">
 	{@html html}
-	<div bind:this={sentinelEl} aria-hidden="true" data-textblock-end></div>
+	<div bind:this={sentinelEl} aria-hidden="true" data-textblock-end style="height: 1px;"></div>
 </div>

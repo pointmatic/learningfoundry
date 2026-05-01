@@ -269,6 +269,20 @@ When the learner clicks Finish on the last lesson, they currently land on `/` (a
 - **Sidebar collapse:** extend `ModuleList`'s auto-expand `$effect` so `expandedModuleId` and `lastAutoExpandedModuleId` reset to `null` when `$currentPosition === null`. The existing manual-toggle preservation logic is unaffected for non-null positions.
 - **Scope:** Finish only. The curriculum-title link in the sidebar header (which also `goto('/')`s) preserves sidebar state — that's incidental navigation, not a "done with lesson" signal.
 
+### Addendum: Regression Discovered After v0.49.0 — End-of-Block Sentinel Has Zero Area
+
+After v0.49.0 shipped, lesson completion stopped firing entirely against real curricula: no sidebar checkmarks, no module % movement, no curriculum-bar advancement, and revisits looked indistinguishable from first visits. Bisecting against the v0.45.0 baseline localised the regression to **v0.48.0 (Story I.m)**.
+
+`TextBlock.svelte`'s I.m sentinel is `<div bind:this={sentinelEl} aria-hidden="true" data-textblock-end></div>` — a block-level element with no content, no padding, no `min-height`. Its bounding rect has area zero. The `IntersectionObserver` retains FR-P1's `threshold: 0.1`. With a zero-area target, `intersectionRatio = intersectionArea / targetArea` degenerates and never crosses 0.1 in real browsers; the observer's `isIntersecting: true` branch never fires. Net effect: `textcomplete` is never emitted → `markLessonComplete` is never called → no row in `lesson_progress` → no checkmark, and the on-revisit `getLessonProgress` returns `not_started` so the lesson re-presents as new.
+
+**Why the I.k–I.n test harness did not catch it.** Each of three layers asserted the cheapest checkable surface near the change rather than the user-visible outcome:
+
+- `vitest TextBlock.test.ts` exercises a `createViewportTracker` helper by calling `tracker.handleIntersecting()` directly. The real `IntersectionObserver` is never instantiated against a real DOM, so the test cannot detect that a real browser does not fire `isIntersecting: true` for a zero-area sentinel.
+- `e2e/text-block-bottom.spec.ts` only asserts that the sentinel `<div>` is *attached* to the DOM. The author commented "the smoke fixture's text content may not always exceed viewport height" and watered the test down to a structural-existence check rather than building a tall-enough fixture.
+- `e2e/progress.spec.ts` only asserts the sidebar icon transitions away from `○` (not_started). FR-P11 explicitly named *"checkmark appears in sidebar and module % advances, without a page reload"* as a smoke-pipeline assertion; the implemented test stops at `not_started → in_progress`.
+
+**Fix shape (Story I.o):** give the sentinel observable area (`style="height: 1px;"` is sufficient and invisible), then close the three test gaps so the same shape of regression cannot reach `[Done]` again. No new FR is needed — FR-P11's spec was correct, the implementation just didn't cover it. FR-P13's contract is unchanged in *intent*; only the technique for satisfying it changes.
+
 ---
 
 ## Story Map
@@ -284,3 +298,4 @@ When the learner clicks Finish on the last lesson, they currently land on `/` (a
 | I.l | v0.47.0 | Reset Course Button | FR-P12 — promoted from Deferred |
 | I.m | v0.48.0 | Text Block End-of-Block Completion | FR-P13 — refines FR-P1 |
 | I.n | v0.49.0 | Clean Dashboard State on Finish | FR-P14 — sidebar cleanup on Finish |
+| I.o | v0.50.0 | Restore Text-Block Completion and Harden E2E Coverage | Defect repair for I.m regression; finishes FR-P11's progress assertions |
