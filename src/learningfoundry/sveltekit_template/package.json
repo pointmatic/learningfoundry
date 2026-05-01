@@ -9,6 +9,7 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "test": "vitest run",
+    "e2e": "playwright test",
     "postinstall": "node -e \"const fs=require('fs'); fs.mkdirSync('static',{recursive:true}); fs.copyFileSync(require.resolve('sql.js/dist/sql-wasm.wasm'),'static/sql-wasm.wasm')\""
   },
   "dependencies": {
@@ -21,6 +22,7 @@
     "svelte": "^5.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "@sveltejs/adapter-static": "^3.0.0",
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@tailwindcss/typography": "^0.5.16",

@@ -474,7 +474,7 @@ Optional state is **derived at render time** from curriculum config + progress s
 
 ---
 
-### Story I.k: v0.46.0 — Lesson Navigation Lifecycle Fix and E2E Harness [Planned]
+### Story I.k: v0.46.0 — Lesson Navigation Lifecycle Fix and E2E Harness [Done]
 
 Three user-visible regressions reproduced consistently against any multi-lesson curriculum after v0.45.0: (1) progress is never recorded — no sidebar checkmarks, no module %, no curriculum progress bar movement; (2) Next/Finish is deactivated when revisiting a previously completed lesson, contrary to FR-P2; (3) the old video block remains visible when navigating between two lessons that both contain a `video` block.
 
@@ -482,40 +482,40 @@ All three trace to a single navigation defect introduced in I.g and missed by th
 
 **Tasks:**
 
-- [ ] FR-P9: lesson navigation actually changes the URL.
-  - [ ] `sveltekit_template/src/lib/components/Navigation.svelte`: `goNext()` calls `goto(\`/${next.moduleId}/${next.lessonId}\`)` when `next` exists, else `goto('/')`. `goPrev()` calls `goto(\`/${prev.moduleId}/${prev.lessonId}\`)`. Remove the `navigateTo` import.
-  - [ ] `sveltekit_template/src/lib/components/LessonList.svelte`: `handleClick(lessonId)` calls `goto(\`/${moduleId}/${lessonId}\`)` (after the `resolveLessonClick` lock check) instead of `navigateTo(moduleId, lessonId)`. Remove the `navigateTo` import.
-  - [ ] `sveltekit_template/src/lib/components/ProgressDashboard.svelte`: `resumeFirst(mod)` calls `goto(\`/${mod.id}/${target.id}\`)` instead of `navigateTo`.
-  - [ ] `sveltekit_template/src/lib/stores/curriculum.ts`: keep `navigateTo` callable for the route's URL→store sync (`[module]/[lesson]/+page.svelte`'s `$effect`), but add a JSDoc comment marking it as **internal route-sync only — UI code must use `goto`**. Optionally rename to `setPositionFromRoute` to remove the foot-gun name (decide during implementation).
-- [ ] FR-P10: component lifecycle invariants.
-  - [ ] `sveltekit_template/src/routes/[module]/[lesson]/+page.svelte`: wrap `<LessonView … />` in `{#key \`${currentModule.id}/${currentLesson.id}\`} … {/key}` so `LessonView` (and the route-internal subtree) is guaranteed to tear down and re-mount when either route param changes, even if SvelteKit would otherwise reuse the page component.
-  - [ ] `sveltekit_template/src/lib/components/LessonView.svelte`: replace `{#each lesson.content_blocks as block, i (i)}` with a stable identity key — first non-null of `block.ref`, `(block.content as any).url` for video, otherwise `\`${block.type}-${i}\``. Document the choice in a one-line comment.
-  - [ ] `sveltekit_template/src/lib/components/VideoBlock.svelte`: in addition to `onMount`, add an `$effect` watching `content.url`. When the URL changes, call `player?.destroy?.()`, clear `fired`, and re-create the player with the new `videoId`. Same fallback path applies if the player creation fails. Cleanup on destroy still runs both the player and observer cleanup.
-- [ ] FR-P11: end-to-end test harness.
-  - [ ] `sveltekit_template/package.json`: add `@playwright/test` dev dependency and `"e2e": "playwright test"` script. Postinstall step or README note: `pnpm exec playwright install chromium`.
-  - [ ] `sveltekit_template/playwright.config.ts`: configure to run against `pnpm preview` (built static site) on a dynamic port; single project (chromium); `e2e/` test dir.
-  - [ ] `sveltekit_template/e2e/` (new):
-    - [ ] `e2e/fixtures/curriculum.json` — minimal 2-module / 4-lesson fixture with one video block in each of two consecutive lessons; one fast-completing text block per lesson (or use the existing static curriculum if a fixture isn't viable). YouTube fixtures should use a known short test video.
-    - [ ] `e2e/navigation.spec.ts`:
-      - [ ] Sidebar lesson click: clicks lesson 2; URL is `/mod-01/lesson-02`; lesson 2 title is rendered.
-      - [ ] Next button: complete lesson 1 (force-fire blockcomplete via test hook or wait for the 1 s text intersection timer); click Next; URL advances to lesson 2; lesson 2 title is rendered.
-      - [ ] Returning to a completed lesson: complete lesson 1, click Next, click lesson 1 in sidebar; Next button is enabled immediately (not disabled).
-    - [ ] `e2e/progress.spec.ts`:
-      - [ ] Complete lesson 1; assert sidebar lesson row gains `✓` indicator without page reload.
-      - [ ] Complete all lessons in module 1; assert module 1's % reaches 100 in the sidebar and dashboard without reload.
-      - [ ] Assert curriculum-level bar text updates from `0 of N` to `1 of N` after the first lesson completes.
-    - [ ] `e2e/video.spec.ts`:
-      - [ ] Open lesson with video A; assert exactly one YouTube iframe in the DOM with the expected `videoId`.
-      - [ ] Navigate to lesson with video B; assert exactly one iframe, with B's `videoId` (not A's). Old iframe is destroyed.
-  - [ ] `tests/test_smoke_sveltekit.py`: extend the smoke pipeline so `pnpm e2e` runs after `pnpm build` against the smoke-built site. The Playwright fixture curriculum is built by the same generator code path. Skip the e2e leg gracefully if `playwright` browsers aren't installed locally (CI installs them in setup).
-- [ ] Vitest gap-fill (smaller, faster regression coverage):
-  - [ ] `Navigation.test.ts`: `goNext` calls `goto` with the expected path string (not `navigateTo`); `goNext` calls `goto('/')` when `next === null`; disabled state suppresses both.
-  - [ ] `LessonList.test.ts`: clicking a non-locked lesson row calls `goto` with `\`/${moduleId}/${lessonId}\``; clicking a locked row is a no-op.
-  - [ ] `VideoBlock.test.ts`: changing `content.url` while the component stays mounted destroys the previous player and creates a new one with the new `videoId`; `fired` is reset.
-- [ ] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
-- [ ] Bump version to v0.46.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] `CHANGELOG.md` — v0.46.0 under "Fixed" (lesson navigation routing, sticky LessonView state, stale video block) and "Added" (Playwright e2e harness; vitest navigation regression coverage).
-- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
+- [x] FR-P9: lesson navigation actually changes the URL.
+  - [x] `sveltekit_template/src/lib/components/Navigation.svelte`: `goNext()` calls `goto(\`/${next.moduleId}/${next.lessonId}\`)` when `next` exists, else `goto('/')`. `goPrev()` calls `goto(\`/${prev.moduleId}/${prev.lessonId}\`)`. Remove the `navigateTo` import.
+  - [x] `sveltekit_template/src/lib/components/LessonList.svelte`: `handleClick(lessonId)` calls `goto(\`/${moduleId}/${lessonId}\`)` (after the `resolveLessonClick` lock check) instead of `navigateTo(moduleId, lessonId)`. Remove the `navigateTo` import.
+  - [x] `sveltekit_template/src/lib/components/ProgressDashboard.svelte`: `resumeFirst(mod)` calls `goto(\`/${mod.id}/${target.id}\`)` instead of `navigateTo`.
+  - [x] `sveltekit_template/src/lib/stores/curriculum.ts`: keep `navigateTo` callable for the route's URL→store sync (`[module]/[lesson]/+page.svelte`'s `$effect`), but add a JSDoc comment marking it as **internal route-sync only — UI code must use `goto`**. Optionally rename to `setPositionFromRoute` to remove the foot-gun name (decide during implementation).
+- [x] FR-P10: component lifecycle invariants.
+  - [x] `sveltekit_template/src/routes/[module]/[lesson]/+page.svelte`: wrap `<LessonView … />` in `{#key \`${currentModule.id}/${currentLesson.id}\`} … {/key}` so `LessonView` (and the route-internal subtree) is guaranteed to tear down and re-mount when either route param changes, even if SvelteKit would otherwise reuse the page component.
+  - [x] `sveltekit_template/src/lib/components/LessonView.svelte`: replace `{#each lesson.content_blocks as block, i (i)}` with a stable identity key — first non-null of `block.ref`, `(block.content as any).url` for video, otherwise `\`${block.type}-${i}\``. Document the choice in a one-line comment.
+  - [x] `sveltekit_template/src/lib/components/VideoBlock.svelte`: in addition to `onMount`, add an `$effect` watching `content.url`. When the URL changes, call `player?.destroy?.()`, clear `fired`, and re-create the player with the new `videoId`. Same fallback path applies if the player creation fails. Cleanup on destroy still runs both the player and observer cleanup.
+- [x] FR-P11: end-to-end test harness.
+  - [x] `sveltekit_template/package.json`: add `@playwright/test` dev dependency and `"e2e": "playwright test"` script. Postinstall step or README note: `pnpm exec playwright install chromium`.
+  - [x] `sveltekit_template/playwright.config.ts`: configure to run against `pnpm preview` (built static site) on a dynamic port; single project (chromium); `e2e/` test dir.
+  - [x] `sveltekit_template/e2e/` (new):
+    - [x] `e2e/fixtures/curriculum.json` — minimal 2-module / 4-lesson fixture with one video block in each of two consecutive lessons; one fast-completing text block per lesson (or use the existing static curriculum if a fixture isn't viable). YouTube fixtures should use a known short test video.
+    - [x] `e2e/navigation.spec.ts`:
+      - [x] Sidebar lesson click: clicks lesson 2; URL is `/mod-01/lesson-02`; lesson 2 title is rendered.
+      - [x] Next button: complete lesson 1 (force-fire blockcomplete via test hook or wait for the 1 s text intersection timer); click Next; URL advances to lesson 2; lesson 2 title is rendered.
+      - [x] Returning to a completed lesson: complete lesson 1, click Next, click lesson 1 in sidebar; Next button is enabled immediately (not disabled).
+    - [x] `e2e/progress.spec.ts`:
+      - [x] Complete lesson 1; assert sidebar lesson row gains `✓` indicator without page reload.
+      - [x] Complete all lessons in module 1; assert module 1's % reaches 100 in the sidebar and dashboard without reload.
+      - [x] Assert curriculum-level bar text updates from `0 of N` to `1 of N` after the first lesson completes.
+    - [x] `e2e/video.spec.ts`:
+      - [x] Open lesson with video A; assert exactly one YouTube iframe in the DOM with the expected `videoId`.
+      - [x] Navigate to lesson with video B; assert exactly one iframe, with B's `videoId` (not A's). Old iframe is destroyed.
+  - [x] `tests/test_smoke_sveltekit.py`: extend the smoke pipeline so `pnpm e2e` runs after `pnpm build` against the smoke-built site. The Playwright fixture curriculum is built by the same generator code path. Skip the e2e leg gracefully if `playwright` browsers aren't installed locally (CI installs them in setup).
+- [x] Vitest gap-fill (smaller, faster regression coverage):
+  - [x] `Navigation.test.ts`: `goNext` calls `goto` with the expected path string (not `navigateTo`); `goNext` calls `goto('/')` when `next === null`; disabled state suppresses both.
+  - [x] `LessonList.test.ts`: clicking a non-locked lesson row calls `goto` with `\`/${moduleId}/${lessonId}\``; clicking a locked row is a no-op.
+  - [x] `VideoBlock.test.ts`: changing `content.url` while the component stays mounted destroys the previous player and creates a new one with the new `videoId`; `fired` is reset.
+- [x] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
+- [x] Bump version to v0.46.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.46.0 under "Fixed" (lesson navigation routing, sticky LessonView state, stale video block) and "Added" (Playwright e2e harness; vitest navigation regression coverage).
+- [x] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
 
 **Out of scope:**
 - Per-lesson scroll memory on revisit (still deferred from I.b).

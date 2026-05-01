@@ -85,6 +85,16 @@ export const nextLesson = derived(
 // Navigation helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * **Internal route-sync only — UI code must use `goto` directly.**
+ *
+ * Sets `currentPosition`. Used by the dynamic lesson route's URL→store
+ * `$effect`; do **not** call from sidebars, dashboards, or navigation
+ * buttons. UI code should import `goto` from `$app/navigation` and build
+ * the path explicitly so SvelteKit's lifecycle (page params, scroll
+ * restoration, lesson-route `{#key}` re-mount) fires predictably for
+ * every user-initiated navigation.
+ */
 export function navigateTo(moduleId: string, lessonId: string): void {
 	currentPosition.set({ moduleId, lessonId });
 }

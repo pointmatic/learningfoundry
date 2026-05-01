@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-05-01
+
+### Fixed
+
+- **Lesson navigation routing.** Sidebar lesson clicks, the Next/Finish button, and dashboard "Start module / Continue" buttons now call `goto()` from `$app/navigation` directly instead of going through the curriculum store helper. The previous flow updated `currentPosition` (and therefore the sidebar highlight) but left the URL untouched, so the lesson route was never re-mounted: `markLessonInProgress` ran only on the first lesson reached by direct URL, the sidebar checkmarks never updated, and the curriculum/module progress bars stayed at zero across the session. Components now route via `Navigation.svelte`, `LessonList.svelte`, `ProgressDashboard.svelte` → `goto('/${moduleId}/${lessonId}')`.
+- **Sticky LessonView state across navigations.** The dynamic lesson route now wraps `<LessonView>` in `{#key \`${moduleId}/${lessonId}\`}` so the subtree tears down and re-mounts whenever either route param changes — guaranteeing fresh `allBlocksComplete` / `completedBlocks` state and a re-run of the on-mount progress check (so revisiting a previously-completed lesson activates Next/Finish immediately).
+- **Stale video iframe across consecutive video lessons.** `LessonView`'s `{#each lesson.content_blocks}` now uses a stable identity key derived from `block.ref` or `block.content.url` (falling back to `${type}-${index}`); previously, two consecutive lessons each with a `video` block reused the same `<VideoBlock>` instance and its iframe player, leaving the previous lesson's video on screen. `VideoBlock.svelte` additionally tracks `content.url` via `$effect` and tears down / recreates its YouTube player whenever the URL changes, as belt-and-suspenders coverage.
+
+### Added
+
+- **Playwright e2e harness.** New `e2e/` directory with three regression specs (`navigation.spec.ts`, `progress.spec.ts`, `video.spec.ts`) covering the FR-P9/FR-P10 lifecycle invariants that vitest cannot exercise (because vitest mocks `$app/navigation`). New `pnpm e2e` script and `playwright.config.ts` driving `pnpm preview` against the built static site. The smoke test runs `pnpm e2e` after `pnpm build` and skips gracefully if Playwright browsers aren't installed locally; CI installs them via `pnpm exec playwright install chromium`.
+- **Vitest navigation regression coverage.** New `navigation.helpers.ts` (`resolveGoNext`, `resolveGoPrev`, `lessonHref`) and `navigation.test.ts` lock down the routing decisions made by Next/Finish, Previous, and lesson rows. New `contentBlockKey` helper (and tests) verifies the FR-P10 stable-identity convention used by `{#each}`.
+
+### Changed
+
+- `navigateTo` in `$lib/stores/curriculum.ts` is now documented as **internal route-sync only — UI code must use `goto` directly**. The function continues to set `currentPosition` for use by the dynamic lesson route's URL→store `$effect`; UI code (sidebar, dashboard, Next/Finish) routes via `goto()` so SvelteKit's full navigation lifecycle (page params, scroll restoration, `{#key}` re-mount) fires predictably.
+
 ## [0.45.0] - 2026-04-30
 
 ### Added

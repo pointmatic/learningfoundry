@@ -1,6 +1,6 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
-	import { navigateTo } from '$lib/stores/curriculum.js';
+	import { goto } from '$app/navigation';
 	import type { Curriculum, Module, ModuleProgress, QuizScore } from '$lib/types/index.js';
 	import { getOptionalLessons, isModuleComplete } from '$lib/utils/locking.js';
 	import ProgressBar from './ProgressBar.svelte';
@@ -45,7 +45,7 @@
 			(l) => !optional.has(l.id) && mp?.lessons[l.id]?.status !== 'complete'
 		);
 		const target = firstIncomplete ?? mod.lessons[0];
-		if (target) navigateTo(mod.id, target.id);
+		if (target) void goto(`/${mod.id}/${target.id}`);
 	}
 
 	const totalLessons = $derived(modules.reduce((n, m) => n + m.lessons.length, 0));

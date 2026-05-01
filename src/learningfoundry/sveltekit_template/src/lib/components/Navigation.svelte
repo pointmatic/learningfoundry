@@ -2,7 +2,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
-	import { nextLesson, previousLesson, navigateTo } from '$lib/stores/curriculum.js';
+	import { nextLesson, previousLesson } from '$lib/stores/curriculum.js';
+	import { resolveGoNext, resolveGoPrev } from './navigation.helpers.js';
 
 	interface Props {
 		disabled?: boolean;
@@ -13,16 +14,13 @@
 	const next = $derived($nextLesson);
 
 	function goNext() {
-		if (disabled) return;
-		if (next) {
-			navigateTo(next.moduleId, next.lessonId);
-		} else {
-			void goto('/');
-		}
+		const action = resolveGoNext(disabled, next);
+		if (action.kind === 'goto') void goto(action.url);
 	}
 
 	function goPrev() {
-		if (prev) navigateTo(prev.moduleId, prev.lessonId);
+		const action = resolveGoPrev(prev);
+		if (action.kind === 'goto') void goto(action.url);
 	}
 </script>
 

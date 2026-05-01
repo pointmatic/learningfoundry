@@ -6,6 +6,7 @@
 	import type { Lesson, QuizScore } from '$lib/types/index.js';
 	import ContentBlock from './ContentBlock.svelte';
 	import Navigation from './Navigation.svelte';
+	import { contentBlockKey } from './lesson-view.helpers.js';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -65,7 +66,7 @@
 	</header>
 
 	<div class="space-y-8">
-		{#each lesson.content_blocks as block, i (i)}
+		{#each lesson.content_blocks as block, i (contentBlockKey(block, i))}
 			<section>
 				<ContentBlock
 					{block}

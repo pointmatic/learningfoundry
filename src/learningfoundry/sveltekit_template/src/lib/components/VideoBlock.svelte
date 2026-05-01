@@ -1,7 +1,6 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
 	import type { VideoContent } from '$lib/types/index.js';
-	import { onMount } from 'svelte';
 
 	interface Props {
 		content: VideoContent;
@@ -51,10 +50,20 @@
 		};
 	}
 
-	onMount(() => {
+	// `$effect` re-runs whenever the watched URL changes, so when a parent
+	// reuses this component instance across lessons (e.g. two consecutive
+	// lessons each with a video block) we tear down the previous player
+	// and observer and create a fresh one for the new `videoId`. The
+	// {#key} wrapper at the lesson route plus the stable block key in
+	// `LessonView` already force a re-mount in normal flows; this effect
+	// is the belt-and-suspenders fallback if any caller skips both keys.
+	$effect(() => {
+		const url = content.url; // dependency
 		if (provider !== 'youtube' || !onvideocomplete) return;
-		const videoId = extractYouTubeId(content.url);
+		const videoId = extractYouTubeId(url);
 		if (!videoId) return;
+
+		fired = false;
 
 		let cleanup: (() => void) | undefined;
 		/* eslint-disable @typescript-eslint/no-explicit-any */
@@ -80,6 +89,8 @@
 			}
 		}
 
+		let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+
 		if ((window as any).YT?.Player) {
 			createPlayer();
 		} else {
@@ -95,21 +106,16 @@
 				createPlayer();
 			};
 
-			const fallbackTimer = setTimeout(() => {
+			fallbackTimer = setTimeout(() => {
 				if (!(window as any).YT?.Player && !fired) {
 					cleanup = setupViewportFallback();
 				}
 			}, 5000);
-
-			return () => {
-				clearTimeout(fallbackTimer);
-				player?.destroy?.();
-				cleanup?.();
-			};
 		}
 		/* eslint-enable @typescript-eslint/no-explicit-any */
 
 		return () => {
+			if (fallbackTimer !== undefined) clearTimeout(fallbackTimer);
 			player?.destroy?.();
 			cleanup?.();
 		};

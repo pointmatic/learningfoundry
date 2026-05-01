@@ -31,7 +31,9 @@
 </svelte:head>
 
 {#if currentLesson && currentModule}
-	<LessonView lesson={currentLesson} moduleId={currentModule.id} />
+	{#key `${currentModule.id}/${currentLesson.id}`}
+		<LessonView lesson={currentLesson} moduleId={currentModule.id} />
+	{/key}
 {:else if $curriculum}
 	<div class="flex h-full items-center justify-center">
 		<p class="text-gray-400">Lesson not found.</p>

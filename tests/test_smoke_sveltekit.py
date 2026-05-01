@@ -162,6 +162,41 @@ class TestSvelteKitSmokeBuild:
             f"pnpm test failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
         )
 
+    def test_pnpm_e2e_passes(self, compiled_app: Path) -> None:
+        """Run Playwright e2e against the built static site.
+
+        Skips gracefully if Playwright browsers aren't installed locally
+        (CI installs them in setup via `pnpm exec playwright install
+        chromium`). The harness exists to catch the FR-P9/FR-P10
+        navigation-lifecycle regressions that vitest misses because it
+        mocks `$app/navigation`.
+        """
+        # Browsers live under ~/.cache/ms-playwright (or PLAYWRIGHT_BROWSERS_PATH).
+        from os import environ
+
+        browsers_dir = Path(
+            environ.get(
+                "PLAYWRIGHT_BROWSERS_PATH",
+                str(Path.home() / ".cache" / "ms-playwright"),
+            )
+        )
+        if not browsers_dir.exists() or not any(browsers_dir.iterdir()):
+            pytest.skip(
+                "Playwright browsers not installed; run "
+                "`pnpm exec playwright install chromium` to enable."
+            )
+
+        result = subprocess.run(
+            ["pnpm", "e2e"],
+            cwd=compiled_app,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, (
+            f"pnpm e2e failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        )
+
     def test_curriculum_json_includes_locking_fields(
         self, compiled_app: Path
     ) -> None:

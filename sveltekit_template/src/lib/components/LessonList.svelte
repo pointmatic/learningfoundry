@@ -1,8 +1,10 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
-	import { currentPosition, navigateTo } from '$lib/stores/curriculum.js';
+	import { goto } from '$app/navigation';
+	import { currentPosition } from '$lib/stores/curriculum.js';
 	import type { Lesson, LessonProgress } from '$lib/types/index.js';
 	import { lessonStatusIcon, resolveLessonClick } from './module-list.helpers.js';
+	import { lessonHref } from './navigation.helpers.js';
 
 	interface Props {
 		moduleId: string;
@@ -34,7 +36,7 @@
 
 	function handleClick(lessonId: string) {
 		if (resolveLessonClick(lessonId, lockedLessons) === 'noop') return;
-		navigateTo(moduleId, lessonId);
+		void goto(lessonHref(moduleId, lessonId));
 	}
 </script>
 
