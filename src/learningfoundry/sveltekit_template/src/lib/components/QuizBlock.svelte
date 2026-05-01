@@ -21,9 +21,11 @@
 	interface Props {
 		manifest: QuizManifest;
 		quizRef: string;
+		passThreshold?: number;
 		oncomplete?: (score: QuizScore) => void;
+		onquizcomplete?: () => void;
 	}
-	let { manifest, quizRef, oncomplete }: Props = $props();
+	let { manifest, quizRef, passThreshold = 0.0, oncomplete, onquizcomplete }: Props = $props();
 
 	async function handleComplete(detail: QuizCompleteDetail) {
 		const score: QuizScore = {
@@ -35,6 +37,11 @@
 		};
 		await saveQuizScore(score);
 		oncomplete?.(score);
+		if (detail.maxScore > 0 && detail.score / detail.maxScore >= passThreshold) {
+			onquizcomplete?.();
+		} else if (detail.maxScore === 0) {
+			onquizcomplete?.();
+		}
 	}
 </script>
 

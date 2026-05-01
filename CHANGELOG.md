@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-04-30
+
+### Added
+
+- **Block completion events drive lesson auto-complete.** Each content block fires an independent completion event when sufficiently engaged with: `TextBlock` after 1 s in the viewport (IntersectionObserver + debounce timer), `VideoBlock` on YouTube IFrame Player API `ENDED` state (falls back to 3 s viewport if API fails to load within 5 s), `QuizBlock` when score ≥ `passThreshold` (default 0.0). `LessonView` tracks which blocks have completed; when all have fired, the lesson is marked complete in SQLite and the sidebar updates immediately.
+- **Reactive progress store** (`$lib/stores/progress.ts`). `progressStore` is a writable Svelte store holding `Record<string, ModuleProgress>`. `invalidateProgress(curriculum)` re-fetches all module progress from SQLite and writes to the store. `+layout.svelte` subscribes to this store instead of a one-shot `$effect` fetch; lesson completions call `invalidateProgress` so the sidebar reflects changes without a page reload.
+- **Revisit behaviour.** On mount, `LessonView` reads the lesson's current DB status; if already `complete`, all blocks are pre-filled as done so the Next/Finish button is immediately active.
+- **Zero-block edge case.** A lesson with no content blocks is treated as immediately complete on mount.
+- **`QuizManifest.passThreshold`** added to TypeScript types for future quiz scoring threshold support.
+
+### Changed
+
+- **Next/Finish no longer trigger completion marking.** Navigation is decoupled from completion: `Navigation.svelte` handles its own routing (Next → `navigateTo`, Finish → `goto('/')`) and accepts a `disabled` prop. The `onComplete` callback prop has been removed. `LessonView` no longer has `handleNavComplete` or `oncomplete`.
+- **`+page.svelte`** migrated from deprecated `$app/stores` to `$app/state` for route params.
+
 ## [0.41.0] - 2026-04-30
 
 ### Fixed

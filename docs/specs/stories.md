@@ -219,7 +219,7 @@ The module card for the module containing the current lesson has no visual disti
 
 ---
 
-### Story I.g: v0.42.0 — Block Completion Events and Lesson Auto-Complete [Planned]
+### Story I.g: v0.42.0 — Block Completion Events and Lesson Auto-Complete [Done]
 
 Complete redesign of the lesson completion model. Currently, `markLessonComplete` is called from `handleNavComplete` — but Next never calls `onComplete` (only Finish does), so no lesson is ever reliably marked complete. Rather than patching the navigation flow, completion is decoupled from navigation entirely.
 
@@ -241,48 +241,48 @@ Complete redesign of the lesson completion model. Currently, `markLessonComplete
 
 **Tasks:**
 
-- [ ] `sveltekit_template/src/lib/stores/progress.ts` (new):
-  - [ ] `progressStore`: writable `Record<string, ModuleProgress>`, initialised `{}`
-  - [ ] `invalidateProgress(curriculum: Curriculum | null): Promise<void>`: fetches all module progress and writes to store; no-op if `curriculum` is null
-  - [ ] Export both
-- [ ] `sveltekit_template/src/routes/+layout.svelte`:
-  - [ ] Replace the one-shot `$effect` progress fetch with a subscription to `progressStore`
-  - [ ] Call `invalidateProgress($curriculum)` when `$curriculum` becomes non-null
-- [ ] `sveltekit_template/src/lib/components/TextBlock.svelte`:
-  - [ ] On mount, create `IntersectionObserver`; when block enters viewport start a 1-second timer; cancel timer if block leaves viewport before 1 s; when timer fires, dispatch `textcomplete` (once only — guard against double-fire)
-  - [ ] Clean up observer and timer on component destroy
-- [ ] `sveltekit_template/src/lib/components/VideoBlock.svelte`:
-  - [ ] Inject YouTube IFrame API script tag if `window.YT` is not already loaded; wait for `window.onYouTubeIframeAPIReady`
-  - [ ] Create `YT.Player` on the video container; register `onStateChange` callback; when `event.data === YT.PlayerState.ENDED` dispatch `videocomplete` (once only)
-  - [ ] Fallback: if IFrame API not ready within 5 s, attach Intersection Observer with 3-second threshold instead
-  - [ ] Clean up player and observer on destroy
-- [ ] `sveltekit_template/src/lib/components/ContentBlock.svelte`:
-  - [ ] Listen for `textcomplete`, `videocomplete`, `quizcomplete` from child components
-  - [ ] Forward each as a `blockcomplete` custom event with `detail: { blockIndex: number }` to the parent `LessonView`
-  - [ ] Pass `passThreshold` from quiz block content to the `<QuizBlock>` component
-- [ ] `sveltekit_template/src/lib/components/LessonView.svelte`:
-  - [ ] On mount: call `getLessonProgress(moduleId, lesson.id)`; if status is `complete`, set `allBlocksComplete = true` immediately; otherwise initialise `completedBlocks = new Set<number>()`
-  - [ ] Handle `blockcomplete` events from `ContentBlock`: add `blockIndex` to `completedBlocks`; when `completedBlocks.size === lesson.content_blocks.length`, call `markLessonComplete(moduleId, lesson.id)` then `invalidateProgress($curriculum)`
-  - [ ] Derive `lessonComplete`: `allBlocksComplete || completedBlocks.size === lesson.content_blocks.length`
-  - [ ] Handle zero-block case: `lessonComplete = true` on mount if `lesson.content_blocks.length === 0`
-  - [ ] Pass `disabled={!lessonComplete}` to `<Navigation>`
-  - [ ] Remove `handleNavComplete` and `oncomplete` prop (no longer needed)
-- [ ] `sveltekit_template/src/lib/components/Navigation.svelte`:
-  - [ ] Accept `disabled: boolean` prop (default `false`)
-  - [ ] Apply `disabled` attribute and `opacity-50 cursor-not-allowed` style to Next/Finish button when `disabled`
-  - [ ] `goNext()`: if `next` → `navigateTo(next.moduleId, next.lessonId)`; else → `goto('/')` (import `goto` from `$app/navigation`)
-  - [ ] Remove `onComplete` prop — Finish now routes directly
-- [ ] `sveltekit_template/src/lib/types/index.ts`:
-  - [ ] `QuizContent` interface gains `passThreshold?: number`
-- [ ] Tests (vitest):
-  - [ ] `TextBlock.test.ts`: fires `textcomplete` after 1 s in viewport; does NOT fire if block leaves before 1 s; fires on first qualifying viewport interval only (no double-fire)
-  - [ ] `VideoBlock.test.ts`: mock `YT` global; ENDED state fires `videocomplete`; fallback: viewport 3 s fires `videocomplete` when YT API absent
-  - [ ] `LessonView.test.ts`: all blocks complete → `markLessonComplete` called and `invalidateProgress` called; button disabled until all blocks done; pre-fills set when lesson is already `complete`; zero-block lesson is immediately complete
-  - [ ] `progress.store.test.ts`: `invalidateProgress` writes fetched data to store; subsequent calls overwrite not append
-- [ ] Mirror all changes to `src/learningfoundry/sveltekit_template/`
-- [ ] Bump version to v0.42.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`
-- [ ] `CHANGELOG.md` — v0.42.0 under "Added" (block completion events, lesson auto-complete, reactive progress store) and "Changed" (Next/Finish no longer trigger completion marking)
-- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `ruff`, `mypy`
+- [x] `sveltekit_template/src/lib/stores/progress.ts` (new):
+  - [x] `progressStore`: writable `Record<string, ModuleProgress>`, initialised `{}`
+  - [x] `invalidateProgress(curriculum: Curriculum | null): Promise<void>`: fetches all module progress and writes to store; no-op if `curriculum` is null
+  - [x] Export both
+- [x] `sveltekit_template/src/routes/+layout.svelte`:
+  - [x] Replace the one-shot `$effect` progress fetch with a subscription to `progressStore`
+  - [x] Call `invalidateProgress($curriculum)` when `$curriculum` becomes non-null
+- [x] `sveltekit_template/src/lib/components/TextBlock.svelte`:
+  - [x] On mount, create `IntersectionObserver`; when block enters viewport start a 1-second timer; cancel timer if block leaves viewport before 1 s; when timer fires, dispatch `textcomplete` (once only — guard against double-fire)
+  - [x] Clean up observer and timer on component destroy
+- [x] `sveltekit_template/src/lib/components/VideoBlock.svelte`:
+  - [x] Inject YouTube IFrame API script tag if `window.YT` is not already loaded; wait for `window.onYouTubeIframeAPIReady`
+  - [x] Create `YT.Player` on the video container; register `onStateChange` callback; when `event.data === YT.PlayerState.ENDED` dispatch `videocomplete` (once only)
+  - [x] Fallback: if IFrame API not ready within 5 s, attach Intersection Observer with 3-second threshold instead
+  - [x] Clean up player and observer on destroy
+- [x] `sveltekit_template/src/lib/components/ContentBlock.svelte`:
+  - [x] Listen for `textcomplete`, `videocomplete`, `quizcomplete` from child components
+  - [x] Forward each as a `blockcomplete` custom event with `detail: { blockIndex: number }` to the parent `LessonView`
+  - [x] Pass `passThreshold` from quiz block content to the `<QuizBlock>` component
+- [x] `sveltekit_template/src/lib/components/LessonView.svelte`:
+  - [x] On mount: call `getLessonProgress(moduleId, lesson.id)`; if status is `complete`, set `allBlocksComplete = true` immediately; otherwise initialise `completedBlocks = new Set<number>()`
+  - [x] Handle `blockcomplete` events from `ContentBlock`: add `blockIndex` to `completedBlocks`; when `completedBlocks.size === lesson.content_blocks.length`, call `markLessonComplete(moduleId, lesson.id)` then `invalidateProgress($curriculum)`
+  - [x] Derive `lessonComplete`: `allBlocksComplete || completedBlocks.size === lesson.content_blocks.length`
+  - [x] Handle zero-block case: `lessonComplete = true` on mount if `lesson.content_blocks.length === 0`
+  - [x] Pass `disabled={!lessonComplete}` to `<Navigation>`
+  - [x] Remove `handleNavComplete` and `oncomplete` prop (no longer needed)
+- [x] `sveltekit_template/src/lib/components/Navigation.svelte`:
+  - [x] Accept `disabled: boolean` prop (default `false`)
+  - [x] Apply `disabled` attribute and `opacity-50 cursor-not-allowed` style to Next/Finish button when `disabled`
+  - [x] `goNext()`: if `next` → `navigateTo(next.moduleId, next.lessonId)`; else → `goto('/')` (import `goto` from `$app/navigation`)
+  - [x] Remove `onComplete` prop — Finish now routes directly
+- [x] `sveltekit_template/src/lib/types/index.ts`:
+  - [x] `QuizContent` interface gains `passThreshold?: number`
+- [x] Tests (vitest):
+  - [x] `TextBlock.test.ts`: fires `textcomplete` after 1 s in viewport; does NOT fire if block leaves before 1 s; fires on first qualifying viewport interval only (no double-fire)
+  - [x] `VideoBlock.test.ts`: mock `YT` global; ENDED state fires `videocomplete`; fallback: viewport 3 s fires `videocomplete` when YT API absent
+  - [x] `LessonView.test.ts`: all blocks complete → `markLessonComplete` called and `invalidateProgress` called; button disabled until all blocks done; pre-fills set when lesson is already `complete`; zero-block lesson is immediately complete
+  - [x] `progress.store.test.ts`: `invalidateProgress` writes fetched data to store; subsequent calls overwrite not append
+- [x] Mirror all changes to `src/learningfoundry/sveltekit_template/`
+- [x] Bump version to v0.42.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`
+- [x] `CHANGELOG.md` — v0.42.0 under "Added" (block completion events, lesson auto-complete, reactive progress store) and "Changed" (Next/Finish no longer trigger completion marking)
+- [x] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `ruff`, `mypy`
 
 **Out of scope:**
 - Non-YouTube video providers (IFrame API is YouTube-specific; other providers use the viewport fallback until their own story)

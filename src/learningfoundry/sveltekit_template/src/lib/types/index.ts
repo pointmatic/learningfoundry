@@ -25,6 +25,7 @@ export interface QuizManifest {
 	quizName: string;
 	tree: unknown[];
 	questions: QuizQuestion[];
+	passThreshold?: number;
 	[key: string]: unknown;
 }
 

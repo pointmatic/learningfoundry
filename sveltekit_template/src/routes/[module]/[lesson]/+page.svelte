@@ -1,14 +1,13 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { curriculum, navigateTo } from '$lib/stores/curriculum.js';
 	import type { Lesson, Module } from '$lib/types/index.js';
 	import LessonView from '$lib/components/LessonView.svelte';
 	import { onMount } from 'svelte';
 
-	const moduleId = $derived($page.params.module);
-	const lessonId = $derived($page.params.lesson);
+	const moduleId = $derived(page.params.module);
+	const lessonId = $derived(page.params.lesson);
 
 	const currentModule = $derived<Module | null>(
 		$curriculum?.modules.find((m) => m.id === moduleId) ?? null
@@ -25,10 +24,6 @@
 	$effect(() => {
 		if (moduleId && lessonId) navigateTo(moduleId, lessonId);
 	});
-
-	function handleLessonComplete() {
-		void goto('/');
-	}
 </script>
 
 <svelte:head>
@@ -36,11 +31,7 @@
 </svelte:head>
 
 {#if currentLesson && currentModule}
-	<LessonView
-		lesson={currentLesson}
-		moduleId={currentModule.id}
-		oncomplete={handleLessonComplete}
-	/>
+	<LessonView lesson={currentLesson} moduleId={currentModule.id} />
 {:else if $curriculum}
 	<div class="flex h-full items-center justify-center">
 		<p class="text-gray-400">Lesson not found.</p>

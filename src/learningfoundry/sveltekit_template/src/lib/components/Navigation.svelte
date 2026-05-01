@@ -1,21 +1,23 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import { nextLesson, previousLesson, navigateTo } from '$lib/stores/curriculum.js';
 
 	interface Props {
-		onComplete?: () => void;
+		disabled?: boolean;
 	}
-	let { onComplete }: Props = $props();
+	let { disabled = false }: Props = $props();
 
 	const prev = $derived($previousLesson);
 	const next = $derived($nextLesson);
 
 	function goNext() {
+		if (disabled) return;
 		if (next) {
 			navigateTo(next.moduleId, next.lessonId);
 		} else {
-			onComplete?.();
+			void goto('/');
 		}
 	}
 
@@ -39,8 +41,11 @@
 
 	<button
 		onclick={goNext}
-		class="flex items-center gap-1 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white
-			hover:bg-blue-700 transition-colors"
+		disabled={disabled}
+		class="flex items-center gap-1 rounded px-4 py-2 text-sm font-medium transition-colors
+			{disabled
+			? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed'
+			: 'bg-blue-600 text-white hover:bg-blue-700'}"
 	>
 		{next ? 'Next' : 'Finish'}
 		{#if next}<ChevronRight size={16} />{/if}

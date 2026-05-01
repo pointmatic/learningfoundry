@@ -3,8 +3,7 @@
 	import '../app.css';
 	import { afterNavigate } from '$app/navigation';
 	import { curriculum, modules } from '$lib/stores/curriculum.js';
-	import { getModuleProgress } from '$lib/db/index.js';
-	import type { ModuleProgress } from '$lib/types/index.js';
+	import { progressStore, invalidateProgress } from '$lib/stores/progress.js';
 	import ModuleList from '$lib/components/ModuleList.svelte';
 	import { resetMainScrollOnForwardNav } from './layout.scroll.js';
 
@@ -13,7 +12,6 @@
 	}
 	let { children }: Props = $props();
 
-	let progress = $state<Record<string, ModuleProgress>>({});
 	let mainEl: HTMLElement | undefined = $state();
 
 	// SvelteKit's built-in scroll restoration only manages `window.scrollY`,
@@ -27,19 +25,9 @@
 
 	$effect(() => {
 		const cur = $curriculum;
-		if (!cur) return;
-		(async () => {
-			const entries = await Promise.all(
-				cur.modules.map(async (m) => {
-					const mp = await getModuleProgress(
-						m.id,
-						m.lessons.map((l) => l.id)
-					);
-					return [m.id, mp] as const;
-				})
-			);
-			progress = Object.fromEntries(entries);
-		})();
+		if (cur) {
+			void invalidateProgress(cur);
+		}
 	});
 </script>
 
@@ -50,7 +38,7 @@
 			{$curriculum?.title ?? 'LearningFoundry'}
 		</a>
 		{#if $modules.length}
-			<ModuleList modules={$modules} {progress} />
+			<ModuleList modules={$modules} progress={$progressStore} />
 		{:else}
 			<p class="text-sm text-gray-400">Loading…</p>
 		{/if}
