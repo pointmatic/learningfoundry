@@ -141,7 +141,7 @@ learningfoundry/
 │       │   │   ├── LessonList.svelte       # Lesson list within a module
 │       │   │   ├── LessonView.svelte       # Lesson content renderer (dispatches content blocks)
 │       │   │   ├── ContentBlock.svelte     # Content block dispatcher (text, video, quiz, exercise, visualization)
-│       │   │   ├── TextBlock.svelte        # Rendered markdown content
+│       │   │   ├── TextBlock.svelte        # Rendered markdown content (end-of-block sentinel drives `textcomplete`)
 │       │   │   ├── VideoBlock.svelte       # YouTube embed
 │       │   │   ├── QuizBlock.svelte        # Inline quiz (consumes quizazz manifest JSON)
 │       │   │   ├── ExerciseBlock.svelte    # Model-training exercise (consumes nbfoundry output)

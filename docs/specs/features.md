@@ -233,10 +233,14 @@ Track learner progress entirely client-side using sql.js/WASM (SQLite in the bro
 
 **Behavior:**
 1. On first app load, create the SQLite database and initialize the schema (modules, lessons, quiz_scores, exercise_status).
-2. Mark a lesson as completed when the learner navigates past it or explicitly marks it done.
+2. Mark a lesson as completed when every content block in the lesson has fired its completion event. Per-block completion contracts:
+   - **Text block** — fires when a sentinel `<div data-textblock-end>` placed at the *end* of the rendered markdown is continuously visible in the viewport for 1 s. Observing the end-of-block sentinel (rather than any portion of the wrapper) is what makes a tall lesson require actual reading-time scroll: simply landing on the page is no longer sufficient.
+   - **Video block** — fires on the YouTube IFrame Player API `ENDED` state, with a 3-second viewport-fallback when the IFrame API is unavailable.
+   - **Quiz block** — fires when `score / maxScore >= passThreshold` (default `0.0`); failed attempts retry internally without firing.
 3. Store quiz scores (pre/post assessment and inline quizzes) with timestamps.
 4. Store exercise completion status.
 5. Surface progress in the navigation UI: per-module completion percentage, quiz score indicators.
+6. Provide a course-level reset button in the sidebar (Story I.l): disabled when no learner activity exists; on confirmed click, truncate `lesson_progress`, `quiz_scores`, and `exercise_status` and route to `/`.
 
 **Locking and sequential access:**
 The locking configuration (parsed from YAML and global config) controls which modules/lessons the learner can access:

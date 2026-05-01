@@ -11,11 +11,17 @@
 	let { content, ontextcomplete }: Props = $props();
 
 	const html = $derived(renderMarkdown(content.markdown));
-	let blockEl: HTMLDivElement | undefined = $state();
+	// Observe a zero-size sentinel placed at the *end* of the rendered
+	// markdown rather than the wrapper itself. Otherwise a tall block fires
+	// `textcomplete` simply because the top of the block is in view on
+	// initial render — the learner would never have to scroll to the lesson
+	// body. With the sentinel, completion requires the bottom of the block
+	// to be in view for 1 s.
+	let sentinelEl: HTMLDivElement | undefined = $state();
 	let fired = false;
 
 	onMount(() => {
-		if (!blockEl || !ontextcomplete) return;
+		if (!sentinelEl || !ontextcomplete) return;
 		let timer: ReturnType<typeof setTimeout> | null = null;
 
 		const observer = new IntersectionObserver(
@@ -37,7 +43,7 @@
 			{ threshold: 0.1 }
 		);
 
-		observer.observe(blockEl);
+		observer.observe(sentinelEl);
 
 		return () => {
 			observer.disconnect();
@@ -46,6 +52,7 @@
 	});
 </script>
 
-<div bind:this={blockEl} class="prose prose-slate max-w-none">
+<div class="prose prose-slate max-w-none">
 	{@html html}
+	<div bind:this={sentinelEl} aria-hidden="true" data-textblock-end></div>
 </div>

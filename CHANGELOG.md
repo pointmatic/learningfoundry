@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-05-01
+
+### Changed
+
+- **TextBlock completion now requires the bottom of the block to be in view, not just any portion.** `TextBlock.svelte` renders a zero-size `<div data-textblock-end aria-hidden="true">` sentinel at the end of the rendered markdown and observes that element rather than the wrapper. A tall lesson can no longer be marked complete simply because the top of the text was on screen on initial render — the learner must scroll until the sentinel is in the viewport for the full 1-second debounce window. The `IntersectionObserver` debounce, threshold (`0.1`), and single-fire `fired` guard are unchanged. New vitest cases cover the "tall block, sentinel never intersects" and "scrolled into view → fires 1 s later" branches.
+
 ## [0.47.0] - 2026-05-01
 
 ### Added

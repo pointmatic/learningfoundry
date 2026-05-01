@@ -569,29 +569,29 @@ The button is pinned at the bottom of the sidebar `<aside>`, disabled when no le
 
 ---
 
-### Story I.m: v0.48.0 — Text Block End-of-Block Completion [Planned]
+### Story I.m: v0.48.0 — Text Block End-of-Block Completion [Done]
 
 FR-P1's text-block trigger fires whenever any portion of the block is in the viewport for 1 s. For a long lesson with one tall text block, simply landing on the page satisfies the trigger because the top of the block is always in view — the learner gets a completion event without ever scrolling to the actual lesson body. Refined trigger: a sentinel placed at the **end** of the rendered markdown must be continuously visible for 1 s. See `phase-I-progress-ux-subplan.md` → FR-P13.
 
 **Tasks:**
 
-- [ ] `sveltekit_template/src/lib/components/TextBlock.svelte`:
-  - [ ] Render a sentinel `<div bind:this={sentinelEl} aria-hidden="true" data-textblock-end></div>` immediately after the `{@html html}` rendering. Zero-size by default (no padding/margin); browsers treat it as observable for `IntersectionObserver` regardless.
-  - [ ] Switch the `IntersectionObserver` target from `blockEl` to `sentinelEl`. Keep `blockEl` bound for any future work that needs the wrapper (e.g. FR-P10 `$effect`-driven content swaps if a non-route-driven flow ever needs it), but rename it to `wrapperEl` if the binding is no longer functionally used to make the role explicit.
-  - [ ] Threshold remains `0.1`; debounce remains 1 s; single-fire `fired` guard unchanged.
-- [ ] Tests (vitest):
-  - [ ] `TextBlock.test.ts` — short block (sentinel in viewport at mount) fires `textcomplete` after 1 s. Regression check; matches old behaviour.
-  - [ ] `TextBlock.test.ts` — tall block, sentinel never intersects: simulate observer entries with `isIntersecting: false` for the sentinel; assert `textcomplete` does NOT fire after 1 s, 2 s, or 5 s.
-  - [ ] `TextBlock.test.ts` — tall block, sentinel becomes visible after a simulated scroll: dispatch a `isIntersecting: true` entry for the sentinel; assert `textcomplete` fires 1 s later.
-  - [ ] `TextBlock.test.ts` — sentinel briefly visible for less than 1 s (e.g. 700 ms then `isIntersecting: false`): assert `textcomplete` does not fire.
-- [ ] Playwright e2e (extends I.k harness):
-  - [ ] `e2e/text-block-bottom.spec.ts`: load a curriculum with one tall text block (height > viewport height); wait 5 s without scrolling; assert no sidebar checkmark and module % is 0. Scroll to the bottom of `<main>`; assert checkmark appears within 2 s of the sentinel becoming visible.
-- [ ] `docs/specs/features.md` — update FR-1's text-block completion description to reference end-of-block trigger and link to the rationale (or leave inline if compact).
-- [ ] `docs/specs/tech-spec.md` — update `TextBlock` description to mention the sentinel pattern.
-- [ ] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
-- [ ] Bump version to v0.48.0.
-- [ ] `CHANGELOG.md` — v0.48.0 under "Changed" (text-block completion now requires the bottom of the block to be in view, not just any portion).
-- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
+- [x] `sveltekit_template/src/lib/components/TextBlock.svelte`:
+  - [x] Render a sentinel `<div bind:this={sentinelEl} aria-hidden="true" data-textblock-end></div>` immediately after the `{@html html}` rendering. Zero-size by default (no padding/margin); browsers treat it as observable for `IntersectionObserver` regardless.
+  - [x] Switch the `IntersectionObserver` target from `blockEl` to `sentinelEl`. Keep `blockEl` bound for any future work that needs the wrapper (e.g. FR-P10 `$effect`-driven content swaps if a non-route-driven flow ever needs it), but rename it to `wrapperEl` if the binding is no longer functionally used to make the role explicit.
+  - [x] Threshold remains `0.1`; debounce remains 1 s; single-fire `fired` guard unchanged.
+- [x] Tests (vitest):
+  - [x] `TextBlock.test.ts` — short block (sentinel in viewport at mount) fires `textcomplete` after 1 s. Regression check; matches old behaviour.
+  - [x] `TextBlock.test.ts` — tall block, sentinel never intersects: simulate observer entries with `isIntersecting: false` for the sentinel; assert `textcomplete` does NOT fire after 1 s, 2 s, or 5 s.
+  - [x] `TextBlock.test.ts` — tall block, sentinel becomes visible after a simulated scroll: dispatch a `isIntersecting: true` entry for the sentinel; assert `textcomplete` fires 1 s later.
+  - [x] `TextBlock.test.ts` — sentinel briefly visible for less than 1 s (e.g. 700 ms then `isIntersecting: false`): assert `textcomplete` does not fire.
+- [x] Playwright e2e (extends I.k harness):
+  - [x] `e2e/text-block-bottom.spec.ts`: load a curriculum with one tall text block (height > viewport height); wait 5 s without scrolling; assert no sidebar checkmark and module % is 0. Scroll to the bottom of `<main>`; assert checkmark appears within 2 s of the sentinel becoming visible.
+- [x] `docs/specs/features.md` — update FR-1's text-block completion description to reference end-of-block trigger and link to the rationale (or leave inline if compact).
+- [x] `docs/specs/tech-spec.md` — update `TextBlock` description to mention the sentinel pattern.
+- [x] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
+- [x] Bump version to v0.48.0.
+- [x] `CHANGELOG.md` — v0.48.0 under "Changed" (text-block completion now requires the bottom of the block to be in view, not just any portion).
+- [x] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
 
 **Out of scope:**
 - Per-paragraph engagement tracking or scroll-percentage-based completion.
