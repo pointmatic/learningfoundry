@@ -28,23 +28,28 @@
 		if (target) navigateTo(mod.id, target.id);
 	}
 
-	const overallPct = $derived(() => {
-		let done = 0;
-		let total = 0;
-		for (const mod of modules) {
-			const s = moduleStats(mod);
-			done += s.done;
-			total += s.total;
-		}
-		return total === 0 ? 0 : Math.round((done / total) * 100);
-	});
+	const totalLessons = $derived(modules.reduce((n, m) => n + m.lessons.length, 0));
+
+	const totalComplete = $derived(
+		modules.reduce((n, m) => {
+			const mp = progress[m.id];
+			if (!mp) return n;
+			return n + Object.values(mp.lessons).filter((l) => l.status === 'complete').length;
+		}, 0)
+	);
+
+	const overallPct = $derived(
+		totalLessons === 0 ? 0 : Math.round((totalComplete / totalLessons) * 100)
+	);
 </script>
 
 <div class="space-y-6">
-	<div>
-		<h2 class="mb-2 text-lg font-semibold text-gray-900">Overall Progress</h2>
-		<ProgressBar percent={overallPct()} label="All lessons" />
-	</div>
+	{#if totalLessons > 0}
+		<div>
+			<p class="mb-1 text-sm text-gray-600">{totalComplete} of {totalLessons} lessons completed</p>
+			<ProgressBar percent={overallPct} />
+		</div>
+	{/if}
 
 	<div class="space-y-4">
 		{#each modules as mod (mod.id)}

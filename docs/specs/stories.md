@@ -290,7 +290,7 @@ Complete redesign of the lesson completion model. Currently, `markLessonComplete
 
 ---
 
-### Story I.h: v0.43.0 — Dashboard Curriculum Progress Bar [Planned]
+### Story I.h: v0.43.0 — Dashboard Curriculum Progress Bar [Done]
 
 The dashboard (`/`) displays per-module progress bars but no curriculum-level summary. Add a single bar above the module cards showing overall completion. Depends on the reactive `progressStore` introduced in I.g.
 
@@ -304,19 +304,19 @@ Computed from the reactive store as `sum(complete lessons across all modules) / 
 
 **Tasks:**
 
-- [ ] `sveltekit_template/src/lib/components/ProgressDashboard.svelte`:
-  - [ ] Compute `totalLessons = modules.reduce((n, m) => n + m.lessons.length, 0)`
-  - [ ] Compute `totalComplete = modules.reduce((n, m) => n + completeLessonCount(m, progress), 0)` where `completeLessonCount` counts lessons with status `complete`
-  - [ ] Render a `<ProgressBar percent={...}>` with label `"{totalComplete} of {totalLessons} lessons completed"` above the existing module card list
-  - [ ] Handle `totalLessons === 0` gracefully (no division by zero; hide bar or show 0%)
-- [ ] `sveltekit_template/src/routes/+page.svelte` (dashboard route):
-  - [ ] Confirm it passes `modules` and the reactive `progress` from `progressStore` to `ProgressDashboard` (wire if missing)
-- [ ] Tests (vitest):
-  - [ ] `ProgressDashboard.test.ts`: bar shows 0% when no lessons complete; bar shows 50% when half complete; bar shows 100% when all complete; label text is correct
-- [ ] Mirror changes to `src/learningfoundry/sveltekit_template/`
-- [ ] Bump version to v0.43.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`
-- [ ] `CHANGELOG.md` — v0.43.0 under "Added"
-- [ ] Verify: `pyve test`, smoke, `ruff`, `mypy`
+- [x] `sveltekit_template/src/lib/components/ProgressDashboard.svelte`:
+  - [x] Compute `totalLessons = modules.reduce((n, m) => n + m.lessons.length, 0)`
+  - [x] Compute `totalComplete = modules.reduce((n, m) => n + completeLessonCount(m, progress), 0)` where `completeLessonCount` counts lessons with status `complete`
+  - [x] Render a `<ProgressBar percent={...}>` with label `"{totalComplete} of {totalLessons} lessons completed"` above the existing module card list
+  - [x] Handle `totalLessons === 0` gracefully (no division by zero; hide bar or show 0%)
+- [x] `sveltekit_template/src/routes/+page.svelte` (dashboard route):
+  - [x] Confirm it passes `modules` and the reactive `progress` from `progressStore` to `ProgressDashboard` (wire if missing)
+- [x] Tests (vitest):
+  - [x] `ProgressDashboard.test.ts`: bar shows 0% when no lessons complete; bar shows 50% when half complete; bar shows 100% when all complete; label text is correct
+- [x] Mirror changes to `src/learningfoundry/sveltekit_template/`
+- [x] Bump version to v0.43.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`
+- [x] `CHANGELOG.md` — v0.43.0 under "Added"
+- [x] Verify: `pyve test`, smoke, `ruff`, `mypy`
 
 **Out of scope:**
 - Curriculum completion celebration / "Course Complete" screen (future story)

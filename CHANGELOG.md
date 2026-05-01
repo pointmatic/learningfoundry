@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-04-30
+
+### Added
+
+- **Curriculum-level progress bar on the dashboard.** `ProgressDashboard.svelte` now renders a summary bar above the module cards showing `"{totalComplete} of {totalLessons} lessons completed"`. Computed reactively from `progressStore` — updates live when lessons complete during the session. Hidden when the curriculum has zero lessons. The dashboard `+page.svelte` no longer does its own one-shot progress fetch; it reads from the shared `progressStore` populated by the layout.
+
 ## [0.42.0] - 2026-04-30
 
 ### Added
