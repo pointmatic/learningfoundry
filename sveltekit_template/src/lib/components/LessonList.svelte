@@ -30,7 +30,10 @@
 	function statusClass(lessonId: string): string {
 		const s = progress[lessonId]?.status;
 		if (s === 'complete') return 'text-green-600';
-		if (s === 'in_progress') return 'text-blue-500';
+		// `opened` (Story I.p) shares the in_progress visual on purpose —
+		// learners shouldn't see "I opened it but didn't engage" as a
+		// distinct sidebar symbol; the distinction is data-only.
+		if (s === 'in_progress' || s === 'opened') return 'text-blue-500';
 		return 'text-gray-400';
 	}
 

@@ -118,7 +118,17 @@ export interface Curriculum {
 // Progress tracking
 // ---------------------------------------------------------------------------
 
-export type LessonStatus = 'not_started' | 'in_progress' | 'complete' | 'optional';
+// Lifecycle order: not_started → opened (mount) → in_progress (first
+// block engage) → complete. `optional` is orthogonal — it overlays the
+// lifecycle for sibling lessons of an `unlock_module_on_complete` key
+// lesson. The sidebar visually merges `opened` with `in_progress`
+// (FR-P15 / Story I.p).
+export type LessonStatus =
+	| 'not_started'
+	| 'opened'
+	| 'in_progress'
+	| 'complete'
+	| 'optional';
 export type ModuleStatus = 'not_started' | 'in_progress' | 'complete';
 
 export interface LessonProgress {

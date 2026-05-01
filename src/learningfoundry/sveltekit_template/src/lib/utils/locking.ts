@@ -27,6 +27,10 @@ function isLessonComplete(
 	moduleId: string,
 	lessonId: string
 ): boolean {
+	// Strict equality with `'complete'` — `'opened'` and `'in_progress'`
+	// (Story I.p / FR-P15) deliberately do NOT trigger the
+	// `unlock_module_on_complete` cascade, do not contribute to module
+	// completeness, and do not unlock the next sequential module.
 	return progress[moduleId]?.lessons[lessonId]?.status === 'complete';
 }
 

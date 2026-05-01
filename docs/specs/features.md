@@ -231,6 +231,16 @@ Generate a complete, build-ready SvelteKit project from the resolved curriculum.
 
 Track learner progress entirely client-side using sql.js/WASM (SQLite in the browser).
 
+**Lesson lifecycle (Story I.p / FR-P15):**
+The `lesson_progress.status` column moves through four states plus the orthogonal `optional`:
+
+- `not_started` — never opened.
+- `opened` — `LessonView` mounted; `markLessonOpened` ran. No content engagement yet.
+- `in_progress` — at least one content block fired its completion event.
+- `complete` — every content block has fired completion; `markLessonComplete` ran.
+
+`opened` and `in_progress` share the sidebar `…` icon — the lifecycle distinction is data-only, intended for analytics / future hooks. `LessonView` emits three callback-prop events (`onlessonopen`, `onlessonengage`, `onlessoncomplete`) that fire at most once per mount session and are suppressed when the corresponding state transition is a no-op (e.g. revisiting a `complete` lesson fires `onlessonopen` only). No internal subscribers exist today.
+
 **Behavior:**
 1. On first app load, create the SQLite database and initialize the schema (modules, lessons, quiz_scores, exercise_status).
 2. Mark a lesson as completed when every content block in the lesson has fired its completion event. Per-block completion contracts:

@@ -854,6 +854,14 @@ CREATE TABLE IF NOT EXISTS exercise_status (
 );
 ```
 
+**Lesson lifecycle (Story I.p / FR-P15).** `lesson_progress.status` stores the four-state machine `not_started → opened → in_progress → complete`. The DB layer exposes:
+
+- `markLessonOpened(moduleId, lessonId)` — upgrade-only `INSERT … ON CONFLICT DO UPDATE` that promotes a row from `not_started` (or absent) to `opened` but never demotes a row already at `opened`/`in_progress`/`complete`. Called from `LessonView.onMount`.
+- `markLessonInProgress(moduleId, lessonId)` — promotes to `in_progress` (preserving `complete`). Caller contract narrowed: now invoked on the *first* block-completion event of the mount session, not on mount itself.
+- `markLessonComplete(moduleId, lessonId)` — terminal write when every block has fired completion.
+
+`getModuleProgress` derives module-level status from the per-lesson statuses; `opened` falls into the `s !== 'not_started'` branch and surfaces as `in_progress` at the module level. The frontend visually merges `opened` with `in_progress` (`…` icon) so the lifecycle distinction is data-only.
+
 ### SvelteKit TypeScript Types (`lib/types/index.ts`)
 
 ```typescript

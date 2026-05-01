@@ -48,6 +48,10 @@ describe('lessonStatusIcon (optional rendering)', () => {
 		expect(lessonStatusIcon('l1', 'in_progress', new Set())).toBe('…');
 	});
 
+	it('shows … for opened (Story I.p — visually merged with in_progress)', () => {
+		expect(lessonStatusIcon('l1', 'opened', new Set())).toBe('…');
+	});
+
 	it('shows ◇ for optional not-yet-started', () => {
 		expect(lessonStatusIcon('l1', 'not_started', new Set(['l1']))).toBe('◇');
 	});

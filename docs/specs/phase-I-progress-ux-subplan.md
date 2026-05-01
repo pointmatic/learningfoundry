@@ -283,6 +283,38 @@ After v0.49.0 shipped, lesson completion stopped firing entirely against real cu
 
 **Fix shape (Story I.o):** give the sentinel observable area (`style="height: 1px;"` is sufficient and invisible), then close the three test gaps so the same shape of regression cannot reach `[Done]` again. No new FR is needed — FR-P11's spec was correct, the implementation just didn't cover it. FR-P13's contract is unchanged in *intent*; only the technique for satisfying it changes.
 
+### FR-P15: Lesson Lifecycle Events and `opened` Status
+
+The lesson lifecycle has three persisted signals today: `not_started` (default), `in_progress` (written on mount by `markLessonInProgress`), and `complete` (written when all block events fire). "Opened" and "in_progress" are conflated — both are written at the same moment to the same row by the same function. Consequences:
+
+- A learner who opens a lesson and engages with no content blocks (broken pipeline, brief glance, the I.o regression class) is indistinguishable in the data from one who is genuinely partway through. Both look like `…` in the sidebar; both count as `in_progress` everywhere downstream.
+- External listeners (analytics adapters, telemetry, future dashboard tiles) cannot subscribe to a clean "lesson opened" signal without coupling to the FR-P2 status machine.
+- Tests cannot assert "the lesson was opened" as an invariant separate from "the lesson became in_progress."
+
+This FR splits the conflation along three dimensions:
+
+**Status enum extension (Q3 design choice).** `LessonStatus` adds an `opened` value between `not_started` and `in_progress`. Promotion is monotonic and upgrade-only:
+
+- `not_started → opened` when `LessonView.onMount` runs (any visit).
+- `opened → in_progress` when the *first* block-completion event fires for the lesson within the current mount session.
+- `in_progress → complete` when *all* block-completion events have fired (existing behaviour, unchanged).
+- `complete → complete` on revisits (existing protection, unchanged).
+- `optional` is orthogonal to the open/engage axis (set by `unlock_module_on_complete` cascade, not by these transitions).
+
+**Custom-event emitters from `LessonView`.** Three events, each carrying `detail: { moduleId, lessonId }`:
+
+- `lessonopen` — fired in `onMount`. Once per mount.
+- `lessonengage` — fired on the first block-completion event of the mount session. Once per mount, even if multiple blocks complete in the same tick.
+- `lessoncomplete` — fired when the last outstanding block completes (same trigger that today calls `markLessonComplete`). Once per mount; suppressed on revisit-to-already-complete because no new transition occurs.
+
+No internal subscribers exist today; these are forward-compatible hooks for later analytics work.
+
+**UI mapping (Q2 design choice).** Sidebar status icons stay at `○ … ✓ ◇` (not_started, in_progress, complete, optional). The new `opened` status renders as `…` — same as `in_progress`. Two semantic states share one visual; the distinction lives in the data.
+
+**Timestamps (Q3 design choice).** No new timestamp columns in this story. `completed_at` is grandfathered as the only timestamp on `lesson_progress`; adding `opened_at` and `engaged_at` would create asymmetric coverage that begs for a fuller "lifecycle timestamps" treatment. That treatment is its own story; not this one.
+
+**`lessonresume` (deferred).** A fourth event "lesson revisited after reaching `complete`" is genuinely new (not derivable from existing data unless we count mount events) and is parked as a future idea. Listed in the Future section of `stories.md`; not implemented in I.p.
+
 ---
 
 ## Story Map
@@ -299,3 +331,4 @@ After v0.49.0 shipped, lesson completion stopped firing entirely against real cu
 | I.m | v0.48.0 | Text Block End-of-Block Completion | FR-P13 — refines FR-P1 |
 | I.n | v0.49.0 | Clean Dashboard State on Finish | FR-P14 — sidebar cleanup on Finish |
 | I.o | v0.50.0 | Restore Text-Block Completion and Harden E2E Coverage | Defect repair for I.m regression; finishes FR-P11's progress assertions |
+| I.p | v0.51.0 | Lesson Lifecycle Events and `opened` Status | FR-P15 — three lifecycle events, status enum extension |

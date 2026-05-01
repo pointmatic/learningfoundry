@@ -88,14 +88,18 @@ export function resolveLessonClick(
 
 /**
  * Sidebar lesson status icon — accounts for `optional` rendering.
+ *
+ * `opened` (Story I.p / FR-P15) deliberately shares the `…` icon with
+ * `in_progress` so the learner sees a single "started" symbol; the
+ * underlying data distinction exists for analytics / future hooks only.
  */
 export function lessonStatusIcon(
 	lessonId: string,
-	status: 'complete' | 'in_progress' | 'not_started' | undefined,
+	status: 'complete' | 'in_progress' | 'opened' | 'not_started' | undefined,
 	optionalLessons: Set<string>
 ): string {
 	if (status === 'complete') return '✓';
-	if (status === 'in_progress') return '…';
+	if (status === 'in_progress' || status === 'opened') return '…';
 	if (optionalLessons.has(lessonId)) return '◇';
 	return '○';
 }

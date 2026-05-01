@@ -65,6 +65,11 @@ top-level `#` title — the wrapper provides it.
 **Progress timestamps are Unix integer seconds:**
 - All `completed_at` and `updated_at` columns in the SQLite progress schema are integer Unix timestamps (seconds since epoch), not ISO 8601 strings, not milliseconds.
 
+**Lesson lifecycle is four states, visually three (Story I.p / FR-P15):**
+- `lesson_progress.status` runs `not_started → opened → in_progress → complete` (plus the orthogonal `optional`).
+- The sidebar visually merges `opened` and `in_progress` into the `…` icon — the data distinction exists for analytics / future hooks, not for direct learner display. Don't add a separate sidebar symbol for `opened`.
+- `markLessonOpened` is upgrade-only and never demotes a more advanced status.
+
 ### Hidden Coupling
 
 **Provider protocols ↔ dependency specs:**

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-05-01
+
+### Added
+
+- **Lesson `opened` status and three lifecycle event hooks** (Story I.p / FR-P15). `LessonStatus` now runs `not_started → opened → in_progress → complete` (plus the orthogonal `optional`). `LessonView` mounts call new `markLessonOpened` DB op (upgrade-only — never demotes a more advanced status), then dispatch `onlessonopen`. `markLessonInProgress` and `onlessonengage` now fire on the *first* block-completion event of the mount session — not on mount itself — so a learner who opens a lesson but engages with no content is distinguishable from one genuinely partway through. `onlessoncomplete` fires after `markLessonComplete` succeeds. Revisits to a `complete` lesson fire `onlessonopen` only (no engage / complete events when no transition occurs); zero-block lessons fire `onlessonopen` then `onlessoncomplete` in order. No internal subscribers exist today — the events are forward-compatible hooks for future analytics / telemetry adapters.
+
+### Changed
+
+- `markLessonInProgress` is now invoked on the first block-engagement event rather than on mount. SQL itself is unchanged.
+- Sidebar icon mapping broadened: `opened` shows the same `…` icon (and `text-blue-500` class) as `in_progress`. The lifecycle distinction is data-only — learners see the same "started" symbol regardless of engagement, by design (FR-P15 / Q2).
+- `getModuleProgress`'s module-status derivation: `opened` falls into the `s !== 'not_started'` branch and surfaces as `in_progress` at the module level (intentional; one-line comment added).
+
 ## [0.50.0] - 2026-05-01
 
 ### Fixed

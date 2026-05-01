@@ -22,6 +22,30 @@ export async function markLessonComplete(moduleId: string, lessonId: string): Pr
 	await persistDb();
 }
 
+/**
+ * Promote a lesson row to `opened` if it does not already carry a more
+ * advanced status. Upgrade-only — never demotes `in_progress` or
+ * `complete`. Called from `LessonView.onMount` (Story I.p / FR-P15).
+ */
+export async function markLessonOpened(moduleId: string, lessonId: string): Promise<void> {
+	const db = await getDb();
+	db.run(
+		`INSERT INTO lesson_progress (module_id, lesson_id, status, completed_at)
+     VALUES (?, ?, 'opened', NULL)
+     ON CONFLICT(module_id, lesson_id) DO UPDATE SET
+       status = CASE WHEN status IN ('opened', 'in_progress', 'complete')
+                     THEN status
+                     ELSE 'opened' END`,
+		[moduleId, lessonId]
+	);
+	await persistDb();
+}
+
+/**
+ * Promote a lesson row to `in_progress`. Called from `LessonView` when
+ * the FIRST block-completion event fires for the current mount session
+ * — not on mount itself (Story I.p / FR-P15). `complete` is preserved.
+ */
 export async function markLessonInProgress(moduleId: string, lessonId: string): Promise<void> {
 	const db = await getDb();
 	db.run(
@@ -168,6 +192,9 @@ export async function getModuleProgress(
 	}
 
 	const statuses = Object.values(lessonMap).map((l) => l.status);
+	// `opened` (Story I.p) falls into the `s !== 'not_started'` branch and
+	// surfaces as module-level `in_progress` — intentional, matches the
+	// sidebar visual mapping (FR-P15).
 	const moduleStatus =
 		statuses.every((s) => s === 'complete')
 			? 'complete'

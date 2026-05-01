@@ -671,6 +671,102 @@ The fix itself is one line. The bulk of the story is closing the three test gaps
 
 ---
 
+### Story I.p: v0.51.0 — Lesson Lifecycle Events and 'opened' Status [Done]
+
+The lesson lifecycle today persists three states — `not_started`, `in_progress`, `complete` — plus the orthogonal `optional`. "Opened" and "in_progress" are conflated: both are written at the same moment in `LessonView.onMount` by `markLessonInProgress`. As a result, a learner who opens a lesson but engages with no content blocks (broken pipeline, brief glance, the I.o regression class) is indistinguishable in the data from one genuinely partway through. Both look like `…` in the sidebar; both count as `in_progress` everywhere downstream. External listeners — analytics, telemetry, a future "stuck lessons" dashboard — cannot subscribe to a clean "lesson opened" signal without coupling to the FR-P2 status machine. See `phase-I-progress-ux-subplan.md` → FR-P15 for the full design.
+
+This story splits the conflation along three dimensions: a status-enum extension (`opened`), three custom-event emitters from `LessonView` (`lessonopen`, `lessonengage`, `lessoncomplete`), and an explicit decision to keep the sidebar visual mapping unchanged so the new internal granularity does not multiply learner-visible symbols. A fourth event `lessonresume` is parked in the Future section.
+
+**Tasks:**
+
+- [x] `sveltekit_template/src/lib/types/index.ts`:
+  - [x] `LessonStatus` adds `'opened'` between `'not_started'` and `'in_progress'`. Order in the literal union: `'not_started' | 'opened' | 'in_progress' | 'complete' | 'optional'`. (Type union order is cosmetic for TS but documents the lifecycle progression.)
+- [x] `sveltekit_template/src/lib/db/progress.ts`:
+  - [x] New `markLessonOpened(moduleId, lessonId): Promise<void>` — `INSERT INTO lesson_progress (module_id, lesson_id, status, completed_at) VALUES (?, ?, 'opened', NULL) ON CONFLICT(module_id, lesson_id) DO UPDATE SET status = CASE WHEN status IN ('opened', 'in_progress', 'complete') THEN status ELSE 'opened' END`. Upgrade-only — never demotes an existing in_progress/complete row.
+  - [x] `markLessonInProgress` semantics narrow: now called only on the *first* block-completion of the mount session, not on mount. The function body unchanged (still `INSERT … status='in_progress' … ON CONFLICT … status = CASE WHEN status = 'complete' THEN 'complete' ELSE 'in_progress' END`). Update its block comment to reflect the new caller contract.
+  - [x] `getLessonProgress` already returns the `status` field unchanged; verify the typed return value compiles against the extended `LessonStatus` union (the `as` cast at line 48 needs the new value in the literal type).
+  - [x] `getModuleProgress`'s module-status derivation already uses `s !== 'not_started'` for the `in_progress` branch — the new `opened` value falls into that branch correctly. Add a one-line comment confirming this is intentional so a future refactorer doesn't trip on the condition.
+- [x] `sveltekit_template/src/lib/components/LessonView.svelte`:
+  - [x] `onMount`: call `markLessonOpened(moduleId, lesson.id)` *before* the existing `getLessonProgress` revisit check. Dispatch a `lessonopen` custom event with `detail: { moduleId, lessonId: lesson.id }`. The existing zero-block edge case still calls `markLessonComplete` directly — but now it should also dispatch `lessonopen` *and* `lessoncomplete` in order before returning, so the event contract matches the data contract for instant-complete lessons.
+  - [x] Track engagement state with a new `let engaged = $state(false)`. In `handleBlockComplete`, before adding to `completedBlocks`, if `!engaged` and the lesson is not already complete, set `engaged = true`, call `markLessonInProgress(moduleId, lesson.id)`, and dispatch `lessonengage` with `detail: { moduleId, lessonId: lesson.id }`.
+  - [x] When `completedBlocks.size === lesson.content_blocks.length`, after `markLessonComplete` and `invalidateProgress` succeed, dispatch `lessoncomplete` with `detail: { moduleId, lessonId: lesson.id }`.
+  - [x] Revisit case (`existing?.status === 'complete'`): no engage/complete events fire on revisit because no transition occurs. `lessonopen` *does* fire (every mount opens). This matches FR-P15's "once per mount, suppressed when no new transition" rule.
+  - [x] Choose the event mechanism explicitly: Svelte 5 components emit events via callback props or via DOM `CustomEvent`. Pick the callback-prop pattern (`onlessonopen`, `onlessonengage`, `onlessoncomplete`) for type safety and consistency with existing `onblockcomplete`/`onquizcomplete` props. No subscribers in this story; document the props in the component header.
+- [x] `sveltekit_template/src/lib/components/LessonList.svelte`:
+  - [x] `statusIcon`: extend the mapping so `'opened'` returns the same icon as `'in_progress'` (`…`).
+  - [x] `statusClass`: extend so `'opened'` returns the same class as `'in_progress'` (`text-blue-500`).
+  - [x] Implementation note: rather than adding a parallel branch, broaden the existing `s === 'in_progress'` check to `s === 'in_progress' || s === 'opened'` in both helpers. Single-line change in each, minimal diff surface.
+  - [x] Helper `lessonStatusIcon` in `module-list.helpers.ts` (if it gates on the same mapping) gets the same broadening.
+- [x] `sveltekit_template/src/lib/utils/locking.ts`:
+  - [x] `getOptionalLessons` derivation: the unlock-key lesson must be `'complete'`. The `opened` status does NOT trigger optional-sibling cascade — only `complete` does. Verify the existing condition (`progress[mod.id]?.lessons[keyLessonId]?.status === 'complete'`) is unaffected and add a one-line comment to that effect.
+  - [x] `isModuleComplete` and `isModuleLocked` derivations: same — `opened` does not contribute to module completeness. Verify and document.
+- [x] `sveltekit_template/src/lib/utils/progress.ts` (introduced in I.l):
+  - [x] `hasAnyProgress` already returns true for any non-`'not_started'` status. The new `'opened'` status is correctly classified as activity (Reset button enables on first open). Add a test case to lock this in.
+- [x] Tests (vitest):
+  - [x] `db.progress.test.ts` — new cases: `markLessonOpened` writes `opened` from a fresh state; `markLessonOpened` is idempotent on a row already at `opened` (status preserved); `markLessonOpened` does NOT demote an `in_progress` row; `markLessonOpened` does NOT demote a `complete` row.
+  - [x] `db.progress.test.ts` — extend the existing `markLessonInProgress` cases: when called on an `opened` row, status promotes to `in_progress`; when called on a `not_started` row (legacy path), still works — but document that the legacy callers no longer exist after this story.
+  - [x] `LessonView.test.ts` — new cases: on mount, `markLessonOpened` is called and `onlessonopen` fires; on first block-complete, `markLessonInProgress` is called and `onlessonengage` fires; on all-blocks-complete, `markLessonComplete` is called and `onlessoncomplete` fires; mounting a lesson already at `complete` calls `markLessonOpened` and fires only `onlessonopen` (no engage, no complete); zero-block lesson fires `onlessonopen` and `onlessoncomplete` in order.
+  - [x] `LessonList.test.ts` — `opened` status renders `…` icon and `text-blue-500` class.
+  - [x] `progress.utils.test.ts` — `hasAnyProgress` returns `true` when a single lesson is at status `'opened'` and all others are `'not_started'`.
+- [x] Playwright e2e (extends I.k/I.o harness):
+  - [x] `e2e/lifecycle.spec.ts` (new): navigate to lesson 1 → assert sidebar icon for lesson 1 transitions from `○` to `…` within ~100 ms (this is the `opened` status, indistinguishable from `in_progress` per FR-P15's UI mapping). Wait long enough for the first text-block sentinel to fire → the icon stays `…` (now via `in_progress` underlying status; visual unchanged). Engage all blocks → icon becomes `✓`. The visual sequence is `○ → … → ✓` for the learner; the data sequence underneath is `not_started → opened → in_progress → complete`.
+- [x] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
+- [x] `docs/specs/features.md` — under FR-4 (Progress Tracking) document the four-state lesson lifecycle (`not_started`, `opened`, `in_progress`, `complete`) and note that `opened` and `in_progress` share a sidebar icon. Note the three custom-event emitters and that no internal subscribers exist today (forward-compatible hooks).
+- [x] `docs/specs/tech-spec.md` — update the Data Models / Progress Tracking section to reflect the extended `LessonStatus` enum and the new `markLessonOpened` DB op.
+- [x] `docs/specs/project-essentials.md` — add a one-line note under "Domain Conventions" documenting the four-state lesson status sequence and that `opened` and `in_progress` are visually merged.
+- [x] Bump version to v0.51.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.51.0 under "Added" (lesson `opened` status, three custom lifecycle events `lessonopen` / `lessonengage` / `lessoncomplete`, `markLessonOpened` DB op) and "Changed" (`markLessonInProgress` is now called on the first block-engagement event rather than on mount; sidebar icon mapping broadened so `opened` shows `…`).
+- [x] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
+
+**Out of scope:**
+- `lessonresume` event (revisits to lessons already at `complete`) — recorded in Future.
+- Lifecycle timestamps (`opened_at`, `engaged_at`, …) — adding them just for the new transitions would create asymmetric coverage with the existing `completed_at`. A full "lifecycle timestamps" treatment (covering all transitions consistently, with retention/decimation policies) is its own story; not this one.
+- Distinct sidebar icon for `opened` (kept the same `…` as `in_progress` per the design decision in FR-P15 / Q2).
+- Analytics / telemetry adapters that subscribe to the new events — the events exist as forward-compatible hooks; consumers come later.
+- Per-block lifecycle events at the same level of granularity (e.g. `blockopen`). The block-completion model is already covered by FR-P1; expanding it to mirror lesson lifecycle is out of scope.
+
+---
+
+### Story I.q: v0.52.0 — Vitest Component Mount Support for Svelte 5 [Planned]
+
+Stories I.o and I.p both deferred component-level vitest coverage with the same root-cause caveat: mounting a Svelte 5 component inside vitest's jsdom environment trips `lifecycle_function_unavailable` (`mount(...) is not available on the server`), and falling back to Svelte's server `render` API trips `get_first_child` because the SvelteKit vite plugin compiles the component in client mode regardless. As a result, several test goals from those stories were either skipped, downgraded to source-text assertions (`TextBlock.observer.test.ts`), or relegated to the e2e layer (`LessonView` lifecycle event firing, `VideoBlock` URL-change re-mount). The e2e layer eventually catches these regressions, but the feedback loop is minutes (full pnpm install + Playwright + browser launch) instead of seconds, and the e2e harness is skipped entirely when Chromium isn't installed.
+
+The conventional fix for Svelte 5 + vitest is to add `resolve.conditions: ['browser']` to the vite config so vitest resolves `svelte` to its browser entry point. This must be guarded behind `process.env.VITEST` (or vitest's own conditional config) so it does not affect production `vite build`. With that in place, mounting via `@testing-library/svelte` works in jsdom and component-level assertions become a normal part of the unit-test layer.
+
+This is a foundation story: no new product behaviour ships, but the testability ceiling is raised for every subsequent component-touching story. Scope is intentionally minimal — wire the config, prove the path with one previously-deferred test, document the pattern. Backporting deferred coverage from I.o and I.p is a follow-up story so this one stays focused.
+
+**Tasks:**
+
+- [ ] `sveltekit_template/vite.config.ts`:
+  - [ ] Add a vitest-only `resolve.conditions: ['browser']` block guarded by `process.env.VITEST` so production `vite build` is unaffected. Document the guard with a one-line comment pointing at this story / FR-P15-Q3 (Svelte 5 mount in jsdom).
+  - [ ] Verify the existing `test: { environment: 'jsdom' }` block stays put — the fix is at the resolution layer, not the environment layer.
+- [ ] `sveltekit_template/package.json`:
+  - [ ] Add `@testing-library/svelte` as a dev dependency (re-add what was removed in I.o once the config supports it).
+  - [ ] Add `@testing-library/jest-dom` if `expect(...).toBeInTheDocument()` style matchers are wanted; otherwise skip and use plain DOM assertions.
+- [ ] `sveltekit_template/src/lib/components/TextBlock.observer.test.ts` (rewrite):
+  - [ ] Replace the source-text assertions with a real mount: render `<TextBlock>` via `@testing-library/svelte`, stub `IntersectionObserver` to capture the observed element, assert (a) the captured element has `[data-textblock-end]` and (b) `getBoundingClientRect().height > 0` (or the inline `style.height === '1px'` if jsdom doesn't lay out reliably).
+  - [ ] Keep the source-text assertions in place during the transition if useful, or delete them — the mount test is strictly stronger.
+- [ ] `sveltekit_template/src/lib/components/mount.test.ts` (new, smoke):
+  - [ ] One trivial test that mounts the simplest possible component (e.g. a fresh inline `<button>Hi</button>` Svelte component or a re-mount of an existing leaf like `ProgressBar`) and asserts the resulting DOM. Smoke check that the resolve-conditions fix is in place and didn't silently revert.
+- [ ] `docs/specs/project-essentials.md`:
+  - [ ] Add a one-paragraph entry under "Workflow Rules" or a new "Testing" subsection: "Svelte 5 component mounts in vitest require `resolve.conditions: ['browser']` in `vite.config.ts`. Don't remove the `process.env.VITEST` guard — production `vite build` must not pick up the browser conditions or it will mis-bundle SSR-only code paths."
+- [ ] Verify by re-enabling one previously-deferred test (and only one — others are follow-up scope):
+  - [ ] Re-instate the FR-P15 / Story I.p `LessonView.test.ts` "on mount, `markLessonOpened` is called and `onlessonopen` fires" case via real mount + mock DB. Assert the call ordering: `markLessonOpened` resolves before `onlessonopen` fires.
+- [ ] Mirror all `sveltekit_template/` changes to `src/learningfoundry/sveltekit_template/`.
+- [ ] Bump version to v0.52.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [ ] `CHANGELOG.md` — v0.52.0 under "Added" (Svelte 5 component mount support in vitest; `@testing-library/svelte` dev dependency restored; one re-instated `LessonView` mount test) and "Changed" (`vite.config.ts` adds `resolve.conditions: ['browser']` under `process.env.VITEST`).
+- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`. Confirm `pnpm build` still produces a working static site (the resolve-conditions guard must not leak into production builds).
+
+**Out of scope:**
+
+- Backporting every deferred component-level test from I.o (`VideoBlock` URL-change re-mount, full real-DOM `TextBlock` observer interaction) and I.p (the four `LessonView` lifecycle test cases beyond the one re-instated above). Each is its own follow-up; this story proves the path and stops.
+- Migrating to vitest's "browser" environment (`@vitest/browser` + Playwright). Heavier, slower, requires browser binaries — only worth doing if jsdom + `resolve.conditions` proves insufficient for some specific test. If that comes up, it gets its own story.
+- Visual regression / screenshot testing infrastructure.
+- Restructuring vitest into projects (server suite vs. client suite). Single-suite + browser conditions covers every test in the codebase today; projects are over-engineering until a Svelte 5 server-render test arrives.
+- Re-evaluating Storybook or other component-rendering harnesses.
+
+---
+
 ## Future
 
 <!--
@@ -690,5 +786,7 @@ The `archive_stories` mode preserves this section verbatim when archiving storie
 - **Curriculum completion screen** — "Course Complete" celebration page reached after the last lesson's Finish
 - **Non-YouTube video providers** — Vimeo, self-hosted; VideoBlock currently dispatches `videocomplete` via YouTube IFrame API or viewport fallback only
 - **Progress export/import** — Sync or backup learner progress
+- **`lessonresume` lifecycle event** — Revisits to lessons already at `complete`. Distinct from `lessonopen` (which fires on every mount including resumes) because it carries the additional invariant "previously completed." Useful for analytics on review behaviour. Deferred from FR-P15 / Story I.p — the data is derivable today from `(getLessonProgress before mount).status === 'complete'`, so the event is sugar rather than new capability.
+- **Lifecycle timestamps** — `opened_at`, `engaged_at` columns symmetric with the existing `completed_at`. Deferred from FR-P15 with the explicit reasoning that adding one timestamp at a time yields asymmetric coverage; a coherent treatment covers all transitions, picks a retention/decimation policy, and integrates with whatever telemetry/export story is current at the time.
 - **Spaced repetition / adaptive sequencing**
 - **Multi-curriculum dashboard**

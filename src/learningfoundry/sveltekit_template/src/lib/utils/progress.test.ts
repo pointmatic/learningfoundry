@@ -68,4 +68,14 @@ describe('hasAnyProgress', () => {
 		};
 		expect(hasAnyProgress(store)).toBe(true);
 	});
+
+	it('returns true with one opened lesson among otherwise not_started (Story I.p)', () => {
+		const store = {
+			'mod-01': makeModuleProgress('mod-01', {
+				'lesson-01': 'opened',
+				'lesson-02': 'not_started'
+			})
+		};
+		expect(hasAnyProgress(store)).toBe(true);
+	});
 });

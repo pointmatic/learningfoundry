@@ -7,6 +7,7 @@ export {
 	getQuizScore,
 	markLessonComplete,
 	markLessonInProgress,
+	markLessonOpened,
 	resetProgress,
 	saveQuizScore,
 	updateExerciseStatus
