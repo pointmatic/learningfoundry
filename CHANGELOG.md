@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-04-30
+
+### Fixed
+
+- **Finish button on last lesson now navigates to the dashboard.** `+page.svelte` was not passing an `oncomplete` handler to `<LessonView>`; clicking Finish was a no-op. It now calls `goto('/')` to redirect to the progress dashboard.
+- **Sidebar module expand/contract no longer reverts immediately.** The `$effect` in `ModuleList.svelte` read `expandedModuleId` (the value it writes), creating a self-dependency that overwrote manual toggles on every re-run. A separate `lastAutoExpandedModuleId` state variable breaks the cycle — the effect only fires when `currentPosition.moduleId` changes to a genuinely new value.
+- **Active module in sidebar is now visually highlighted.** The module card containing the current lesson receives a left-border accent (`border-l-2 border-l-blue-500`) and a light background tint (`bg-blue-50`).
+
 ## [0.40.0] - 2026-04-29
 
 ### Added

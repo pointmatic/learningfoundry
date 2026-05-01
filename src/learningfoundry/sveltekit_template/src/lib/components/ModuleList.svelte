@@ -12,6 +12,7 @@
 	let { modules, progress = {} }: Props = $props();
 
 	let expandedModuleId = $state<string | null>(null);
+	let lastAutoExpandedModuleId = $state<string | null>(null);
 
 	function modulePercent(mod: Module): number {
 		const mp = progress[mod.id];
@@ -26,11 +27,15 @@
 		expandedModuleId = expandedModuleId === id ? null : id;
 	}
 
-	// Auto-expand the module containing the current lesson
+	// Auto-expand the module containing the current lesson.
+	// Only fire when `currentPosition.moduleId` changes to a *new* value;
+	// `lastAutoExpandedModuleId` breaks the self-dependency that previously
+	// caused manual toggles to revert immediately.
 	$effect(() => {
 		const pos = $currentPosition;
-		if (pos && expandedModuleId !== pos.moduleId) {
+		if (pos && pos.moduleId !== lastAutoExpandedModuleId) {
 			expandedModuleId = pos.moduleId;
+			lastAutoExpandedModuleId = pos.moduleId;
 		}
 	});
 </script>
@@ -40,7 +45,12 @@
 		{#each modules as mod (mod.id)}
 			{@const pct = modulePercent(mod)}
 			{@const isExpanded = expandedModuleId === mod.id}
-			<li class="rounded-lg border border-gray-200 bg-white">
+			<li
+				class="rounded-lg border border-gray-200 bg-white
+					{mod.id === $currentPosition?.moduleId
+					? 'border-l-2 border-l-blue-500 bg-blue-50'
+					: ''}"
+			>
 				<button
 					onclick={() => toggleModule(mod.id)}
 					class="flex w-full items-center justify-between px-4 py-3 text-left"
