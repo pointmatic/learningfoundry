@@ -19,6 +19,7 @@ A curriculum engine that turns a YAML curriculum definition into a deployable Sv
 - [Video blocks](#video-blocks)
 - [Lesson titles and markdown headings](#lesson-titles-and-markdown-headings)
 - [Images and assets](#images-and-assets)
+- [Content locking](#content-locking)
 - [Configuration File](#configuration-file)
 - [Development Setup](#development-setup)
 
@@ -360,9 +361,40 @@ For production deployment to a CDN, just run `cd dist && pnpm build` — the `st
 
 ---
 
+## Content locking
+
+Control access to modules and lessons with a three-level configuration hierarchy (most local wins):
+
+1. **Per-module `locked`** — explicit `true`/`false` override; trumps everything.
+2. **Curriculum `locking.sequential`** — when true, module N+1 requires module N complete.
+3. **Global config `locking.sequential`** — project-wide default (see Configuration File below).
+
+```yaml
+curriculum:
+  locking:
+    sequential: true            # modules must be completed in order
+    lesson_sequential: false    # lessons within a module are free-order
+
+  modules:
+    - id: mod-01
+      locked: false             # always accessible regardless of sequential
+      lessons:
+        - id: lesson-01
+          unlock_module_on_complete: true   # completing this unlocks siblings + next module
+          content_blocks:
+            - type: quiz
+              source: quizazz
+              ref: assessments/quiz.yml
+              pass_threshold: 0.7           # 70% required to count as passed
+```
+
+`unlock_module_on_complete` is useful for "gateway" lessons — a single assessment that, once passed, opens the rest of the module and the next one.
+
+---
+
 ## Configuration File
 
-An optional config file can set defaults for logging. The CLI always takes precedence.
+An optional config file can set defaults for logging and locking. The CLI always takes precedence.
 
 **Default location:** `~/.config/learningfoundry/config.yml`
 
@@ -370,6 +402,10 @@ An optional config file can set defaults for logging. The CLI always takes prece
 logging:
   level: INFO      # DEBUG | INFO | WARNING | ERROR
   output: stdout   # stdout | stderr
+
+locking:
+  sequential: false          # default for all curricula on this machine
+  lesson_sequential: false
 ```
 
 Pass a custom config location with `-c / --config`.

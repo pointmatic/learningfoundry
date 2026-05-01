@@ -261,3 +261,87 @@ class TestMissingRequiredFields:
     def test_lesson_missing_title_raises(self) -> None:
         with pytest.raises(ValidationError):
             Lesson.model_validate({"id": "lesson-01", "content_blocks": []})
+
+
+class TestLockingConfig:
+    def test_locking_config_defaults(self) -> None:
+        from learningfoundry.schema_v1 import LockingConfig
+
+        lc = LockingConfig()
+        assert lc.sequential is False
+        assert lc.lesson_sequential is False
+
+    def test_pass_threshold_validates_range(self) -> None:
+        # Valid values
+        q = QuizBlock.model_validate(
+            {"type": "quiz", "source": "quizazz", "ref": "q.yml", "pass_threshold": 0.7}
+        )
+        assert q.pass_threshold == 0.7
+
+        QuizBlock.model_validate(
+            {"type": "quiz", "source": "quizazz", "ref": "q.yml", "pass_threshold": 0.0}
+        )
+        QuizBlock.model_validate(
+            {"type": "quiz", "source": "quizazz", "ref": "q.yml", "pass_threshold": 1.0}
+        )
+
+        # Invalid: above 1.0
+        with pytest.raises(ValidationError):
+            QuizBlock.model_validate({
+                "type": "quiz", "source": "quizazz",
+                "ref": "q.yml", "pass_threshold": 1.5,
+            })
+        # Invalid: below 0.0
+        with pytest.raises(ValidationError):
+            QuizBlock.model_validate({
+                "type": "quiz", "source": "quizazz",
+                "ref": "q.yml", "pass_threshold": -0.1,
+            })
+
+    def test_unlock_module_on_complete_defaults_false(self) -> None:
+        lesson = Lesson.model_validate(
+            {"id": "lesson-01", "title": "L", "content_blocks": []}
+        )
+        assert lesson.unlock_module_on_complete is False
+
+    def test_unlock_module_on_complete_round_trips_true(self) -> None:
+        lesson = Lesson.model_validate({
+            "id": "lesson-01", "title": "L",
+            "unlock_module_on_complete": True, "content_blocks": [],
+        })
+        assert lesson.unlock_module_on_complete is True
+
+    def test_locked_absent_is_none(self) -> None:
+        mod = Module.model_validate({
+            "id": "mod-01", "title": "M",
+            "lessons": [{"id": "lesson-01", "title": "L",
+                         "content_blocks": []}],
+        })
+        assert mod.locked is None
+
+    def test_locked_false(self) -> None:
+        mod = Module.model_validate({
+            "id": "mod-01", "title": "M", "locked": False,
+            "lessons": [{"id": "lesson-01", "title": "L",
+                         "content_blocks": []}],
+        })
+        assert mod.locked is False
+
+    def test_locked_true(self) -> None:
+        mod = Module.model_validate({
+            "id": "mod-01", "title": "M", "locked": True,
+            "lessons": [{"id": "lesson-01", "title": "L",
+                         "content_blocks": []}],
+        })
+        assert mod.locked is True
+
+    def test_full_curriculum_with_locking_round_trips(self) -> None:
+        data = load_fixture("valid-curriculum.yml")
+        curriculum = CurriculumV1.model_validate(data)
+        assert curriculum.curriculum.locking.sequential is True
+        assert curriculum.curriculum.locking.lesson_sequential is False
+        assert curriculum.curriculum.modules[0].locked is False
+        lesson_0 = curriculum.curriculum.modules[0].lessons[0]
+        assert lesson_0.unlock_module_on_complete is True
+        quiz_block = curriculum.curriculum.modules[0].lessons[0].content_blocks[2]
+        assert quiz_block.pass_threshold == 0.5  # type: ignore[union-attr]

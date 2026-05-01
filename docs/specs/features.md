@@ -172,6 +172,12 @@ Parse and validate the curriculum YAML file against the schema for the declared 
 3. Validate the full document against the schema: required fields, valid content block types, file reference existence, URL format.
 4. Return a structured in-memory representation of the curriculum for downstream pipeline stages.
 
+**Locking configuration fields (parsed in v1 schema):**
+- `curriculum.locking` (optional `LockingConfig`): `sequential: bool` (default false — module N+1 requires module N complete), `lesson_sequential: bool` (default false — lesson N+1 requires lesson N complete within a module).
+- `module.locked` (optional `bool | None`): per-module override. `None`/absent inherits from curriculum/global locking config. Explicit `true`/`false` trumps inheritance.
+- `lesson.unlock_module_on_complete` (optional `bool`, default false): when this lesson completes, unlocks sibling lessons and the next module.
+- `quiz` block `pass_threshold` (optional `float`, 0.0–1.0, default 0.0): minimum `score / maxScore` ratio required for the quiz to count as "passed" for block-completion purposes.
+
 **Edge Cases:**
 - Missing `version` field → Error: "Curriculum YAML must include a top-level `version` field (semver)."
 - Unsupported major version → Error: "Unsupported curriculum version `X.0.0`. Supported versions: 1.x."
@@ -231,6 +237,14 @@ Track learner progress entirely client-side using sql.js/WASM (SQLite in the bro
 3. Store quiz scores (pre/post assessment and inline quizzes) with timestamps.
 4. Store exercise completion status.
 5. Surface progress in the navigation UI: per-module completion percentage, quiz score indicators.
+
+**Locking and sequential access:**
+The locking configuration (parsed from YAML and global config) controls which modules/lessons the learner can access:
+- Config hierarchy (most local wins): per-module `locked` bool → curriculum `locking.sequential` → global config `locking.sequential`.
+- When `sequential` is true, module N+1 is locked until module N is complete (unless overridden by `locked: false`).
+- When `lesson_sequential` is true, lesson N+1 within a module is locked until lesson N is complete.
+- `unlock_module_on_complete`: completing this lesson unlocks its siblings and the next module regardless of sequential state.
+- The frontend enforces locking by making locked modules/lessons non-interactive (Story I.j).
 
 **Edge Cases:**
 - Browser storage cleared → Database is recreated; progress resets. This is expected behavior (ephemeral).

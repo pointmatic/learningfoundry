@@ -183,6 +183,7 @@ class TestAllBlockTypesTogether:
                     id="mod-01",
                     title="M",
                     description="",
+                    locked=None,
                     pre_assessment=None,
                     post_assessment=None,
                     lessons=[

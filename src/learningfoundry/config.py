@@ -16,6 +16,7 @@ DEFAULT_CONFIG_PATH = Path.home() / ".config" / "learningfoundry" / "config.yml"
 
 _KNOWN_KEYS: dict[str, set[str]] = {
     "logging": {"level", "output"},
+    "locking": {"sequential", "lesson_sequential"},
 }
 
 
@@ -26,8 +27,15 @@ class LoggingConfig:
 
 
 @dataclass
+class LockingConfig:
+    sequential: bool = False
+    lesson_sequential: bool = False
+
+
+@dataclass
 class AppConfig:
     logging: LoggingConfig = field(default_factory=LoggingConfig)
+    locking: LockingConfig = field(default_factory=LockingConfig)
 
 
 def load_config(
@@ -66,6 +74,13 @@ def load_config(
                 config.logging.level = logging_raw["level"]
             if "output" in logging_raw:
                 config.logging.output = logging_raw["output"]
+            locking_raw = raw.get("locking", {})
+            if "sequential" in locking_raw:
+                config.locking.sequential = bool(locking_raw["sequential"])
+            if "lesson_sequential" in locking_raw:
+                config.locking.lesson_sequential = bool(
+                    locking_raw["lesson_sequential"]
+                )
 
     if cli_overrides:
         if "log_level" in cli_overrides and cli_overrides["log_level"] is not None:

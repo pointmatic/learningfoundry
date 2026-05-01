@@ -30,6 +30,7 @@ def _make_resolved() -> ResolvedCurriculum:
                 id="mod-01",
                 title="Module One",
                 description="",
+                locked=None,
                 pre_assessment=None,
                 post_assessment=None,
                 lessons=[

@@ -63,6 +63,7 @@ class QuizBlock(BaseModel):
     type: Literal["quiz"]
     source: str
     ref: str
+    pass_threshold: float = Field(0.0, ge=0.0, le=1.0)
 
 
 class ExerciseBlock(BaseModel):
@@ -86,6 +87,7 @@ ContentBlock = Annotated[
 class Lesson(BaseModel):
     id: str
     title: str
+    unlock_module_on_complete: bool = False
     content_blocks: list[ContentBlock]
 
     @field_validator("id")
@@ -98,6 +100,7 @@ class Module(BaseModel):
     id: str
     title: str
     description: str = ""
+    locked: bool | None = None
     pre_assessment: AssessmentRef | None = None
     post_assessment: AssessmentRef | None = None
     lessons: list[Lesson]
@@ -114,9 +117,17 @@ class Module(BaseModel):
         return self
 
 
+class LockingConfig(BaseModel):
+    """Curriculum-level content locking configuration."""
+
+    sequential: bool = False
+    lesson_sequential: bool = False
+
+
 class CurriculumDef(BaseModel):
     title: str
     description: str = ""
+    locking: LockingConfig = Field(default_factory=LockingConfig)
     modules: list[Module]
 
     @model_validator(mode="after")

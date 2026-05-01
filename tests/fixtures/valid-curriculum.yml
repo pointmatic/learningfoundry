@@ -4,10 +4,15 @@ curriculum:
   title: "Test Curriculum"
   description: "A minimal valid curriculum for testing."
 
+  locking:
+    sequential: true
+    lesson_sequential: false
+
   modules:
     - id: mod-01
       title: "Module One"
       description: "First module."
+      locked: false
       pre_assessment:
         source: quizazz
         ref: assessments/mod-01-pre.yml
@@ -17,6 +22,7 @@ curriculum:
       lessons:
         - id: lesson-01
           title: "Lesson One"
+          unlock_module_on_complete: true
           content_blocks:
             - type: text
               ref: content/mod-01/lesson-01.md
@@ -25,6 +31,7 @@ curriculum:
             - type: quiz
               source: quizazz
               ref: assessments/mod-01-lesson-01-quiz.yml
+              pass_threshold: 0.5
             - type: exercise
               source: nbfoundry
               ref: exercises/mod-01-exercise-01.yml

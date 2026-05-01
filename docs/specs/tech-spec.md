@@ -327,6 +327,7 @@ class QuizBlock(BaseModel):
     type: str = "quiz"
     source: str                     # "quizazz"
     ref: str                        # Path to quizazz assessment YAML
+    pass_threshold: float = 0.0     # 0.0–1.0; minimum score ratio for completion
 
 class ExerciseBlock(BaseModel):
     type: str = "exercise"
@@ -343,6 +344,7 @@ ContentBlock = TextBlock | VideoBlock | QuizBlock | ExerciseBlock | Visualizatio
 class Lesson(BaseModel):
     id: str
     title: str
+    unlock_module_on_complete: bool = False  # Unlock siblings + next module on complete
     content_blocks: list[ContentBlock]
 
     @field_validator("id")
@@ -355,6 +357,7 @@ class Module(BaseModel):
     id: str
     title: str
     description: str = ""
+    locked: bool | None = None      # None = inherit from locking config
     pre_assessment: AssessmentRef | None = None
     post_assessment: AssessmentRef | None = None
     lessons: list[Lesson]
@@ -364,9 +367,14 @@ class Module(BaseModel):
         """Module must contain at least one lesson."""
         ...
 
+class LockingConfig(BaseModel):
+    sequential: bool = False        # Module N+1 requires module N complete
+    lesson_sequential: bool = False # Lesson N+1 requires lesson N complete
+
 class CurriculumDef(BaseModel):
     title: str
     description: str = ""
+    locking: LockingConfig = LockingConfig()
     modules: list[Module]
 
     @model_validator(mode="after")

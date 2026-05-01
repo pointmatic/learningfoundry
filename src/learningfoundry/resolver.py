@@ -40,6 +40,7 @@ class ResolvedContentBlock:
 class ResolvedLesson:
     id: str
     title: str
+    unlock_module_on_complete: bool = False
     content_blocks: list[ResolvedContentBlock] = field(default_factory=list)
 
 
@@ -48,6 +49,7 @@ class ResolvedModule:
     id: str
     title: str
     description: str
+    locked: bool | None
     pre_assessment: dict[str, Any] | None
     post_assessment: dict[str, Any] | None
     lessons: list[ResolvedLesson] = field(default_factory=list)
@@ -58,6 +60,7 @@ class ResolvedCurriculum:
     version: str
     title: str
     description: str
+    locking: dict[str, Any] = field(default_factory=dict)
     modules: list[ResolvedModule] = field(default_factory=list)
     # Image assets referenced from any text block's markdown, deduped by
     # content hash. Carried out-of-band — the generator copies these into
@@ -122,10 +125,17 @@ def resolve_curriculum(
             )
         )
 
+    locking = curriculum.curriculum.locking
+    locking_dict: dict[str, Any] = {
+        "sequential": locking.sequential,
+        "lesson_sequential": locking.lesson_sequential,
+    }
+
     return ResolvedCurriculum(
         version=curriculum.version,
         title=curriculum.curriculum.title,
         description=curriculum.curriculum.description,
+        locking=locking_dict,
         modules=resolved_modules,
         assets=list(assets_by_dest.values()),
     )
@@ -174,6 +184,7 @@ def _resolve_module(
         id=module.id,
         title=module.title,
         description=module.description,
+        locked=module.locked,
         pre_assessment=pre,
         post_assessment=post,
         lessons=resolved_lessons,
@@ -206,6 +217,7 @@ def _resolve_lesson(
     return ResolvedLesson(
         id=lesson.id,
         title=lesson.title,
+        unlock_module_on_complete=lesson.unlock_module_on_complete,
         content_blocks=resolved_blocks,
     )
 
@@ -228,6 +240,7 @@ def _resolve_block(
             manifest = quiz_provider.compile_assessment(
                 Path(block.ref), base_dir
             )
+            manifest["pass_threshold"] = block.pass_threshold
             return ResolvedContentBlock(
                 type="quiz", source=block.source, ref=block.ref, content=manifest
             )

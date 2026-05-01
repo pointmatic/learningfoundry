@@ -521,3 +521,78 @@ class TestAssessmentResolution:
                 exercise_provider=MagicMock(),
                 visualization_provider=MagicMock(),
             )
+
+
+class TestLockingResolution:
+    def test_locking_fields_in_resolved_curriculum(self, tmp_path: Path) -> None:
+        (tmp_path / "l.md").write_text("hi")
+        c = CurriculumV1.model_validate({
+            "version": "1.0.0",
+            "curriculum": {
+                "title": "T",
+                "locking": {"sequential": True, "lesson_sequential": True},
+                "modules": [{
+                    "id": "mod-01",
+                    "title": "M",
+                    "locked": False,
+                    "lessons": [{
+                        "id": "lesson-01",
+                        "title": "L",
+                        "unlock_module_on_complete": True,
+                        "content_blocks": [{"type": "text", "ref": "l.md"}],
+                    }],
+                }],
+            },
+        })
+        result = resolve_curriculum(
+            c, tmp_path,
+            quiz_provider=MagicMock(),
+            exercise_provider=MagicMock(),
+            visualization_provider=MagicMock(),
+        )
+        assert result.locking == {"sequential": True, "lesson_sequential": True}
+        assert result.modules[0].locked is False
+        assert result.modules[0].lessons[0].unlock_module_on_complete is True
+
+    def test_quiz_pass_threshold_propagated(self, tmp_path: Path) -> None:
+        mock_quiz = MagicMock()
+        mock_quiz.compile_assessment.return_value = {"quizName": "q", "questions": []}
+        c = CurriculumV1.model_validate({
+            "version": "1.0.0",
+            "curriculum": {
+                "title": "T",
+                "modules": [{
+                    "id": "mod-01",
+                    "title": "M",
+                    "lessons": [{
+                        "id": "lesson-01",
+                        "title": "L",
+                        "content_blocks": [{
+                            "type": "quiz",
+                            "source": "quizazz",
+                            "ref": "q.yml",
+                            "pass_threshold": 0.8,
+                        }],
+                    }],
+                }],
+            },
+        })
+        result = resolve_curriculum(
+            c, tmp_path,
+            quiz_provider=mock_quiz,
+            exercise_provider=MagicMock(),
+            visualization_provider=MagicMock(),
+        )
+        quiz_content = result.modules[0].lessons[0].content_blocks[0].content
+        assert quiz_content["pass_threshold"] == 0.8
+
+    def test_unlock_module_on_complete_defaults_false(self, tmp_path: Path) -> None:
+        (tmp_path / "l.md").write_text("hi")
+        c = _curriculum_with_blocks([{"type": "text", "ref": "l.md"}])
+        result = resolve_curriculum(
+            c, tmp_path,
+            quiz_provider=MagicMock(),
+            exercise_provider=MagicMock(),
+            visualization_provider=MagicMock(),
+        )
+        assert result.modules[0].lessons[0].unlock_module_on_complete is False

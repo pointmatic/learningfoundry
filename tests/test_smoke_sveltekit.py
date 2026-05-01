@@ -162,6 +162,28 @@ class TestSvelteKitSmokeBuild:
             f"pnpm test failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
         )
 
+    def test_curriculum_json_includes_locking_fields(
+        self, compiled_app: Path
+    ) -> None:
+        data = json.loads(
+            (compiled_app / "build" / "curriculum.json").read_text()
+        )
+        # Top-level locking config
+        assert "locking" in data
+        assert data["locking"]["sequential"] is True
+        assert data["locking"]["lesson_sequential"] is False
+        # Per-module locked field
+        assert data["modules"][0]["locked"] is False
+        assert data["modules"][1]["locked"] is None
+        # Per-lesson unlock_module_on_complete
+        lesson = data["modules"][0]["lessons"][0]
+        assert lesson["unlock_module_on_complete"] is True
+        # Quiz pass_threshold in content
+        quiz_block = next(
+            b for b in lesson["content_blocks"] if b["type"] == "quiz"
+        )
+        assert quiz_block["content"]["pass_threshold"] == 0.5
+
     def test_co_located_image_reaches_build_output(
         self, compiled_app: Path
     ) -> None:

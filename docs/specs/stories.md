@@ -324,7 +324,7 @@ Computed from the reactive store as `sum(complete lessons across all modules) / 
 
 ---
 
-### Story I.i: v0.44.0 — Locking Configuration Schema [Planned]
+### Story I.i: v0.44.0 — Locking Configuration Schema [Done]
 
 Python-side schema, resolver, config, and data pipeline changes for the content locking/unlocking system. Frontend locking UI is Story I.j and depends on this story's `curriculum.json` output.
 
@@ -356,46 +356,46 @@ modules:
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/schema_v1.py`:
-  - [ ] New `LockingConfig` Pydantic model: `sequential: bool = False`, `lesson_sequential: bool = False`
-  - [ ] `CurriculumSchema` gains `locking: LockingConfig = Field(default_factory=LockingConfig)`
-  - [ ] `ModuleSchema` gains `locked: Optional[bool] = None` (None = inherit)
-  - [ ] `LessonSchema` gains `unlock_module_on_complete: bool = False`
-  - [ ] `QuizBlock` gains `pass_threshold: float = Field(0.0, ge=0.0, le=1.0)`
-- [ ] `src/learningfoundry/resolver.py`:
-  - [ ] `ResolvedCurriculum` carries `locking: LockingConfig`
-  - [ ] `ResolvedModule` carries `locked: Optional[bool]`
-  - [ ] `ResolvedLesson` carries `unlock_module_on_complete: bool`
-  - [ ] Resolved quiz content dict includes `pass_threshold` key
-- [ ] `src/learningfoundry/generator.py`:
-  - [ ] `curriculum.json` output includes top-level `locking` object, per-module `locked`, per-lesson `unlock_module_on_complete`, and per-quiz content `pass_threshold`
-- [ ] Global config (`config.py` or equivalent):
-  - [ ] Add `locking: LockingConfig` block to global config schema with defaults `sequential=False, lesson_sequential=False`
-  - [ ] Merge order: global config → curriculum YAML `locking`; per-module `locked` is a separate direct override, not part of the `LockingConfig` merge
-- [ ] `tests/test_schema_v1.py`:
-  - [ ] `LockingConfig` defaults: both fields False
-  - [ ] `pass_threshold` validates 0.0–1.0; rejects values outside range
-  - [ ] `unlock_module_on_complete` defaults False; round-trips True
-  - [ ] `locked: null` (absent), `locked: false`, `locked: true` all parse correctly
-  - [ ] Full curriculum with locking fields round-trips through parse → serialize
-- [ ] `tests/test_resolver.py`:
-  - [ ] Locking fields appear in resolved curriculum output
-  - [ ] Quiz `pass_threshold` propagated into content dict
-  - [ ] `unlock_module_on_complete` propagated onto resolved lesson
-- [ ] `tests/test_smoke_sveltekit.py`:
-  - [ ] `curriculum.json` includes `locking`, `locked`, `unlock_module_on_complete`, `pass_threshold`
-- [ ] `tests/fixtures/valid-curriculum.yml`:
-  - [ ] Add top-level `locking:` block and one lesson with `unlock_module_on_complete: true` and one quiz block with `pass_threshold: 0.5`
-- [ ] `docs/specs/features.md`:
-  - [ ] FR-1 (YAML Parsing): document `LockingConfig`, `locked`, `unlock_module_on_complete`, `pass_threshold`
-  - [ ] FR-4 (Progress Tracking): add sub-section on locking config and how sequential access is enforced
-- [ ] `docs/specs/tech-spec.md`:
-  - [ ] Schema section: `LockingConfig` model, new fields on `CurriculumSchema`, `ModuleSchema`, `LessonSchema`, `QuizBlock`
-  - [ ] Data Models section: `ResolvedCurriculum.locking`, `ResolvedModule.locked`, `ResolvedLesson.unlock_module_on_complete`
-- [ ] `README.md` — new "Content locking" subsection under Curriculum YAML Format documenting the three-level hierarchy and `unlock_module_on_complete`
-- [ ] Bump version to v0.44.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`
-- [ ] `CHANGELOG.md` — v0.44.0 under "Added"
-- [ ] Verify: `pyve test`, smoke, `ruff`, `mypy`
+- [x] `src/learningfoundry/schema_v1.py`:
+  - [x] New `LockingConfig` Pydantic model: `sequential: bool = False`, `lesson_sequential: bool = False`
+  - [x] `CurriculumSchema` gains `locking: LockingConfig = Field(default_factory=LockingConfig)`
+  - [x] `ModuleSchema` gains `locked: Optional[bool] = None` (None = inherit)
+  - [x] `LessonSchema` gains `unlock_module_on_complete: bool = False`
+  - [x] `QuizBlock` gains `pass_threshold: float = Field(0.0, ge=0.0, le=1.0)`
+- [x] `src/learningfoundry/resolver.py`:
+  - [x] `ResolvedCurriculum` carries `locking: LockingConfig`
+  - [x] `ResolvedModule` carries `locked: Optional[bool]`
+  - [x] `ResolvedLesson` carries `unlock_module_on_complete: bool`
+  - [x] Resolved quiz content dict includes `pass_threshold` key
+- [x] `src/learningfoundry/generator.py`:
+  - [x] `curriculum.json` output includes top-level `locking` object, per-module `locked`, per-lesson `unlock_module_on_complete`, and per-quiz content `pass_threshold`
+- [x] Global config (`config.py` or equivalent):
+  - [x] Add `locking: LockingConfig` block to global config schema with defaults `sequential=False, lesson_sequential=False`
+  - [x] Merge order: global config → curriculum YAML `locking`; per-module `locked` is a separate direct override, not part of the `LockingConfig` merge
+- [x] `tests/test_schema_v1.py`:
+  - [x] `LockingConfig` defaults: both fields False
+  - [x] `pass_threshold` validates 0.0–1.0; rejects values outside range
+  - [x] `unlock_module_on_complete` defaults False; round-trips True
+  - [x] `locked: null` (absent), `locked: false`, `locked: true` all parse correctly
+  - [x] Full curriculum with locking fields round-trips through parse → serialize
+- [x] `tests/test_resolver.py`:
+  - [x] Locking fields appear in resolved curriculum output
+  - [x] Quiz `pass_threshold` propagated into content dict
+  - [x] `unlock_module_on_complete` propagated onto resolved lesson
+- [x] `tests/test_smoke_sveltekit.py`:
+  - [x] `curriculum.json` includes `locking`, `locked`, `unlock_module_on_complete`, `pass_threshold`
+- [x] `tests/fixtures/valid-curriculum.yml`:
+  - [x] Add top-level `locking:` block and one lesson with `unlock_module_on_complete: true` and one quiz block with `pass_threshold: 0.5`
+- [x] `docs/specs/features.md`:
+  - [x] FR-1 (YAML Parsing): document `LockingConfig`, `locked`, `unlock_module_on_complete`, `pass_threshold`
+  - [x] FR-4 (Progress Tracking): add sub-section on locking config and how sequential access is enforced
+- [x] `docs/specs/tech-spec.md`:
+  - [x] Schema section: `LockingConfig` model, new fields on `CurriculumSchema`, `ModuleSchema`, `LessonSchema`, `QuizBlock`
+  - [x] Data Models section: `ResolvedCurriculum.locking`, `ResolvedModule.locked`, `ResolvedLesson.unlock_module_on_complete`
+- [x] `README.md` — new "Content locking" subsection under Curriculum YAML Format documenting the three-level hierarchy and `unlock_module_on_complete`
+- [x] Bump version to v0.44.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`
+- [x] `CHANGELOG.md` — v0.44.0 under "Added"
+- [x] Verify: `pyve test`, smoke, `ruff`, `mypy`
 
 **Out of scope:**
 - Frontend locking UI (Story I.j)

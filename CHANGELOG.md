@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-04-30
+
+### Added
+
+- **Locking configuration schema.** Python-side schema, resolver, and config support for sequential content access control:
+  - `LockingConfig` Pydantic model (`sequential`, `lesson_sequential`) on `CurriculumDef`.
+  - `Module.locked: bool | None` per-module override.
+  - `Lesson.unlock_module_on_complete: bool` gateway-lesson flag.
+  - `QuizBlock.pass_threshold: float` (0.0–1.0) for quiz completion scoring.
+  - Global config (`~/.config/learningfoundry/config.yml`) gains `locking` block with the same fields.
+  - Config hierarchy: global defaults → curriculum YAML `locking` → per-module `locked` override.
+  - All fields propagate through the resolver into `curriculum.json` for frontend consumption (Story I.j).
+
 ## [0.43.0] - 2026-04-30
 
 ### Added
