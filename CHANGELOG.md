@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.58.0] - 2026-05-02
+
+### Added
+
+- **Per-user progress data partitioning** (Story I.x). The sql.js database is now persisted under an IDB key of `db:${userId}` instead of the previous unkeyed `db`. `userId` is a UUID v4 stored in `localStorage` under `learningfoundry-user-id`, generated on first visit. New [user-id.ts](src/learningfoundry/sveltekit_template/src/lib/db/user-id.ts) exposes `getUserId(): Promise<string>`; the read-or-create is wrapped in `navigator.locks.request('lf-user-id-bootstrap', { mode: 'exclusive' }, ...)` so two simultaneously-loading tabs on a fresh browser converge on a single UUID rather than racing to generate two competing values. Browsers without Web Locks (Safari < 15.4) fall back to an unlocked generate-and-store — race window is small enough to be acceptable.
+- **One-shot legacy IDB key migration** (Story I.x). On first `Database.getDb()` call for any userId, pre-v0.58.0 bytes under the legacy `db` IDB record are adopted under `db:${userId}` (only if the per-user record doesn't already exist) and the legacy key is deleted. Idempotent — second call is a no-op. This claims existing pre-upgrade progress for whichever local UUID is generated on first post-upgrade load (acceptable because there was no concept of "different users on this browser" pre-userId).
+- **Tests for the partition + bootstrap + migration paths** (Story I.x). [user-id.test.ts](src/learningfoundry/sveltekit_template/src/lib/db/user-id.test.ts) covers fresh-localStorage UUID generation, no-rotation on subsequent calls, and the two-parallel-callers convergence via a fake `navigator.locks.request` shim that simulates real exclusive serialisation. [database.test.ts](src/learningfoundry/sveltekit_template/src/lib/db/database.test.ts) gains "different userIds don't see each other's rows" partition-isolation cases and a migration test that pre-writes raw bytes under the legacy `db` key, instantiates a `new Database('user-x')`, and asserts the migrated rows arrive while the legacy key is removed.
+
+### Changed
+
+- **`Database` constructor signature** (Story I.x). `new Database()` now optionally accepts a `userId: string`. Tests pass an explicit value for partition isolation (`new Database('user-a')`); production code omits it and the class lazy-resolves via `getUserId()` on first method call. **Bootstrap shape: lazy via the class, no `bootstrapDb()` ceremony.** The story sketch offered two integration shapes — explicit `bootstrapDb()` in the layout, or accessors that throw if called pre-bootstrap; the chosen shape (lazy self-bootstrap inside the `Database` class) is cheaper because it leaves all 4 I.w call sites unchanged: `progressRepo.<method>()` calls already await, and the userId resolution rides along on the existing async path. Trade-off: the first method call pays the bootstrap cost (localStorage read + legacy migration check), which is the same cost the old singleton paid on first `getDb()`.
+- **`docs/specs/project-essentials.md`** Architecture Quirks section updated with the per-user partitioning, bootstrap shape, auth-migration plan, and the still-open cross-tab anti-clobber caveat.
+
 ## [0.57.0] - 2026-05-02
 
 ### Changed

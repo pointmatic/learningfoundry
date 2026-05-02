@@ -53,6 +53,14 @@ top-level `#` title — the wrapper provides it.
 - The real providers will be added when nbfoundry and d3foundry are published as packages.
 - The frontend components detect `status: "stub"` and render placeholder cards.
 
+**In-browser progress DB is per-user-partitioned (Story I.x, v0.58.0):**
+- The sql.js database is persisted to IndexedDB under `db:${userId}`, where `userId` is a UUID v4 stored in `localStorage` under `learningfoundry-user-id`.
+- Pre-v0.58.0 progress lived under the unkeyed `db` IDB record. The first `Database.getDb()` call for any userId migrates that legacy record to `db:${userId}` and deletes the legacy key. Idempotent.
+- Bootstrap is **lazy and self-contained inside the `Database` class**: there is no `bootstrapDb()` ceremony in `+layout.svelte`. The first method call on `progressRepo` triggers the userId resolution and legacy migration. Tests can pass an explicit userId to the constructor (`new Database('user-a')`) for partition-isolation cases.
+- The `userId` bootstrap (read-or-create on first visit) is wrapped in `navigator.locks.request('lf-user-id-bootstrap', ...)` so two simultaneously-loading tabs on a fresh browser converge on a single UUID. Browsers without Web Locks (Safari < 15.4) fall back to an unlocked generate-and-store; the race window is small.
+- **Auth-migration plan when authentication lands:** swap the `localStorage` UUID for the auth-issued user ID, rename the IDB key once. No schema migration; no per-row `user_id` column. The current architecture treats `userId` as opaque.
+- Cross-tab anti-clobber for the *same* `userId` is **not yet solved** — two tabs writing concurrently still last-writer-wins on the IDB blob. Defer until there's evidence of multi-tab learner workflows or sync work makes it forced.
+
 ### Domain Conventions
 
 **Curriculum IDs are hyphenated lowercase strings:**

@@ -992,7 +992,7 @@ Per-user partitioning, `userId`, the bootstrap Web Lock, and the legacy-`db`-key
 
 ---
 
-### Story I.x: v0.58.0 — Per-User Data Partitioning + Web-Lock Bootstrap [Planned]
+### Story I.x: v0.58.0 — Per-User Data Partitioning + Web-Lock Bootstrap [Done]
 
 Story I.w landed the class-shape refactor (`Database`, `ProgressRepo`) but the IDB key was still hardcoded `'db'` — single-tenant. This story adds the `userId` partition that makes the data model "this learner's progress" rather than "this browser's progress."
 
@@ -1002,37 +1002,39 @@ When authentication eventually lands, the swap is a key-rename rather than a sch
 
 **Architectural goals:**
 
-1. **`Database` constructor takes `userId: string`.** IDB key becomes `db:${userId}`. Multiple instances with different IDs can coexist (tests, future multi-account UX).
-2. **One-shot legacy migration.** Pre-v0.58.0 progress lives under `IDB_KEY = 'db'`. On first init for any userId: if `db` exists, copy its bytes to `db:${userId}` and delete `db`. Idempotent — second call is a no-op. Claims existing pre-upgrade progress for whichever local UUID is generated on first post-upgrade load (acceptable because there is no concept of "different users on this browser" pre-userId).
-3. **Bootstrap is async and Web-Lock-protected.** New `getUserId()` reads `localStorage` on the fast path and falls into a Web Lock if a write is needed. New `bootstrapDb()` returns the constructed `database`, `progressRepo`, and `userId`. The layout calls `bootstrapDb()` once on mount before any progress reads or writes.
+1. **`Database` constructor takes optional `userId?: string`.** IDB key becomes `db:${userId}`. Multiple instances with different IDs can coexist (tests pass an explicit userId for partition isolation; production omits it and the class lazy-resolves on first method call).
+2. **One-shot legacy migration.** Pre-v0.58.0 progress lives under `IDB_KEY = 'db'`. On first init for any userId: if `db` exists, copy its bytes to `db:${userId}` (only if the per-user record doesn't already exist) and delete `db`. Idempotent — second call is a no-op. Claims existing pre-upgrade progress for whichever local UUID is generated on first post-upgrade load.
+3. **Bootstrap is async and Web-Lock-protected.** `getUserId()` reads `localStorage` on the fast path and falls into a Web Lock if a write is needed.
+
+**Bootstrap-shape decision (taken during implementation, documented in the CHANGELOG):** the lazy-self-bootstrap-inside-the-class shape, NOT an explicit `bootstrapDb()` ceremony. Rationale: the I.w call sites already await `progressRepo.<method>()`, so the userId resolution rides along on the existing async path with zero call-site churn. No `bootstrapDb()` function in `db/index.ts`; no `+layout.svelte` change. Trade-off: first method call pays the bootstrap cost (localStorage read + legacy migration check) — same cost the old singleton paid on first `getDb()`, so no regression.
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/user-id.ts` (new) — `getUserId(): Promise<string>`:
-  - [ ] Fast path: `localStorage.getItem('learningfoundry-user-id')`; return it if set.
-  - [ ] Slow path: wrap the read-or-create in `navigator.locks.request('lf-user-id-bootstrap', { mode: 'exclusive' }, ...)` so two concurrently-loading tabs on a fresh browser converge on a single UUID. Inside the lock: re-read (another tab may have just written), `crypto.randomUUID()` if still empty, write, return.
-  - [ ] Falls back to `crypto.randomUUID()` without locking on browsers without `navigator.locks` (Safari < 15.4). Documented; acceptable risk-tradeoff (rare browser, rare two-tab-bootstrap window).
-  - [ ] Exported `_resetForTesting()` helper that clears the localStorage entry — internal-only, used by tests.
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/database.ts` — extend the I.w `Database` class:
-  - [ ] Constructor signature gains `userId: string`.
-  - [ ] `IDB_KEY` derivation becomes `` `db:${this.#userId}` ``.
-  - [ ] Legacy-migration helper called once during `getDb()` first init: if IDB key `db` (no `:userId`) exists, `put` its bytes under `db:${this.#userId}` and `delete` `db`. Idempotent.
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/index.ts` — replace I.w's eager singleton instantiation with `bootstrapDb(): Promise<{database, progressRepo, userId}>`:
-  - [ ] Calls `getUserId()`, constructs `database = new Database(userId)`, `progressRepo = new ProgressRepo(database)`.
-  - [ ] Caches the result so subsequent calls are idempotent and return the same instances.
-  - [ ] Pick the consumer-facing shape that integrates cleanest with the existing store pattern: either re-export accessors that throw if called pre-bootstrap, or have the layout store the bootstrap result in a Svelte readable that downstream code subscribes to. Decide during implementation; either is fine, document the choice in the CHANGELOG.
-- [ ] `src/learningfoundry/sveltekit_template/src/routes/+layout.svelte` — call `bootstrapDb()` on mount before `invalidateProgress($curriculum)`. The bootstrap is idempotent so re-runs (HMR, navigation) are safe.
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/database.test.ts` — extend with userId / partition cases:
-  - [ ] Construct two `new Database(userId)` instances with different `userId` values; assert each gets its own IDB key (`db:user-a`, `db:user-b`), and a write through one is *not* visible through the other (partition isolation).
-  - [ ] Migration test: pre-write a `Uint8Array` under the legacy `db` key in fake-indexeddb; construct `new Database('user-x')`; assert subsequent `getDb()` returns a `Database` carrying the migrated rows AND the legacy `db` key has been deleted.
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/user-id.test.ts` (new):
-  - [ ] Fresh `localStorage` → `getUserId()` returns a UUID v4-shaped string and persists it.
-  - [ ] Pre-populated `localStorage` → `getUserId()` returns the existing value (no rotation).
-  - [ ] Two parallel `getUserId()` calls on a fresh `localStorage` return the *same* UUID. Use a `vi.stubGlobal('navigator', { locks: { request: ... } })` shim that simulates real serialisation. Skip this case (with `it.skip` and a comment) on environments without locks.
-- [ ] `docs/specs/project-essentials.md` — under "Architecture Quirks", add a note that the in-browser DB is per-user-partitioned by a `userId` UUID in `localStorage`, that `IDB_KEY = db:${userId}`, that the bootstrap is Web-Lock-protected, and that legacy pre-v0.58.0 `db`-keyed data is migrated once on first post-upgrade init. Document the auth-migration plan: swap the `localStorage` UUID for the auth-issued user ID and rename the IDB key once.
-- [ ] Bump version to v0.58.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] `CHANGELOG.md` — v0.58.0 under "Added" (`userId` UUID v4 in `localStorage`; `user-id.ts` with Web-Lock-protected bootstrap; per-user IDB partition `db:${userId}`; one-shot legacy-key migration; `bootstrapDb()` initialisation in `+layout.svelte`) and "Changed" (`Database` constructor signature gains `userId: string`).
-- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/db/user-id.ts` (new) — `getUserId(): Promise<string>` with fast-path read from `localStorage` and slow-path write wrapped in `navigator.locks.request('lf-user-id-bootstrap', { mode: 'exclusive' }, ...)`. Fallback to unlocked generate-and-store on browsers without Web Locks (Safari < 15.4). Exports `_resetForTesting()` for tests.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/db/database.ts` — extended the I.w `Database` class:
+  - [x] Constructor signature `constructor(userId?: string)`. Optional, since the class lazy-resolves via `getUserId()` if omitted.
+  - [x] Private `#ensureUserId()` helper memoises the resolution promise so concurrent method calls share one userId fetch.
+  - [x] `IDB_KEY` derivation moved into `#loadFromIdb(userId)` / `#saveToIdb(userId, data)` (instead of a module-level constant) so the per-user key is recomputed from the resolved userId.
+  - [x] `#migrateLegacyKey(userId)` called once during `getDb()` first init: if IDB key `db` exists, `put` its bytes under `db:${userId}` (only when the per-user key doesn't already exist) and `delete` `db`. Idempotent.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/db/index.ts` — **unchanged from I.w.** The lazy-self-bootstrap shape means the existing `new Database()` / `new ProgressRepo(database)` singleton instantiation continues to work; no async `bootstrapDb()` function was introduced. (The story's planning bullet allowed either shape; this is the one chosen.)
+- [x] `src/learningfoundry/sveltekit_template/src/routes/+layout.svelte` — **unchanged.** No mount-time bootstrap call needed; the first `invalidateProgress` triggers the lazy bootstrap inside `Database.getDb()`.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/db/database.test.ts` — extended with userId / partition cases:
+  - [x] Construct two `new Database(userId)` instances with different `userId` values; assert each writes under its own IDB key (verified via raw IDB get of `db:user-a` / `db:user-b`); writes through one are not visible through the other (partition isolation).
+  - [x] Migration test: pre-write a real `Uint8Array` (a sql.js export carrying a row) under the legacy `db` key in fake-indexeddb; instantiate `new Database('user-x')`; assert the migrated row reads back via the new instance, the legacy `db` key has been deleted, and the per-user `db:user-x` key now holds the bytes.
+  - [x] Idempotency test: second `getDb()` call on the same instance does not re-migrate or fail.
+  - [x] Two existing I.v concurrency cases (single-instance `getDb()` identity + write-visibility) preserved with explicit userId arg.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/db/user-id.test.ts` (new):
+  - [x] Fresh `localStorage` → `getUserId()` returns a UUID v4-shaped string and persists it.
+  - [x] Pre-populated `localStorage` → `getUserId()` returns the existing value (no rotation).
+  - [x] Two parallel `getUserId()` calls on a fresh `localStorage` return the *same* UUID via a `vi.stubGlobal('navigator', { locks: ... })` shim that simulates real exclusive serialisation (queue + drain). Lock-fallback path covered implicitly by the no-stub branch in production code.
+- [x] `docs/specs/project-essentials.md` — added a new "In-browser progress DB is per-user-partitioned" bullet under Architecture Quirks documenting the IDB key, localStorage key, bootstrap shape, auth-migration plan, and the still-open cross-tab anti-clobber caveat.
+- [x] Bumped version to v0.58.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.58.0 under "Added" (per-user partition; user-id.ts with Web-Lock bootstrap; legacy-key migration; partition / bootstrap / migration tests) and "Changed" (`Database` constructor gains optional `userId?: string`; bootstrap-shape decision documented).
+- [x] Verify: `pyve test` (255 pass), `pyve test tests/test_smoke_sveltekit.py` (12 pass, 1 skip), `pnpm test` (163 pass — was 157 before this story; +6 from new I.x tests: 3 in user-id.test.ts, 3 in database.test.ts), `ruff` (clean), `mypy` (clean, 17 files). `pnpm e2e` retains the 3 pre-existing failures from v0.55.0 / v0.56.0 / v0.57.0; not introduced by this story.
+
+**Implementation notes / surprises:**
+
+- vitest's jsdom environment exposes `globalThis.localStorage` as a Proxy that rejects method-property writes (it only accepts string-string property assignments to mimic Storage's `localStorage.foo = 'bar'` index access). Both `database.test.ts` and `user-id.test.ts` install a Map-backed `fakeStorage` via `Object.defineProperty(globalThis, 'localStorage', ...)` in `beforeAll` to substitute. Took two failed attempts (`Object.assign` rejected by the proxy; `removeItem` undefined) before landing on the full-replacement pattern.
 
 **Out of scope (deferred indefinitely):**
 
