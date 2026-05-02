@@ -861,7 +861,7 @@ The existing helper-style tests stay — they remain useful for debugging the ti
 
 ---
 
-### Story I.u: v0.55.0 — Backfill Sidebar / Dashboard / Button Real-DOM Tests [Planned]
+### Story I.u: v0.55.0 — Backfill Sidebar / Dashboard / Button Real-DOM Tests [Done]
 
 Companion to Story I.t. Where I.t targets the lesson-render pipeline (high regression risk), this one targets the navigation / dashboard / button chrome. The existing helper-style tests cover the decision logic correctly but cannot catch markup, ARIA, or click-wiring bugs. This story adds parallel real-mount tests for `ModuleList`, `LessonList`, `Navigation`, `ProgressDashboard`, and `ResetCourseButton`.
 
@@ -869,29 +869,29 @@ The combined surface is wider than I.t but lower-risk. None of these components 
 
 **Tasks:**
 
-- [ ] `sveltekit_template/src/lib/components/ModuleList.test.ts` (new — `module-list.test.ts` keeps its helper coverage):
-  - [ ] Mount `<ModuleList>` with two modules (one locked) and assert: locked module renders a Lucide `<svg>` Lock icon next to the title, expanded panel (`<LessonList>`) is NOT in the DOM for the locked module even after a click on its header, unlocked module renders without the Lock icon and expands its `<LessonList>` on click.
-  - [ ] Mount with the active module highlighted; assert `border-l-blue-500 bg-blue-50` classes are present on the active `<li>` only.
-- [ ] `sveltekit_template/src/lib/components/LessonList.test.ts` (new):
-  - [ ] Mount with a mix of statuses (`not_started`, `in_progress`, `complete`, `optional`, `opened`); assert each row's status `<span>` text matches `○`/`…`/`✓`/`◇`/`…` respectively.
-  - [ ] Mount with one locked lesson; assert the locked row carries `aria-disabled="true"` and `cursor-not-allowed`; click the locked row and assert `goto` was NOT called.
-  - [ ] Mount with no locked lessons; click a row; assert `goto` was called with `/${moduleId}/${lessonId}`.
-- [ ] `sveltekit_template/src/lib/components/Navigation.test.ts` (extend — the helper cases stay):
-  - [ ] Mount `<Navigation>` with `disabled={true}`; assert the Next/Finish button has the native `disabled` attribute and the `opacity-50 cursor-not-allowed` classes.
-  - [ ] Mount with `disabled={false}` and a non-null `nextLesson` store value; click the button; assert `goto` was called with the expected path string and `currentPosition.set(null)` was NOT called.
-  - [ ] Mount with `nextLesson` null (Finish state); click; assert `currentPosition.set(null)` was called BEFORE `goto('/')` (FR-P14 ordering — verify via mock call order).
-- [ ] `sveltekit_template/src/lib/components/ProgressDashboard.test.ts` (extend):
-  - [ ] Mount with three modules and partial progress; assert each module card renders the `<ProgressBar>` with the expected percent (parse the inline `style="width: …%"` attribute).
-  - [ ] Mount with `totalLessons = 0`; assert the curriculum-level summary bar is NOT rendered (the existing helper test covers the math; this test confirms the `{#if totalLessons > 0}` gate).
-  - [ ] Mount with one module fully complete and one not; assert the complete module renders "✓ Complete" and the incomplete module renders the "Start module →" / "Continue →" button.
-- [ ] `sveltekit_template/src/lib/components/ResetCourseButton.test.ts` (rewrite — the inline-handler-copy stays as documentation but the assertions now run against a real mount):
-  - [ ] Mount `<ResetCourseButton disabled={true}>`; assert the rendered `<button>` has `disabled` attribute and `cursor-not-allowed text-gray-300`; programmatic `.click()` does not invoke the handler (verify via mocked `resetProgress` having zero calls).
-  - [ ] Mount with `disabled={false}` and `confirmFn={() => false}`; click; assert `resetProgress` was NOT called.
-  - [ ] Mount with `disabled={false}` and `confirmFn={() => true}`; click; assert `resetProgress`, `currentPosition.set(null)`, `invalidateProgress`, and `goto('/')` all ran in that order.
-- [ ] Mirror to `src/learningfoundry/sveltekit_template/` (same Story I.r dependency note as I.s).
-- [ ] Bump version to v0.55.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] `CHANGELOG.md` — v0.55.0 under "Added" (real-DOM sidebar / dashboard / button test coverage).
-- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
+- [x] `sveltekit_template/src/lib/components/ModuleList.test.ts` (new — `module-list.test.ts` keeps its helper coverage):
+  - [x] Mount `<ModuleList>` with two modules (one locked) and assert: locked module renders a Lucide `<svg>` Lock icon next to the title, expanded panel (`<LessonList>`) is NOT in the DOM for the locked module even after a click on its header, unlocked module renders without the Lock icon and expands its `<LessonList>` on click.
+  - [x] Mount with the active module highlighted; assert `border-l-blue-500 bg-blue-50` classes are present on the active `<li>` only.
+- [x] `sveltekit_template/src/lib/components/LessonList.test.ts` (new):
+  - [x] Mount with a mix of statuses (`not_started`, `in_progress`, `complete`, `optional`, `opened`); assert each row's status `<span>` text matches `○`/`…`/`✓`/`◇`/`…` respectively.
+  - [x] Mount with one locked lesson; assert the locked row carries `aria-disabled="true"` and `cursor-not-allowed`; click the locked row and assert `goto` was NOT called.
+  - [x] Mount with no locked lessons; click a row; assert `goto` was called with `/${moduleId}/${lessonId}`.
+- [x] `sveltekit_template/src/lib/components/Navigation.test.ts` (extend — the helper cases stay): _added in-place to `navigation.test.ts` (lowercase) since macOS treats the two filenames as identical; helper `describe` blocks at the top, mount `describe` blocks below._
+  - [x] Mount `<Navigation>` with `disabled={true}`; assert the Next/Finish button has the native `disabled` attribute and the `opacity-50 cursor-not-allowed` classes.
+  - [x] Mount with `disabled={false}` and a non-null `nextLesson` store value; click the button; assert `goto` was called with the expected path string and `currentPosition.set(null)` was NOT called.
+  - [x] Mount with `nextLesson` null (Finish state); click; assert `currentPosition.set(null)` was called BEFORE `goto('/')` (FR-P14 ordering — verify via mock call order).
+- [x] `sveltekit_template/src/lib/components/ProgressDashboard.test.ts` (extend):
+  - [x] Mount with three modules and partial progress; assert each module card renders the `<ProgressBar>` with the expected percent (parse the inline `style="width: …%"` attribute).
+  - [x] Mount with `totalLessons = 0`; assert the curriculum-level summary bar is NOT rendered (the existing helper test covers the math; this test confirms the `{#if totalLessons > 0}` gate).
+  - [x] Mount with one module fully complete and one not; assert the complete module renders "✓ Complete" and the incomplete module renders the "Start module →" / "Continue →" button.
+- [x] `sveltekit_template/src/lib/components/ResetCourseButton.test.ts` (rewrite — the inline-handler-copy stays as documentation but the assertions now run against a real mount):
+  - [x] Mount `<ResetCourseButton disabled={true}>`; assert the rendered `<button>` has `disabled` attribute and `cursor-not-allowed text-gray-300`; programmatic `.click()` does not invoke the handler (verify via mocked `resetProgress` having zero calls).
+  - [x] Mount with `disabled={false}` and `confirmFn={() => false}`; click; assert `resetProgress` was NOT called.
+  - [x] Mount with `disabled={false}` and `confirmFn={() => true}`; click; assert `resetProgress`, `currentPosition.set(null)`, `invalidateProgress`, and `goto('/')` all ran in that order.
+- [x] Mirror to `src/learningfoundry/sveltekit_template/` (same Story I.r dependency note as I.s). _N/A — the workspace-root duplicate was deleted in Story I.s (v0.53.0); `src/learningfoundry/sveltekit_template/` is now the single source of truth, so no mirror step is required. Task kept marked done for accounting._
+- [x] Bump version to v0.55.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.55.0 under "Added" (real-DOM sidebar / dashboard / button test coverage).
+- [x] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`.
 
 **Out of scope:**
 

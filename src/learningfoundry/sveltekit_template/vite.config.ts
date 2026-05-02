@@ -17,6 +17,13 @@ export default defineConfig({
 	test: {
 		environment: 'jsdom',
 		include: ['src/**/*.{test,spec}.{js,ts}'],
-		globals: false
+		globals: false,
+		// Component-mount tests pay a one-time vite-transform cost (~4 s)
+		// the first time a file dynamic-imports a Svelte component whose
+		// graph pulls in lucide-svelte + marked + katex (LessonView,
+		// Navigation, ResetCourseButton). The default 5 s testTimeout
+		// leaves no headroom under parallel file load — bump it to 15 s
+		// so first-test cold-compile can't tip a green run into a flake.
+		testTimeout: 15_000
 	}
 });

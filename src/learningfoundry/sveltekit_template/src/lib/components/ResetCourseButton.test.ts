@@ -1,95 +1,164 @@
 // Copyright 2026 Pointmatic
 // SPDX-License-Identifier: Apache-2.0
 //
-// Logic-level coverage for the Reset Course button. We don't mount the
-// Svelte component (the existing test convention is to extract testable
-// logic instead). Instead we validate the click-handler contract:
+// Story I.u — real-DOM mount coverage for `ResetCourseButton.svelte`.
+// Pre-Story I.u this file ran an inline copy of the click-handler against
+// mocks because Svelte 5 component mounts weren't wired up. With the
+// resolve-conditions config from Story I.q in place, the assertions now
+// run against a real mount; the inline copy below stays as documentation
+// so a reader can see the contract the component is meant to satisfy
+// without reading the .svelte file.
 //
-//   - disabled → no DB writes, no goto
+//   async function clickHandler(disabled, confirmFn):
+//     if (disabled) return;
+//     if (!confirmFn(PROMPT)) return;
+//     await resetProgress();
+//     currentPosition.set(null);
+//     await invalidateProgress($curriculum);
+//     await goto('/');
+//
+// The branches:
+//   - disabled → no DB writes, no goto, confirm not even prompted
 //   - enabled + cancelled confirm → no DB writes, no goto
-//   - enabled + accepted confirm → resetProgress + invalidateProgress + goto('/')
-//
-// These three branches are the meaningful failure modes; the Svelte
-// rendering is a thin shell over them.
+//   - enabled + accepted confirm → reset → set(null) → invalidate → goto
+//     in that order; FR-P14 ordering is what makes the sidebar collapse
+//     before the route change.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { resetMock, invalidateMock, gotoMock, setPosition } = vi.hoisted(() => ({
 	resetMock: vi.fn().mockResolvedValue(undefined),
 	invalidateMock: vi.fn().mockResolvedValue(undefined),
-	gotoMock: vi.fn(),
+	gotoMock: vi.fn().mockResolvedValue(undefined),
 	setPosition: vi.fn()
 }));
 
 vi.mock('$app/navigation', () => ({ goto: gotoMock }));
 vi.mock('$lib/db/index.js', () => ({ resetProgress: resetMock }));
 vi.mock('$lib/stores/curriculum.js', () => ({
-	curriculum: { subscribe: (fn: (v: null) => void) => (fn(null), () => {}) },
+	curriculum: {
+		subscribe: (fn: (v: null) => void) => {
+			fn(null);
+			return () => {};
+		}
+	},
 	currentPosition: { set: setPosition }
 }));
 vi.mock('$lib/stores/progress.js', () => ({ invalidateProgress: invalidateMock }));
 
 const PROMPT = 'Reset all progress for this curriculum? This cannot be undone.';
 
-/**
- * Inline copy of the click-handler logic in `ResetCourseButton.svelte`.
- * Kept in lockstep with the component; if you change the component, mirror
- * the change here.
- */
-async function clickHandler(
-	disabled: boolean,
-	confirmFn: (msg: string) => boolean
-): Promise<void> {
-	const { resetProgress } = await import('$lib/db/index.js');
-	const { currentPosition, curriculum } = await import('$lib/stores/curriculum.js');
-	const { invalidateProgress } = await import('$lib/stores/progress.js');
-	const { goto } = await import('$app/navigation');
-	if (disabled) return;
-	if (!confirmFn(PROMPT)) return;
-	await resetProgress();
-	currentPosition.set(null);
-	let cur = null;
-	curriculum.subscribe((v: unknown) => (cur = v as null))();
-	await invalidateProgress(cur);
-	await goto('/');
-}
+describe('ResetCourseButton mount — disabled branch', () => {
+	let ResetCourseButton: typeof import('./ResetCourseButton.svelte').default;
 
-describe('ResetCourseButton click handler', () => {
-	beforeEach(() => {
+	beforeEach(async () => {
 		resetMock.mockClear();
 		invalidateMock.mockClear();
 		gotoMock.mockClear();
 		setPosition.mockClear();
+		ResetCourseButton = (await import('./ResetCourseButton.svelte')).default;
 	});
 
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
 
-	it('disabled → no reset, no navigation', async () => {
+	it('disabled=true → rendered button has `disabled` attribute, `cursor-not-allowed text-gray-300` classes; click does not invoke handler', async () => {
+		const { render } = await import('@testing-library/svelte');
 		const confirmFn = vi.fn(() => true);
-		await clickHandler(true, confirmFn);
+		const { container } = render(ResetCourseButton, {
+			props: { disabled: true, confirmFn }
+		});
+
+		const btn = container.querySelector('button') as HTMLButtonElement;
+		expect(btn.disabled).toBe(true);
+		expect(btn.className).toContain('cursor-not-allowed');
+		expect(btn.className).toContain('text-gray-300');
+
+		btn.click();
+		// `disabled` attribute on a real <button> blocks the synthetic click
+		// event from firing the handler; resetProgress must remain unseen.
 		expect(confirmFn).not.toHaveBeenCalled();
 		expect(resetMock).not.toHaveBeenCalled();
 		expect(setPosition).not.toHaveBeenCalled();
 		expect(invalidateMock).not.toHaveBeenCalled();
 		expect(gotoMock).not.toHaveBeenCalled();
 	});
+});
 
-	it('enabled + cancelled confirm → no reset, no navigation', async () => {
-		const confirmFn = vi.fn(() => false);
-		await clickHandler(false, confirmFn);
-		expect(confirmFn).toHaveBeenCalledOnce();
-		expect(resetMock).not.toHaveBeenCalled();
-		expect(setPosition).not.toHaveBeenCalled();
-		expect(gotoMock).not.toHaveBeenCalled();
+describe('ResetCourseButton mount — enabled + cancelled confirm', () => {
+	let ResetCourseButton: typeof import('./ResetCourseButton.svelte').default;
+
+	beforeEach(async () => {
+		resetMock.mockClear();
+		invalidateMock.mockClear();
+		gotoMock.mockClear();
+		setPosition.mockClear();
+		ResetCourseButton = (await import('./ResetCourseButton.svelte')).default;
 	});
 
-	it('enabled + accepted confirm → resets, clears position, invalidates, navigates home', async () => {
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('disabled=false + confirmFn returns false → confirm prompted, but no reset / set / invalidate / goto', async () => {
+		const { render } = await import('@testing-library/svelte');
+		const confirmFn = vi.fn(() => false);
+		const { container } = render(ResetCourseButton, {
+			props: { disabled: false, confirmFn }
+		});
+
+		const btn = container.querySelector('button') as HTMLButtonElement;
+		btn.click();
+
+		expect(confirmFn).toHaveBeenCalledTimes(1);
+		expect(confirmFn).toHaveBeenCalledWith(PROMPT);
+		expect(resetMock).not.toHaveBeenCalled();
+		expect(setPosition).not.toHaveBeenCalled();
+		expect(invalidateMock).not.toHaveBeenCalled();
+		expect(gotoMock).not.toHaveBeenCalled();
+	});
+});
+
+describe('ResetCourseButton mount — enabled + accepted confirm (FR-P14 ordering)', () => {
+	let ResetCourseButton: typeof import('./ResetCourseButton.svelte').default;
+
+	beforeEach(async () => {
+		resetMock.mockClear();
+		invalidateMock.mockClear();
+		gotoMock.mockClear();
+		setPosition.mockClear();
+		ResetCourseButton = (await import('./ResetCourseButton.svelte')).default;
+	});
+
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('disabled=false + confirmFn returns true → resetProgress → currentPosition.set(null) → invalidateProgress → goto("/") in that order', async () => {
+		const { render } = await import('@testing-library/svelte');
 		const confirmFn = vi.fn(() => true);
-		await clickHandler(false, confirmFn);
-		expect(resetMock).toHaveBeenCalledOnce();
+		const { container } = render(ResetCourseButton, {
+			props: { disabled: false, confirmFn }
+		});
+
+		const btn = container.querySelector('button') as HTMLButtonElement;
+		btn.click();
+
+		// click() schedules the async handler — let microtasks settle.
+		for (let i = 0; i < 6; i += 1) await Promise.resolve();
+
+		expect(resetMock).toHaveBeenCalledTimes(1);
 		expect(setPosition).toHaveBeenCalledWith(null);
-		expect(invalidateMock).toHaveBeenCalledOnce();
+		expect(invalidateMock).toHaveBeenCalledTimes(1);
 		expect(gotoMock).toHaveBeenCalledWith('/');
+
+		// Ordering check via mock invocation order: reset → set → invalidate → goto.
+		const order = [
+			resetMock.mock.invocationCallOrder[0],
+			setPosition.mock.invocationCallOrder[0],
+			invalidateMock.mock.invocationCallOrder[0],
+			gotoMock.mock.invocationCallOrder[0]
+		];
+		expect(order).toEqual([...order].sort((a, b) => a - b));
 	});
 });
