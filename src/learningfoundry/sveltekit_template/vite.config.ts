@@ -24,6 +24,13 @@ export default defineConfig({
 		// Navigation, ResetCourseButton). The default 5 s testTimeout
 		// leaves no headroom under parallel file load — bump it to 15 s
 		// so first-test cold-compile can't tip a green run into a flake.
-		testTimeout: 15_000
+		testTimeout: 15_000,
+		// Skip vite's deps-optimizer for sql.js in tests. The browser
+		// build runs a wasm fetch as a module-level side effect, which
+		// the optimizer triggers when pre-bundling — and the fetch fails
+		// in jsdom because `/sql-wasm.wasm` has no base URL. Excluding
+		// keeps sql.js untouched until a test imports it (where vi.mock
+		// can cleanly replace it).
+		deps: { optimizer: { web: { exclude: ['sql.js'] } } }
 	}
 });

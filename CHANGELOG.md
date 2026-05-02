@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-05-02
+
+### Fixed
+
+- **Intermittent progress data loss from `getDb()` init race** (Story I.v). On first page load, multiple call sites hit [database.ts](src/learningfoundry/sveltekit_template/src/lib/db/database.ts) `getDb()` in parallel — curriculum hydrate, the layout `$effect` invalidating progress, and `LessonView` calling `markLessonOpened` — and all callers passed the `if (_db) return _db` gate before any of them finished `await initSqlJs()` / `await loadFromIdb()`. Each constructed its own sql.js `Database` instance; only the *last* assignment to `_db` survived, and `persistDb()` only ever exported that one. Writes through references that won the early race but lost the assignment race were silently dropped — events appeared to write but state reads came back empty, on roughly 50% of deployments depending on microtask scheduling. `initSqlJs()` had the same shape and the same bug invisibly: `_SQL` was checked but never assigned inside the function, so concurrent callers each re-invoked the sql.js factory. Fix: memoise the init promise in both functions via module-scoped `_dbInitPromise` and `_sqlInitPromise` so concurrent callers share the single in-flight initialisation; assign `_db` / `_SQL` inside the IIFE so the synchronous fast path stays warm post-init.
+
+### Added
+
+- **Real-DOM concurrency tests for `getDb()`** (Story I.v). New [database.test.ts](src/learningfoundry/sveltekit_template/src/lib/db/database.test.ts) exercises the actual sql.js + IDB code path with `fake-indexeddb` providing IDB and a `globalThis.fetch` stub serving `static/sql-wasm.wasm` from disk. Two cases: 5 concurrent `getDb()` calls return references that are `===` (single-instance invariant), and a write through one reference is visible via every reference (the user-reported symptom — this is the test that would have caught the bug). Both fail clearly against the pre-fix code and pass after the memoisation.
+- `fake-indexeddb` (^6.2.5) as a dev dependency. Standard tool for IDB in vitest+jsdom; no other dep gives a working IndexedDB in the test environment, and stubbing `indexedDB` by hand for sql.js's transaction patterns is brittle.
+
+### Changed
+
+- `vite.config.ts` `test.deps.optimizer.web.exclude = ['sql.js']` added. Without this, vite's pre-bundler eagerly evaluates sql.js's browser build at test startup, which fires the WASM fetch as a module-level side effect and produces an unhandled rejection in jsdom (no fetch base URL for `/sql-wasm.wasm`). Excluding defers sql.js evaluation until a test actually imports it, where the `fetch` stub in `database.test.ts` is already installed.
+
 ## [0.55.0] - 2026-05-01
 
 ### Added

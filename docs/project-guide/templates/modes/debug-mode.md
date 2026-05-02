@@ -147,19 +147,47 @@ LLM: "Test passes. Running full suite to check for regressions..."
 3. Run the full test suite - no regressions
 4. Add additional tests for edge cases if needed
 
-**Output:** Working code with passing tests
+**Output:** Working code with passing tests — but the cycle is not complete; proceed to Step 5.
 
-### Step 5: Document and Prevent
+### Step 5: Document the Fix in `stories.md` (Approval Gate)
 
-**Goal:** Ensure this class of bug doesn't happen again.
+**Goal:** Make the fix legible to future debuggers and prevent this class of bug from recurring.
 
-**Actions:**
-1. Update `features.md` or `tech_spec.md` if requirements were ambiguous
-2. Add test coverage for the bug scenario
-3. Document the fix in `stories.md` (create a new story following the format in `project_guide.md`)
-4. Consider if similar bugs exist elsewhere in the codebase
+This step has **two distinct artifacts**. (a) is the gate; (b) is required but secondary.
 
-**Output:** Updated documentation and comprehensive test coverage
+**(a) The story write-up — the gate artifact:**
+
+Create a new story in `docs/specs/stories.md` matching the project format (see the bundled `stories.md` template and `project-essentials.md` for commit/version conventions). Implementation tasks the fix actually completed are marked `[x]`; any housekeeping tasks discovered during the fix (related-bug scans, doc updates) are marked `[ ]` and left for follow-up.
+
+**(b) The prevention scan — required, but separate from the gate:**
+
+1. Update `features.md` or `tech-spec.md` if the requirements were ambiguous.
+2. Add test coverage for the bug scenario (if not already added in Step 4).
+3. Look elsewhere in the codebase for similar bugs — the same root cause pattern often appears in more than one place. Either fix any matches inline (mark `[x]`) or capture them as `[ ]` housekeeping in the story for follow-up.
+
+**Output:** A story in `docs/specs/stories.md` matching the project format. **Until this story exists, the cycle is not complete** — Step 4 produces working code, Step 5 produces a complete project record.
+
+---
+
+**The approval gate is not reached until all five steps have produced their named output artifact. If you cannot name the Step 5 artifact (the new story in `stories.md`), you are not at the gate.**
+
+---
+
+## Debugging Checklist
+
+**Before pausing for approval, run this checklist and confirm each item.** This is a mandatory pre-gate run-through, not a reference.
+
+- [ ] I have written a test that demonstrates the bug
+- [ ] The test fails before the fix
+- [ ] I understand the root cause (requirements, implementation, or test gap)
+- [ ] I have designed a minimal fix
+- [ ] The fix addresses the root cause, not just symptoms
+- [ ] The test passes after the fix
+- [ ] All existing tests still pass (no regressions)
+- [ ] I have added additional tests for edge cases if needed
+- [ ] I have documented the fix in `stories.md` (created a new story) — **the Step 5 gate artifact**
+- [ ] I have updated `features.md` or `tech-spec.md` if requirements were ambiguous
+- [ ] I have looked elsewhere in the codebase for similar bugs (fixed inline or captured as `[ ]` housekeeping)
 
 ---
 
@@ -361,23 +389,6 @@ all_records.sort(key=lambda r: (r.date, r.id))  # Sort interleaves duplicates
 
 ---
 
-## Debugging Checklist
-
-Before proposing a fix, verify:
-
-- [ ] I have written a test that demonstrates the bug
-- [ ] The test fails before the fix
-- [ ] I understand the root cause (requirements, implementation, or test gap)
-- [ ] I have designed a minimal fix
-- [ ] The fix addresses the root cause, not just symptoms
-- [ ] The test passes after the fix
-- [ ] All existing tests still pass (no regressions)
-- [ ] I have added additional tests for edge cases if needed
-- [ ] I have documented the fix in `stories.md` (created a new story)
-- [ ] I have updated `features.md` or `tech_spec.md` if requirements were ambiguous
-
----
-
 ## Anti-Patterns to Avoid
 
 ### ❌ Fix First, Test Later
@@ -416,6 +427,12 @@ Before proposing a fix, verify:
 
 **Solution:** If requirements were unclear, update them as part of the fix.
 
+### ❌ Declaring the Fix Complete After Step 4
+
+**Problem:** Step 4 is "code works"; Step 5 is "cycle is done." Skipping Step 5 leaves the project record incomplete and the next debugger blind to what was learned. The 5-step workflow has a single named output artifact for each step — Step 5's artifact is the new story in `stories.md`. Without it, there is no gate.
+
+**Solution:** Run the Debugging Checklist before declaring the cycle complete. If you cannot point to a story in `stories.md` documenting this fix, you are at Step 4, not at the gate.
+
 ---
 
 ## When to Escalate to User
@@ -439,7 +456,7 @@ Before proposing a fix, verify:
 
 **The Golden Rule of Debugging:**
 
-> **Write a failing test first. Fix the code second. Verify the test passes third.**
+> **Write a failing test first. Fix the code second. Verify the test passes third. Document the fix in `stories.md` fourth.**
 
 This simple rule prevents:
 - "Oops, not fixed yet" cycles

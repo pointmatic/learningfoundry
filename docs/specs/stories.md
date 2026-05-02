@@ -840,7 +840,7 @@ The existing helper-style tests stay — they remain useful for debugging the ti
   - [x] Capture the observer-callback function via the `IntersectionObserver` constructor stub: `vi.stubGlobal('IntersectionObserver', ...)` where the fake records both the target and the callback so the test can drive it directly.
 - [x] `sveltekit_template/src/lib/components/VideoBlock.test.ts` (rewrite from helper-only to mount-based):
   - [x] Keep the existing `createViewportTracker` cases — they still document the fallback timer logic.
-  - [x] New case: mount `<VideoBlock>` with a YouTube URL, assert `(window as any).YT` script-tag injection happened (via `document.querySelector('script[src*="youtube.com/iframe_api"]')`) and that the `[id^="yt-player-"]` placeholder element rendered.
+  - [x] New case: mount `<VideoBlock>` with a YouTube URL, assert `(window as any).YT` script-tag injection happened (via `document.querySelector('script[src*="youtu≥be.com/iframe_api"]')`) and that the `[id^="yt-player-"]` placeholder element rendered.
   - [x] New case: mount with one URL, then re-render with a different URL via prop update; capture `YT.Player` calls (stubbed) and assert (a) the previous player's `destroy()` was called, (b) a new player was created with the new `videoId` extracted from the new URL, (c) the internal `fired` flag was reset (proxy: `onvideocomplete` can fire again on the new player's `ENDED` state). Use `vi.useFakeTimers()` and `vi.stubGlobal('YT', ...)` per the existing pattern.
   - [x] New case: mount without `window.YT`; advance timers past the 5 s fallback threshold; assert the viewport-fallback `IntersectionObserver` was attached to the wrapper element. (Catches the regression where the fallback path silently breaks.)
 - [x] `sveltekit_template/src/lib/components/LessonView.test.ts` (extend; the I.q ordering case stays):
@@ -903,6 +903,115 @@ The combined surface is wider than I.t but lower-risk. None of these components 
 
 ---
 
+### Story I.v: v0.56.0 — Fix Intermittent Event-Tracking Loss from 'getDb()' Init Race [Done]
+
+The user reported that event tracking fails on roughly 50% of deployments — events appear to be written via `markLessonOpened` and the other `progress.ts` mutators, but later reads come back empty. The pattern is non-deterministic; it survived the existing test suite untouched.
+
+Root cause is in [src/learningfoundry/sveltekit_template/src/lib/db/database.ts](src/learningfoundry/sveltekit_template/src/lib/db/database.ts) — `getDb()` is a textbook double-checked-async-init bug:
+
+```ts
+if (_db) return _db;
+_SQL = await initSqlJs();        // ← await yields; concurrent callers all reach here
+const saved = await loadFromIdb();
+_db = saved ? new _SQL.Database(saved) : new _SQL.Database();
+```
+
+On first page load, multiple call sites hit `getDb()` in parallel (curriculum hydrate in the layout, `invalidateProgress` from the layout `$effect`, `markLessonOpened` from `LessonView`). All callers pass the `if (_db)` gate before any of them finishes the awaits; each constructs its own sql.js `Database` instance; only the *last* assignment to `_db` survives, and `persistDb()` only ever exports that one. Writes against instances that won the early race but lost the assignment race are silently dropped — they never reach IDB and never read back. Whether you observe the bug depends on microtask scheduling order, which varies by browser, deployment build, and warm-cache state — hence the ~50% rate.
+
+`initSqlJs()` had the same shape and the same bug invisibly: `_SQL` was checked but never assigned inside the function (only in `getDb`'s outer scope), so concurrent callers each re-invoked the sql.js factory.
+
+**Why tests missed it.** Existing tests in [progress.test.ts](src/learningfoundry/sveltekit_template/src/lib/db/progress.test.ts) and [LessonView.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/LessonView.test.ts) mock `database.js` entirely — they exercise the SQL contract but never the real `getDb()` lifecycle. There was no test that fired multiple `getDb()` calls concurrently and asserted single-instance behavior, no test that wrote through one reference and read back through another. This story closes both gaps.
+
+**Fix shape.** Memoize the init promise in both `getDb()` and `initSqlJs()` so concurrent callers share the single in-flight initialization. The singleton architecture (module-scoped `_db`, `_SQL`) stays in place — promoting it to an injectable `ProgressRepo` class with explicit user-id partitioning is deferred to a follow-up so this fix stays surgical and reviewable.
+
+**Tasks:**
+
+- [x] `src/learningfoundry/sveltekit_template/src/lib/db/database.ts` — add `_dbInitPromise` and `_sqlInitPromise` module-scoped variables. Wrap the body of `getDb()` in a memoized `(async () => { ... })()` so the init runs at most once across concurrent callers; assign `_db` inside the IIFE so the synchronous fast path stays warm. Same pattern in `initSqlJs()` for `_SQL`.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/db/database.test.ts` (new) — two integration tests against the real sql.js (with `fake-indexeddb` providing IDB and a `globalThis.fetch` stub serving `static/sql-wasm.wasm` from disk):
+  - [x] 5 concurrent `getDb()` calls return references that are `===` (single-instance invariant).
+  - [x] A write through one reference is visible via every reference (the user-reported symptom: "events written but state isn't retrieved" — this is the test that would have caught the bug).
+- [x] `src/learningfoundry/sveltekit_template/package.json` — add `fake-indexeddb` as a `devDependency` (^6.2.5). It's the standard tool for IDB in vitest+jsdom, and there's no other dep that gives us a working IDB in the test environment.
+- [x] `src/learningfoundry/sveltekit_template/vite.config.ts` — under the `test` block, add `deps: { optimizer: { web: { exclude: ['sql.js'] } } }`. Without this, vite's pre-bundler eagerly evaluates sql.js's browser build at test startup, which fires the WASM fetch as a module-level side effect and produces an unhandled rejection in jsdom. Excluding defers sql.js evaluation until a test imports it (where the `fetch` stub in `database.test.ts` is already installed).
+- [x] Bump version to v0.56.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.56.0 under "Fixed" (intermittent progress data loss caused by race in `getDb()` / `initSqlJs()` singleton init; concurrent first-load callers each constructed their own sql.js `Database`, silently dropping writes to all-but-one instance) and "Added" (`fake-indexeddb` dev dep + `database.test.ts` real-DOM concurrency tests; `vite.config.ts` `sql.js` optimizer exclusion).
+- [x] Verify: `pyve test` (255 pass), `pyve test tests/test_smoke_sveltekit.py` (12 pass, 1 skip), `pnpm test` (156 pass — was 154 before this story; +2 from `database.test.ts`), `ruff` (clean), `mypy` (clean, 17 files). `pnpm e2e` has 3 pre-existing failures on `main` at v0.55.0 (`navigation.spec.ts:10` sidebar lesson click, `navigation.spec.ts:24` dashboard "Start module" deep-link, `video.spec.ts:12` YouTube iframe count) — verified by stashing this story's changes and re-running on clean v0.55.0; same 3 fail. The failures are unrelated to the init race (vite production builds don't apply the test-only `optimizeDeps` config), and addressing them is deferred to a separate story.
+
+**Out of scope (deferred to follow-up stories):**
+
+- `ProgressRepo` class wrapping `progress.ts` with an injected `Database` — deferred to Story I.w. The seam already exists implicitly (no Svelte component imports `getDb` directly — only `progress.ts` does); promoting it to an explicit class lets tests construct fresh instances rather than sharing the module singleton, and prevents a future regression of this same class of bug.
+- Introducing a `userId` (UUID v4 in `localStorage`) as a partition key for progress data, with a Web-Lock-protected bootstrap so the very-first-visit two-tab race doesn't generate two competing UUIDs — deferred to Story I.x (layered on top of I.w's class refactor). Pre-auth scaffolding; when auth lands the swap from local UUID to auth-issued ID is a key-rename rather than a schema migration.
+
+**Out of scope (deferred indefinitely):**
+
+- Cross-tab anti-clobber via Web Locks + reload-on-write. Latent issue (the whole-DB-blob persistence pattern is last-writer-wins across tabs of the same browser, for the same user) but distinct from the single-tab init race fixed here. Revisit when there's evidence of multi-tab learner workflows or when analytics/sync work makes the data model forced.
+- Replacing sql.js + whole-DB-blob persistence with Dexie / per-row IDB. Considered and rejected: planned quiz-score analytics (averages, aggregates) want SQL ergonomics, and Dexie would push those reductions into hand-rolled JS. The bug fixed here is not caused by sql.js; it's caused by the singleton init pattern.
+
+---
+
+### Story I.w: v0.57.0 — `ProgressRepo` Class + Per-User Data Partitioning [Planned]
+
+Story I.v fixed the immediate `getDb()` init race with a memoised init promise, but the underlying architecture — module-scoped mutable singletons (`_db`, `_SQL`) accessed implicitly by everything that imports `database.ts` — is what made the bug possible and what makes the *next* such bug invisible to the test suite. This story closes that category.
+
+It also lays the pre-auth scaffolding for "this learner's progress" by introducing a per-user partition key (`userId`) backed by a UUID v4 in `localStorage`. When authentication eventually lands, the swap is a key-rename rather than a schema migration. Two tabs of the same browser converge on the same `userId` because `localStorage` is origin-scoped — except for the brief first-visit bootstrap window where neither tab has written the UUID yet, which a Web Lock around the read-or-create resolves.
+
+**Architectural goals:**
+
+1. **No module-scoped mutable singletons in `database.ts`/`progress.ts`.** Replace `let _db` / `let _SQL` with a `Database` class instance and a `ProgressRepo` class instance, both constructed once at app startup and held in a Svelte store / DI seam. Tests construct fresh instances per case rather than sharing the module-level cache.
+2. **`getDb` / `persistDb` become private to `Database`, and the function-style exports from `progress.ts` are deleted in the same diff.** Per project guide ("don't use backwards-compatibility shims when you can just change the code"), the 5 external callers — `lib/stores/progress.ts`, `lib/utils/progress.ts`, `lib/components/LessonView.svelte`, `lib/components/progress-dashboard.helpers.ts`, `lib/components/ResetCourseButton.svelte` — migrate to the class API atomically in this story. No deprecated re-exports.
+3. **`userId` is a constructor parameter,** so multiple instances with different IDs can coexist (e.g. tests, future multi-account UX). Today there is exactly one instance per page load; the architecture doesn't preclude more.
+4. **IDB key is per-user.** Replace `IDB_KEY = 'db'` with `db:${userId}`. One-shot migration on first read for a given userId: if the legacy `db` key exists, copy it under `db:${userId}` and delete the legacy key. This claims existing pre-v0.57.0 progress for whichever local UUID is generated on first post-upgrade load — acceptable because there is no concept of "different users on this browser" pre-userId.
+
+**Constraint — SQL contracts stay locked.** The INSERT / UPDATE / SELECT strings (especially the upgrade-only `ON CONFLICT DO UPDATE SET status = CASE WHEN ...` clause from Story I.p) are pinned by `progress.test.ts` as a regression net for schema/CASE semantics. Method bodies move into a class but the SQL inside them does not change in this story. If a method's signature can be cleaner inside the class shape, change it; if a method's SQL needs changing, that's a separate concern with its own anti-regression rationale and belongs in a different story.
+
+**Why now:** Story I.v shipped the surgical fix, but the singleton pattern remains a footgun for any future code that does async init. Promoting the seam to a class is the smallest refactor that takes that footgun off the table; folding `userId` in at the same time avoids a second migration when auth lands.
+
+**Tasks:**
+
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/database.ts` — refactor module-level state into a `Database` class:
+  - [ ] Constructor takes `userId: string`. `IDB_KEY` becomes `` `db:${userId}` ``.
+  - [ ] Instance state: `#db`, `#SQL`, `#dbInitPromise`, `#sqlInitPromise` (all private, replacing the four module-scoped `let`s).
+  - [ ] Methods: `getDb()`, `persist()`, `reset()` (deletes the user-scoped IDB record). `getDb()`/`persist()` retain the I.v memoisation pattern.
+  - [ ] Legacy-migration helper called once during `getDb()` first init: if IDB key `db` (no `:userId`) exists, `put` its bytes under `db:${userId}` and `delete` `db`. Idempotent — second call is a no-op.
+  - [ ] Delete the module-level `getDb` / `persistDb` exports. The only consumer was `progress.ts`, which is itself becoming a class in this story.
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/user-id.ts` (new) — `getUserId(): Promise<string>` that:
+  - [ ] Reads `localStorage.getItem('learningfoundry-user-id')`; returns it if set.
+  - [ ] Otherwise wraps the read-or-create in `navigator.locks.request('lf-user-id-bootstrap', ...)` so two concurrently-loading tabs on a fresh browser converge on a single UUID. Inside the lock: re-read (another tab may have just written), `crypto.randomUUID()` if still empty, write, return.
+  - [ ] Falls back to `crypto.randomUUID()` without locking on browsers without `navigator.locks` (Safari < 15.4). Documented; acceptable risk-tradeoff (rare browser, rare two-tab-bootstrap window).
+  - [ ] Exported `_resetForTesting()` helper that clears the localStorage entry — internal-only, used by tests.
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/progress.ts` — promote to a `ProgressRepo` class:
+  - [ ] Constructor takes a `Database` instance.
+  - [ ] Methods carry the existing function bodies — `markLessonComplete`, `markLessonOpened`, `markLessonInProgress`, `getModuleProgress`, `getLessonProgress`, `getQuizScore`, `recordQuizScore`, `getExerciseStatus`, `setExerciseStatus`, `resetProgress`. SQL strings unchanged (see SQL-locked constraint above).
+  - [ ] Delete the module-level function exports. All 5 external callers migrate to the class API in this same diff (see next tasks).
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/index.ts` — export the singleton `database` and `progressRepo` instances and a `bootstrapDb(): Promise<{database, progressRepo, userId}>` function. The layout `$effect` calls `bootstrapDb()` once on mount; downstream code reads `progressRepo` from the export.
+- [ ] **Migrate the 5 external callers** from function-style imports to the class API. SQL behaviour is unchanged at every call site; only the import shape differs.
+  - [ ] `src/learningfoundry/sveltekit_template/src/lib/stores/progress.ts` — replace `import { getModuleProgress, ... } from '$lib/db/progress'` with `progressRepo` from `$lib/db`, call methods as `progressRepo.getModuleProgress(...)`.
+  - [ ] `src/learningfoundry/sveltekit_template/src/lib/utils/progress.ts` — same migration pattern.
+  - [ ] `src/learningfoundry/sveltekit_template/src/lib/components/LessonView.svelte` — `markLessonOpened` / `markLessonInProgress` / `markLessonComplete` calls become `progressRepo.<method>(...)`. The unit tests in `LessonView.test.ts` already mock `progress.js`; flip those mocks from a function-export shape to a class-instance shape (return a fake `progressRepo` with stubbed methods).
+  - [ ] `src/learningfoundry/sveltekit_template/src/lib/components/progress-dashboard.helpers.ts` — same.
+  - [ ] `src/learningfoundry/sveltekit_template/src/lib/components/ResetCourseButton.svelte` — `resetProgress()` becomes `progressRepo.resetProgress()`.
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/database.test.ts` — extend the I.v concurrency tests:
+  - [ ] Mount two `new Database(userId)` instances with different `userId` values; assert each gets its own IDB key (`db:user-a`, `db:user-b`), and a write through one is *not* visible through the other (partition isolation).
+  - [ ] Migration test: pre-write a Uint8Array under the legacy `db` key in fake-indexeddb; construct `new Database('user-x')`; assert subsequent `getDb()` returns a `Database` carrying the migrated rows AND the legacy `db` key has been deleted.
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/user-id.test.ts` (new):
+  - [ ] Fresh `localStorage` → `getUserId()` returns a UUID v4-shaped string and persists it.
+  - [ ] Pre-populated `localStorage` → `getUserId()` returns the existing value (no rotation).
+  - [ ] Two parallel `getUserId()` calls on a fresh `localStorage` return the *same* UUID (the Web Lock prevents the bootstrap race we discussed pre-implementation). Use a `vi.stubGlobal('navigator', { locks: { request: ... } })` shim that simulates real serialisation. Skip this case (with a `// TODO` and a `it.skip`) on environments without locks.
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/progress.test.ts` — flip the existing tests from `vi.mock('./database.js')` to construction of a real `ProgressRepo` with an injected fake `Database` (or a real one against `fake-indexeddb`). The current SQL-shape assertions stay valid; the mocking pattern just changes.
+- [ ] `src/learningfoundry/sveltekit_template/src/routes/+layout.svelte` — replace the existing `invalidateProgress($curriculum)` `$effect` with a `bootstrapDb()` call followed by `invalidateProgress($curriculum)`. The bootstrap is idempotent so re-runs (HMR, navigation) are safe.
+- [ ] `docs/specs/project-essentials.md` — under "Architecture Quirks", add a note that the in-browser DB is per-user-partitioned by a `userId` UUID in `localStorage`, that `IDB_KEY = db:${userId}`, and that the `userId` bootstrap is Web-Lock-protected. Note the auth-migration story: when auth lands, swap the `localStorage` UUID for the auth-issued user ID and rename the IDB key once.
+- [ ] Bump version to v0.57.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [ ] `CHANGELOG.md` — v0.57.0 under "Changed" (per-user IDB partition; class-based DB + repo seam replacing module-scoped singletons; pre-auth `userId` scaffolding) and "Added" (`user-id.ts` + Web-Lock-protected bootstrap; `database.ts` legacy-key migration; per-user partition tests).
+- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e` (treat I.v's pre-existing 3 failures as a separate concern; new failures introduced by this story are blockers), `ruff`, `mypy`.
+
+**Out of scope:**
+
+- **Cross-tab anti-clobber for the same `userId`.** Two tabs of the same browser, same user, can still last-writer-wins on the IDB blob — Web Locks `+` reload-on-write or BroadcastChannel-based leader election would solve it. Latent issue, distinct from this story; revisit when there's evidence of multi-tab learner workflows or sync work makes it forced. (Same scoping note as I.v.)
+- **Replacing sql.js with Dexie or per-row IDB.** Same rejection as I.v: quiz analytics want SQL.
+- **Multi-account UI.** No surfaced UX exposing the `userId` or letting the learner pick / switch accounts. The class architecture supports it, but plumbing it into the UI without an auth concept is out of scope.
+- **SQL contract changes** (INSERT / UPDATE / SELECT strings, the upgrade-only conflict CASE clause). These are pinned by `progress.test.ts` as a regression net and any change is a separate concern with its own rationale.
+
+---
+
 
 ## Future
 
@@ -914,6 +1023,7 @@ This section captures items intentionally deferred from the active phases above:
 The `archive_stories` mode preserves this section verbatim when archiving stories.md.
 -->
 
+- **Cross-tab anti-clobber for the same `userId`.** Two tabs of the same browser, same user, can still last-writer-wins on the IDB blob — Web Locks `+` reload-on-write or BroadcastChannel-based leader election would solve it. Latent issue, distinct from this story; revisit when there's evidence of multi-tab learner workflows or sync work makes it forced. (Same scoping note as I.v.)
 - **lmentry integration** — Direct LLM invocation for content generation (currently done externally)
 - **nbfoundry real integration** — Replace `NbfoundryStub` with Marimo notebook generation when nbfoundry is published
 - **d3foundry real integration** — Replace `D3foundryStub` with D3.js visualization generation when d3foundry is published

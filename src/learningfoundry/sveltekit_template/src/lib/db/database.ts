@@ -15,6 +15,8 @@ const IDB_KEY = 'db';
 
 let _db: Database | null = null;
 let _SQL: SqlJsStatic | null = null;
+let _dbInitPromise: Promise<Database> | null = null;
+let _sqlInitPromise: Promise<SqlJsStatic> | null = null;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -23,11 +25,21 @@ let _SQL: SqlJsStatic | null = null;
 /** Return the singleton Database, initialising it on first call. */
 export async function getDb(): Promise<Database> {
 	if (_db) return _db;
-	_SQL = await initSqlJs();
-	const saved = await loadFromIdb();
-	_db = saved ? new _SQL.Database(saved) : new _SQL.Database();
-	createSchema(_db);
-	return _db;
+	// Memoise the init promise so concurrent callers share one initialisation.
+	// Without this, each caller passed the `if (_db)` gate before any of them
+	// finished `await`-ing, then each constructed its own Database — writes
+	// to one instance vanished when another overwrote `_db`.
+	if (!_dbInitPromise) {
+		_dbInitPromise = (async () => {
+			const SQL = await initSqlJs();
+			const saved = await loadFromIdb();
+			const db = saved ? new SQL.Database(saved) : new SQL.Database();
+			createSchema(db);
+			_db = db;
+			return db;
+		})();
+	}
+	return _dbInitPromise;
 }
 
 /** Persist the current database state to IndexedDB. */
@@ -77,9 +89,16 @@ function createSchema(db: Database): void {
 
 async function initSqlJs(): Promise<SqlJsStatic> {
 	if (_SQL) return _SQL;
-	// Dynamic import keeps the WASM module out of the main bundle.
-	const initSqlJsFn = (await import('sql.js')).default;
-	return initSqlJsFn({ locateFile: () => '/sql-wasm.wasm' });
+	if (!_sqlInitPromise) {
+		_sqlInitPromise = (async () => {
+			// Dynamic import keeps the WASM module out of the main bundle.
+			const initSqlJsFn = (await import('sql.js')).default;
+			const SQL = await initSqlJsFn({ locateFile: () => '/sql-wasm.wasm' });
+			_SQL = SQL;
+			return SQL;
+		})();
+	}
+	return _sqlInitPromise;
 }
 
 // ---------------------------------------------------------------------------
