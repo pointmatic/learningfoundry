@@ -6,6 +6,7 @@
 	import { progressStore, invalidateProgress } from '$lib/stores/progress.js';
 	import ModuleList from '$lib/components/ModuleList.svelte';
 	import ResetCourseButton from '$lib/components/ResetCourseButton.svelte';
+	import { clearActivePosition } from './layout.helpers.js';
 	import { resetMainScrollOnForwardNav } from './layout.scroll.js';
 	import { lockedModuleIds } from '$lib/utils/locking.js';
 	import { hasAnyProgress } from '$lib/utils/progress.js';
@@ -37,7 +38,11 @@
 <div class="flex h-screen overflow-hidden bg-gray-50">
 	<!-- Sidebar -->
 	<aside class="flex w-72 shrink-0 flex-col overflow-y-auto border-r border-gray-200 bg-white p-4">
-		<a href="/" class="mb-6 text-lg font-bold text-blue-600">
+		<a
+			href="/"
+			class="mb-6 text-lg font-bold text-blue-600"
+			onclick={clearActivePosition}
+		>
 			{$curriculum?.title ?? 'LearningFoundry'}
 		</a>
 		{#if $modules.length && $curriculum}

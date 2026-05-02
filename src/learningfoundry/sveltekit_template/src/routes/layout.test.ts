@@ -1,11 +1,14 @@
 // Copyright 2026 Pointmatic
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
+import { get } from 'svelte/store';
 import {
 	activeModuleClass,
 	computeAutoExpand,
 	resolveNextAction,
 } from '$lib/components/module-list.helpers.js';
+import { clearActivePosition } from './layout.helpers.js';
+import { currentPosition } from '$lib/stores/curriculum.js';
 
 // ---------------------------------------------------------------------------
 // Bug 1 — Finish button calls goto('/') on last lesson
@@ -98,5 +101,32 @@ describe('activeModuleClass (Bug 3 — active module highlight)', () => {
 		const results = modules.map((id) => activeModuleClass(id, currentId));
 		expect(results.filter((c) => c !== '')).toHaveLength(1);
 		expect(results[1]).toContain('border-l-blue-500');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Bug 4 — Sidebar still shows expanded module + highlighted lesson when the
+// learner clicks the course title to return to the dashboard.
+//
+// Cascading behaviour: ModuleList's `$effect` watches `$currentPosition`
+// and uses `computeAutoExpand` to collapse on null (already covered by
+// the test above at line ~67); the active-highlight CSS reads
+// `$currentPosition?.moduleId` directly. So clearing currentPosition is
+// sufficient to both collapse the module and drop the highlight; the bug
+// was that the title link never triggered the clear.
+// ---------------------------------------------------------------------------
+
+describe('clearActivePosition (Bug 4 — sidebar collapse on home nav)', () => {
+	it('sets currentPosition to null', () => {
+		currentPosition.set({ moduleId: 'mod-01', lessonId: 'lesson-01' });
+		expect(get(currentPosition)).not.toBeNull();
+		clearActivePosition();
+		expect(get(currentPosition)).toBeNull();
+	});
+
+	it('is a no-op when currentPosition is already null', () => {
+		currentPosition.set(null);
+		clearActivePosition();
+		expect(get(currentPosition)).toBeNull();
 	});
 });

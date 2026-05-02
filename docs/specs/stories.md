@@ -1044,6 +1044,39 @@ When authentication eventually lands, the swap is a key-rename rather than a sch
 
 ---
 
+### Story I.y: v0.59.0 — Sidebar Collapse + Highlight Drop on Course-Title Click [Done]
+
+**Bug report:** "Clicking on the course title link on the left sidebar should collapse and deactivate the active module. An expanded module and highlighted lesson should be the indicator of what is in the content pane and when that dashboard is in the content pane, that is confusing."
+
+The course-title link in [src/routes/+layout.svelte](src/learningfoundry/sveltekit_template/src/routes/+layout.svelte) was a bare `<a href="/">` with no click handler. Navigating from a lesson page to `/` (the dashboard) left `currentPosition` populated, so:
+1. `ModuleList`'s active-highlight CSS (`mod.id === $currentPosition?.moduleId`) kept the lesson's parent module visually marked active.
+2. The auto-expand `$effect` saw no change in `$currentPosition.moduleId` and didn't fire a collapse.
+
+The cascade was already in place — `ResetCourseButton` and the FR-P14 Finish button both clear `currentPosition` for exactly this reason, and `computeAutoExpand(null, lastAutoExpandedModuleId !== null)` already returns the collapse instruction (Story I.n test at `layout.test.ts:67-72`). The bug was that the title link never triggered the clear.
+
+**Fix shape.** New `clearActivePosition()` helper in `src/routes/layout.helpers.ts` (one line: `currentPosition.set(null)`). The title link's `onclick` calls it. Same pattern `ResetCourseButton` and `Navigation` (Finish) already use.
+
+**Why a helper rather than inlining.** The inline form is also one line, but the helper makes the behaviour testable at the unit layer without mounting the full layout (the latter is explicitly out-of-scope per Story I.u). It also names the operation, which is useful documentation.
+
+**Why this wasn't caught earlier.** No real-DOM mount test of `+layout.svelte` exists (Story I.u explicitly out-of-scoped layout mounts as redundant with the helper-style coverage + e2e). The bug is the kind that helper-style tests structurally can't catch: it's a wiring bug ("the link is missing a handler"), not a logic bug. The 3 pre-existing e2e failures noted in Story I.v probably *would* have caught this if the e2e suite were green; that's a separate concern tracked for a future story.
+
+**Tasks:**
+
+- [x] `src/learningfoundry/sveltekit_template/src/routes/layout.helpers.ts` (new) — `clearActivePosition()` that calls `currentPosition.set(null)`. Docstring names the cascade through `ModuleList`'s `$effect` + the active-highlight CSS, and references the existing `ResetCourseButton` / `Navigation` (FR-P14) precedents.
+- [x] `src/learningfoundry/sveltekit_template/src/routes/+layout.svelte` — import `clearActivePosition` from `./layout.helpers.js`; wire `onclick={clearActivePosition}` on the course-title `<a>`. The browser's default link navigation still fires (no `event.preventDefault()`), so SvelteKit's client-side router takes over from there as before.
+- [x] `src/learningfoundry/sveltekit_template/src/routes/layout.test.ts` — added a "Bug 4 — sidebar collapse on home nav" describe block with two cases: clearing a populated `currentPosition` resets it to null; calling on an already-null position is a no-op. Imports the real `currentPosition` writable from `$lib/stores/curriculum.js` so the test exercises the actual store interaction.
+- [x] Bump version to v0.59.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.59.0 under "Fixed" (sidebar still showing expanded module + highlighted lesson when learner navigates to dashboard via course-title link; the active-position cascade was already plumbed but the title link was never wired to trigger it).
+- [x] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `ruff`, `mypy`. `pnpm e2e` retains the 3 pre-existing failures from earlier stories.
+
+**Out of scope:**
+
+- **Real-DOM mount test of `+layout.svelte` for the title-link click.** Helper-level coverage matches the codebase's established pattern (Story I.u). The wiring (layout's `onclick={clearActivePosition}`) is type-checked at compile time and exercised by e2e. Adding a layout mount test for one click event would re-litigate Story I.u's out-of-scope decision; defer it until either (a) e2e fails to catch a similar wiring bug or (b) a separate story revisits the layout's test surface.
+- **Fixing the 3 pre-existing e2e failures** noted in Story I.v. Investigating why `navigation.spec.ts:10`, `navigation.spec.ts:24`, and `video.spec.ts:12` fail on clean `main` is its own problem; not blocked by this story and shouldn't ride along.
+- **Sidebar redesign / dashboard-state semantics.** The user's framing ("an expanded module and highlighted lesson should be the indicator of what is in the content pane") is satisfied by this story's fix. Any broader rethink of how the sidebar communicates "where you are" belongs in a separate design exploration.
+
+---
+
 
 ## Future
 

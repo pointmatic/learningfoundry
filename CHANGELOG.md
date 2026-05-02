@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.59.0] - 2026-05-02
+
+### Fixed
+
+- **Sidebar still showed expanded module + highlighted lesson when the learner clicked the course-title link to return to the dashboard** (Story I.y). The course-title `<a href="/">` in [+layout.svelte](src/learningfoundry/sveltekit_template/src/routes/+layout.svelte) had no click handler, so navigating to `/` left `currentPosition` populated; `ModuleList`'s active-highlight CSS kept the parent module marked active and the auto-expand `$effect` saw no change so didn't collapse. The cascade for collapsing on a null `currentPosition` was already in place — `ResetCourseButton` and the FR-P14 Finish button both clear it for the same reason, and `computeAutoExpand(null, lastAutoExpandedModuleId !== null)` already returns the collapse instruction — the bug was that the title link never triggered the clear. Fix: new [layout.helpers.ts](src/learningfoundry/sveltekit_template/src/routes/layout.helpers.ts) exports `clearActivePosition()` (one line, `currentPosition.set(null)`); the title link's `onclick` is wired to it. Two anti-regression cases added to [layout.test.ts](src/learningfoundry/sveltekit_template/src/routes/layout.test.ts) — populated→null and null→null no-op.
+
 ## [0.58.0] - 2026-05-02
 
 ### Added
