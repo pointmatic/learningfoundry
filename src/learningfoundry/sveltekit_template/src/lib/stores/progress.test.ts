@@ -7,7 +7,9 @@ import type { Curriculum, ModuleProgress } from '$lib/types/index.js';
 // Mock the DB layer so no real IndexedDB/sql.js is needed
 const mockGetModuleProgress = vi.fn();
 vi.mock('$lib/db/index.js', () => ({
-	getModuleProgress: (...args: unknown[]) => mockGetModuleProgress(...args)
+	progressRepo: {
+		getModuleProgress: (...args: unknown[]) => mockGetModuleProgress(...args)
+	}
 }));
 
 const mod = await import('./progress.js');

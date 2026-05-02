@@ -1,7 +1,7 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { resetProgress } from '$lib/db/index.js';
+	import { progressRepo } from '$lib/db/index.js';
 	import { currentPosition, curriculum } from '$lib/stores/curriculum.js';
 	import { invalidateProgress } from '$lib/stores/progress.js';
 	import { RotateCcw } from 'lucide-svelte';
@@ -21,7 +21,7 @@
 	async function handleClick() {
 		if (disabled) return;
 		if (!confirmFn(PROMPT)) return;
-		await resetProgress();
+		await progressRepo.resetProgress();
 		// Clearing the position triggers the FR-P14 sidebar collapse path
 		// in `ModuleList`'s auto-expand `$effect` once Story I.n ships;
 		// pre-I.n it is a harmless no-op.

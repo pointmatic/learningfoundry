@@ -33,7 +33,7 @@ const { resetMock, invalidateMock, gotoMock, setPosition } = vi.hoisted(() => ({
 }));
 
 vi.mock('$app/navigation', () => ({ goto: gotoMock }));
-vi.mock('$lib/db/index.js', () => ({ resetProgress: resetMock }));
+vi.mock('$lib/db/index.js', () => ({ progressRepo: { resetProgress: resetMock } }));
 vi.mock('$lib/stores/curriculum.js', () => ({
 	curriculum: {
 		subscribe: (fn: (v: null) => void) => {

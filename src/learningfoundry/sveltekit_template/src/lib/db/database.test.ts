@@ -25,37 +25,59 @@ beforeAll(() => {
 	}) as typeof fetch;
 });
 
-describe('getDb — concurrent init', () => {
+describe('Database — concurrent getDb() on one instance', () => {
 	beforeEach(() => {
 		vi.resetModules();
 		// Wipe fake-indexeddb wholesale — earlier tests leak open
-		// Database instances from the race, which would block a
-		// `deleteDatabase` call indefinitely.
+		// sql.js Database instances which would block deleteDatabase.
 		(globalThis as { indexedDB: IDBFactory }).indexedDB = new FDBFactory();
 	});
 
-	it('returns the same Database instance for N concurrent callers', async () => {
-		const { getDb } = await import('./database.js');
-		const refs = await Promise.all([getDb(), getDb(), getDb(), getDb(), getDb()]);
+	it('returns the same sql.js Database for N concurrent callers (Story I.v invariant, scoped to one instance)', async () => {
+		const { Database } = await import('./database.js');
+		const database = new Database();
+		const refs = await Promise.all([
+			database.getDb(),
+			database.getDb(),
+			database.getDb(),
+			database.getDb(),
+			database.getDb()
+		]);
 		for (const ref of refs) {
 			expect(ref).toBe(refs[0]);
 		}
 	});
 
-	it('a write through one reference is visible through every reference', async () => {
-		const { getDb, persistDb } = await import('./database.js');
-		const refs = await Promise.all([getDb(), getDb(), getDb()]);
+	it('a write through one getDb() reference is visible through every getDb() reference', async () => {
+		const { Database } = await import('./database.js');
+		const database = new Database();
+		const refs = await Promise.all([database.getDb(), database.getDb(), database.getDb()]);
 		refs[0].run(
 			"INSERT INTO lesson_progress (module_id, lesson_id, status) VALUES ('mod-01', 'lesson-01', 'opened');"
 		);
-		await persistDb();
-		// With the race, refs[1]/refs[2] are different Database instances
-		// and won't see the row written through refs[0].
+		await database.persist();
 		for (const ref of refs) {
 			const result = ref.exec(
 				"SELECT status FROM lesson_progress WHERE module_id='mod-01' AND lesson_id='lesson-01';"
 			);
 			expect(result[0]?.values?.[0]?.[0]).toBe('opened');
 		}
+	});
+});
+
+describe('Database — independent instances', () => {
+	beforeEach(() => {
+		vi.resetModules();
+		(globalThis as { indexedDB: IDBFactory }).indexedDB = new FDBFactory();
+	});
+
+	it('two new Database() instances hold distinct internal sql.js Database refs (the testability win this refactor unlocks)', async () => {
+		const { Database } = await import('./database.js');
+		const a = new Database();
+		const b = new Database();
+		expect(a).not.toBe(b);
+		const dbA = await a.getDb();
+		const dbB = await b.getDb();
+		expect(dbA).not.toBe(dbB);
 	});
 });

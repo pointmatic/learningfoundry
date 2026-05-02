@@ -1,11 +1,6 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
-	import {
-		getLessonProgress,
-		markLessonComplete,
-		markLessonInProgress,
-		markLessonOpened
-	} from '$lib/db/index.js';
+	import { progressRepo } from '$lib/db/index.js';
 	import { curriculum } from '$lib/stores/curriculum.js';
 	import { invalidateProgress } from '$lib/stores/progress.js';
 	import type { Lesson, QuizScore } from '$lib/types/index.js';
@@ -67,13 +62,13 @@
 
 	onMount(async () => {
 		// Every mount records an open before any other state transition.
-		await markLessonOpened(moduleId, lesson.id);
+		await progressRepo.markLessonOpened(moduleId, lesson.id);
 		fireOpen();
 
 		// Zero-block edge case — instant complete after open.
 		if (lesson.content_blocks.length === 0) {
 			allBlocksComplete = true;
-			await markLessonComplete(moduleId, lesson.id);
+			await progressRepo.markLessonComplete(moduleId, lesson.id);
 			await invalidateProgress($curriculum);
 			fireComplete();
 			return;
@@ -81,7 +76,7 @@
 
 		// Revisit: pre-fill nav so Next/Finish is enabled immediately. No
 		// engage / complete events fire on revisit — no transition occurs.
-		const existing = await getLessonProgress(moduleId, lesson.id);
+		const existing = await progressRepo.getLessonProgress(moduleId, lesson.id);
 		if (existing?.status === 'complete') {
 			allBlocksComplete = true;
 			engaged = true; // suppress redundant `markLessonInProgress` if a block fires
@@ -101,13 +96,13 @@
 		// and emit `lessonengage`.
 		if (!engaged) {
 			engaged = true;
-			await markLessonInProgress(moduleId, lesson.id);
+			await progressRepo.markLessonInProgress(moduleId, lesson.id);
 			onlessonengage?.({ moduleId, lessonId: lesson.id });
 			await invalidateProgress($curriculum);
 		}
 
 		if (completedBlocks.size === lesson.content_blocks.length) {
-			await markLessonComplete(moduleId, lesson.id);
+			await progressRepo.markLessonComplete(moduleId, lesson.id);
 			// Refreshing the progress store is enough to drive the
 			// `unlock_module_on_complete` cascade: locking utilities in
 			// `$lib/utils/locking.ts` re-derive sibling-optional and

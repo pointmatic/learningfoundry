@@ -27,10 +27,12 @@ const {
 }));
 
 vi.mock('$lib/db/index.js', () => ({
-	markLessonOpened: markLessonOpenedMock,
-	markLessonInProgress: markLessonInProgressMock,
-	markLessonComplete: markLessonCompleteMock,
-	getLessonProgress: getLessonProgressMock
+	progressRepo: {
+		markLessonOpened: markLessonOpenedMock,
+		markLessonInProgress: markLessonInProgressMock,
+		markLessonComplete: markLessonCompleteMock,
+		getLessonProgress: getLessonProgressMock
+	}
 }));
 // Replace the curriculum module wholesale so subscribing to its derived
 // stores does not trigger the real `loadCurriculum()` fetch (which otherwise

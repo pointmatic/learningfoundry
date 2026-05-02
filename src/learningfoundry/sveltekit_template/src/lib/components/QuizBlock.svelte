@@ -7,7 +7,7 @@
   optional until the quizazz npm package is published.
 -->
 <script lang="ts">
-	import { saveQuizScore } from '$lib/db/index.js';
+	import { progressRepo } from '$lib/db/index.js';
 	import type { QuizManifest, QuizScore } from '$lib/types/index.js';
 	import PlaceholderBlock from './PlaceholderBlock.svelte';
 
@@ -35,7 +35,7 @@
 			questionCount: detail.questionCount,
 			completedAt: new Date().toISOString()
 		};
-		await saveQuizScore(score);
+		await progressRepo.saveQuizScore(score);
 		oncomplete?.(score);
 		if (detail.maxScore > 0 && detail.score / detail.maxScore >= passThreshold) {
 			onquizcomplete?.();

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-05-02
+
+### Changed
+
+- **`getDb` / `persistDb` and `progress.ts` function-style exports replaced with `Database` and `ProgressRepo` classes** (Story I.w). Module-scoped mutable singletons (`let _db`, `let _SQL`, the I.v init-promise pair) are now private instance state on a `Database` class. `progress.ts` becomes a `ProgressRepo` class that takes a `Database` in its constructor. The shape change is what makes the I.v category of bug — module-scoped mutation accessed implicitly by anything that imports the module — structurally impossible: tests construct fresh class instances per case rather than sharing module-level state, and any future async-init footgun becomes a method on a class with a clear owner. [database.ts](src/learningfoundry/sveltekit_template/src/lib/db/database.ts) exports `class Database { #db, #SQL, #dbInitPromise, #sqlInitPromise; getDb(), persist() }`. [progress.ts](src/learningfoundry/sveltekit_template/src/lib/db/progress.ts) exports `class ProgressRepo { constructor(database: Database); markLessonOpened(...), ... }`. [db/index.ts](src/learningfoundry/sveltekit_template/src/lib/db/index.ts) instantiates one of each and exports them as `database` / `progressRepo` singletons. The 3 external callers — [stores/progress.ts](src/learningfoundry/sveltekit_template/src/lib/stores/progress.ts), [LessonView.svelte](src/learningfoundry/sveltekit_template/src/lib/components/LessonView.svelte), [ResetCourseButton.svelte](src/learningfoundry/sveltekit_template/src/lib/components/ResetCourseButton.svelte) — migrated atomically to `progressRepo.<method>(...)` with no deprecated re-exports kept around. SQL strings are unchanged (the upgrade-only conflict CASE clause from Story I.p stays pinned by `progress.test.ts`). Behaviourally identical to v0.56.0 — same DB, same persistence, same singleton-per-page-load semantics; the win is testability and dependency clarity.
+
+### Added
+
+- **`database.test.ts` independent-instances case** (Story I.w). New test asserts that two `new Database()` instances are distinct `===` references and each holds its own internal sql.js Database. The I.v concurrency cases stay, scoped to a single instance. The independent-instances invariant is what Story I.x will build on when `userId` partitioning lands.
+
 ## [0.56.0] - 2026-05-02
 
 ### Fixed

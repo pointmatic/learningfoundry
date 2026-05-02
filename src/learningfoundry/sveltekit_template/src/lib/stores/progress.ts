@@ -9,7 +9,7 @@
  */
 import { writable } from 'svelte/store';
 import type { Curriculum, ModuleProgress } from '$lib/types/index.js';
-import { getModuleProgress } from '$lib/db/index.js';
+import { progressRepo } from '$lib/db/index.js';
 
 export const progressStore = writable<Record<string, ModuleProgress>>({});
 
@@ -17,7 +17,7 @@ export async function invalidateProgress(curriculum: Curriculum | null): Promise
 	if (!curriculum) return;
 	const entries = await Promise.all(
 		curriculum.modules.map(async (m) => {
-			const mp = await getModuleProgress(
+			const mp = await progressRepo.getModuleProgress(
 				m.id,
 				m.lessons.map((l) => l.id)
 			);
