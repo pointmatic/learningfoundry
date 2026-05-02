@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.60.0] - 2026-05-02
+
+### Fixed
+
+- **3 pre-existing e2e failures rooted in the curriculum fixture never being planted before `pnpm build`** (Story I.z). [navigation.spec.ts:10](src/learningfoundry/sveltekit_template/e2e/navigation.spec.ts#L10) "sidebar lesson click updates URL", [navigation.spec.ts:24](src/learningfoundry/sveltekit_template/e2e/navigation.spec.ts#L24) "dashboard 'Start module' deep-links into a lesson", and [video.spec.ts:12](src/learningfoundry/sveltekit_template/e2e/video.spec.ts#L12) "lesson page renders at most one YouTube iframe per video block" had been failing on clean `main` since at least v0.55.0 — flagged but deferred in Stories I.v through I.y. Root cause was that the template's `static/` directory has no `curriculum.json` (the fixture lives at [e2e/fixtures/curriculum.json](src/learningfoundry/sveltekit_template/e2e/fixtures/curriculum.json) but was never being copied into `static/` before `pnpm build`); preview therefore served a `build/` that 404'd on every `/curriculum.json` request, the curriculum readable's `loadCurriculum()` rejected, and `ModuleList`'s `{#if $modules.length && $curriculum}` gate stayed false. Three tests timed out on `aside nav button` selectors that never matched. Fix: [playwright.config.ts](src/learningfoundry/sveltekit_template/playwright.config.ts) `webServer.command` now chains `cp e2e/fixtures/curriculum.json static/curriculum.json && pnpm build && pnpm preview ...` so the fixture is in place before the build, and a new [e2e/global-teardown.ts](src/learningfoundry/sveltekit_template/e2e/global-teardown.ts) removes the planted file after the suite so `static/` stays clean for `pnpm dev`. (The first attempt used Playwright's `globalSetup` for the copy, which silently failed because Playwright runs `webServer` *before* `globalSetup`; documented inline so a future maintainer doesn't refactor back to that shape.)
+
+### Changed
+
+- `webServer.timeout` in [playwright.config.ts](src/learningfoundry/sveltekit_template/playwright.config.ts) bumped from 60s to 120s to accommodate the chained build step. The full e2e suite now runs in 12.6s on a clean checkout (was ~60s with the 3 timeouts dominating the wall clock); local-iteration time should improve as well.
+
 ## [0.59.0] - 2026-05-02
 
 ### Fixed

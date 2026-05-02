@@ -1077,6 +1077,54 @@ The cascade was already in place — `ResetCourseButton` and the FR-P14 Finish b
 
 ---
 
+### Story I.z: v0.60.0 — Investigate and Fix the 3 Pre-Existing E2E Failures [Done]
+
+Stories I.v through I.y each documented that `pnpm e2e` retains 3 pre-existing failures on clean `main`, unrelated to the work in those stories. Verified at v0.56.0 by stashing the in-flight changes and re-running on clean v0.55.0; same 3 fail. They have presumably been broken for some time without anyone treating it as a blocker.
+
+The failing tests:
+
+1. [`e2e/navigation.spec.ts:10`](src/learningfoundry/sveltekit_template/e2e/navigation.spec.ts#L10) — "sidebar lesson click updates URL". FR-P9 regression coverage; predates v0.46.0. Times out on `aside nav button` selector before any assertion runs.
+2. [`e2e/navigation.spec.ts:24`](src/learningfoundry/sveltekit_template/e2e/navigation.spec.ts#L24) — `dashboard "Start module" deep-links into a lesson`. Times out on `getByRole('button', { name: /start module|continue/i })`.
+3. [`e2e/video.spec.ts:12`](src/learningfoundry/sveltekit_template/e2e/video.spec.ts#L12) — "lesson page renders at most one YouTube iframe per video block". FR-P10 regression coverage; depends on the same sidebar-click navigation as the first test, so probably fails for the same root cause.
+
+All three fail early in the page-interaction phase rather than at the assertion. Two of three fail on the `aside nav button` selector specifically, which suggested one of: selector drift, curriculum loading failure, or a hydrate race.
+
+**Root cause (confirmed via Playwright trace.zip page snapshots): curriculum loading failure.** The trace's DOM snapshot at the point of timeout showed `<paragraph>Loading…</paragraph>` in the sidebar (where `ModuleList` should have rendered `<nav>`) and `<paragraph>Loading curriculum…</paragraph>` in the main pane. The title link rendered the fallback string `"LearningFoundry"` rather than the curriculum's actual title — a clean tell that `$curriculum` stayed null.
+
+The actual cause: **`static/curriculum.json` does not exist in the template** (the fixture lives at [e2e/fixtures/curriculum.json](src/learningfoundry/sveltekit_template/e2e/fixtures/curriculum.json) but was never copied into `static/` before `pnpm build`). `pnpm preview` therefore served a `build/` that 404'd on every `/curriculum.json` request, the curriculum readable's `loadCurriculum()` rejected, and `ModuleList`'s `{#if $modules.length && $curriculum}` gate stayed false. Three tests timed out on `aside nav button`; the rest passed because they exercised parts of the layout that render without the curriculum (e.g. the disabled Reset button).
+
+The third specific test (`video.spec.ts:12`) failed for the same reason — it shares the `aside nav button` click prelude with the navigation tests, so the same root cause covers all three.
+
+**False-start in the fix:** the first attempt added a Playwright `globalSetup` script that copied the fixture into `static/` before the suite ran. It didn't work because **Playwright runs `webServer` BEFORE `globalSetup`** — so `pnpm build` had already executed against an empty `static/` by the time the fixture arrived. Confirmed by adding a `console.log` to the setup: the copy log appeared, but `[404] GET /curriculum.json` continued in the WebServer logs. Fix moved the copy into the `webServer.command` itself, ahead of the build, where it is ordered correctly.
+
+**Why this matters.** Without a green e2e suite, wiring bugs (the kind Story I.y called out as structurally uncatchable by this codebase's helper-style unit tests) have no automated regression net. Story I.y's fix would have been caught by `e2e/navigation.spec.ts:24` (clicking "Start module" on the dashboard, then asserting the sidebar collapses on home-link click) — except that test was already broken. The signal-to-noise on `pnpm e2e` is the real problem: a chronically-red suite trains everyone to ignore it.
+
+**Tasks:**
+
+- [x] Reproduced locally with `pnpm e2e` from the template — same 3 failures, confirmed deterministic (not flake).
+- [x] Inspected `test-results/<spec>/error-context.md` page snapshots — every failure showed "Loading…" / "Loading curriculum…" and the fallback "LearningFoundry" title, confirming `$curriculum` was null.
+- [x] Verified `static/` contents — only `sql-wasm.wasm` present, no `curriculum.json`. The build/ output therefore 404s on `/curriculum.json`.
+- [x] Verified manually that running `cp e2e/fixtures/curriculum.json static/ && pnpm build` produces `build/curriculum.json`, so the SvelteKit static adapter does pick up files from `static/` correctly — the gap was just that the fixture wasn't there.
+- [x] Wrote new [e2e/global-teardown.ts](src/learningfoundry/sveltekit_template/e2e/global-teardown.ts) that removes `static/curriculum.json` after the suite so the template's `static/` directory stays clean for `pnpm dev`.
+- [x] Updated [playwright.config.ts](src/learningfoundry/sveltekit_template/playwright.config.ts):
+  - [x] `webServer.command` now chains `cp e2e/fixtures/curriculum.json static/curriculum.json && pnpm build && pnpm preview ...` so the fixture is in place before the build, and the preview serves a build that includes it.
+  - [x] `webServer.timeout` bumped from 60s to 120s to accommodate the build step in the chain.
+  - [x] `globalTeardown: './e2e/global-teardown.ts'` registered.
+  - [x] Inline comment explains the `webServer`-runs-before-`globalSetup` ordering pitfall so a future maintainer doesn't refactor the copy into globalSetup and re-introduce the bug.
+- [x] Re-ran `pnpm e2e` to confirm: **14 passed, 0 failed** in 12.6s (was 11 passed / 3 failed in ~1.0 min on the broken state — the wall-clock improvement is the 30s-per-failure timeout that no longer happens).
+- [x] Bumped version to v0.60.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.60.0 under "Fixed" (3 pre-existing e2e failures rooted in the curriculum fixture never being planted before `pnpm build`).
+- [x] Verify: `pyve test` (255 pass), `pyve test tests/test_smoke_sveltekit.py` (12 pass, 1 skip), `pnpm test` (165 pass), `pnpm e2e` (14 pass, 0 fail), `ruff` (clean), `mypy` (clean).
+
+**Out of scope:**
+
+- **General e2e refactor / hardening.** This story is "stop the bleeding on the 3 broken tests," not "rewrite the suite." Patterns like fixture management, page-object modeling, or migrating to `@vitest/browser` are separate concerns. If the investigation surfaces architectural issues, file follow-up stories rather than expanding this one.
+- **Adding new e2e coverage** (e.g. for Story I.y's title-link clear behaviour, Story I.x's per-user partition, or Story I.w's class refactor wiring). Worth doing — but only after the existing suite is green so new failures aren't lost in the noise.
+- **CI integration of `pnpm e2e`.** Right now there's no CI gate enforcing e2e green. Adding one before the suite is reliable would cause more pain than it solves; revisit after this story lands.
+- **Investigating other pytest-side flakes.** `pyve test tests/test_smoke_sveltekit.py` skips one test; that's a separate concern with its own intentional `skipif` (presumed) and not in scope here.
+
+---
+
 
 ## Future
 
