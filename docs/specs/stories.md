@@ -826,7 +826,7 @@ The fix: delete the workspace-root copy and update story-template language so fu
 - Adding a `pre-commit` hook to prevent re-creating the workspace-root copy. If someone re-creates it intentionally they'll have a reason; if they re-create it by accident the story-template language change in this story is the leading defence.
 
 ---
-### Story I.t: v0.54.0 — Backfill Lesson-Render-Pipeline Real-DOM Tests [Planned]
+### Story I.t: v0.54.0 — Backfill Lesson-Render-Pipeline Real-DOM Tests [Done]
 
 Stories I.k, I.m, I.o, and I.p deferred component-level mount coverage on the lesson-rendering pipeline because Svelte 5 + vitest mounting wasn't supported until Story I.q (v0.52.0). With the resolve-conditions config now in place and proven by [mount.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/mount.test.ts), the deferred coverage on the highest-regression-risk components (`TextBlock`, `VideoBlock`, `LessonView`) can land without infrastructure work. These three components hit two real-world regressions in the last fortnight (the v0.48.0 zero-area sentinel; the v0.46.0 stale-video-iframe), both of which the helper-style tests passed through unaware. Real-DOM coverage is what would have caught either at the unit-test layer.
 
@@ -834,23 +834,23 @@ The existing helper-style tests stay — they remain useful for debugging the ti
 
 **Tasks:**
 
-- [ ] `sveltekit_template/src/lib/components/TextBlock.observer.test.ts` (extend, do not delete I.q's coverage):
-  - [ ] Add a case that simulates the `IntersectionObserver` callback firing with `isIntersecting: true` for the captured sentinel target, advances fake timers by 1 s, and asserts `ontextcomplete` was invoked exactly once. The current I.q tests verify *which* element is observed and that it has the right shape; this case verifies the runtime callback path the observer would actually take.
-  - [ ] Add a case that simulates `isIntersecting: true` followed by `isIntersecting: false` before 1 s elapses, advances timers, and asserts `ontextcomplete` was NOT invoked (regression-lock for the early-leave cancel path).
-  - [ ] Capture the observer-callback function via the `IntersectionObserver` constructor stub: `vi.stubGlobal('IntersectionObserver', ...)` where the fake records both the target and the callback so the test can drive it directly.
-- [ ] `sveltekit_template/src/lib/components/VideoBlock.test.ts` (rewrite from helper-only to mount-based):
-  - [ ] Keep the existing `createViewportTracker` cases — they still document the fallback timer logic.
-  - [ ] New case: mount `<VideoBlock>` with a YouTube URL, assert `(window as any).YT` script-tag injection happened (via `document.querySelector('script[src*="youtube.com/iframe_api"]')`) and that the `[id^="yt-player-"]` placeholder element rendered.
-  - [ ] New case: mount with one URL, then re-render with a different URL via prop update; capture `YT.Player` calls (stubbed) and assert (a) the previous player's `destroy()` was called, (b) a new player was created with the new `videoId` extracted from the new URL, (c) the internal `fired` flag was reset (proxy: `onvideocomplete` can fire again on the new player's `ENDED` state). Use `vi.useFakeTimers()` and `vi.stubGlobal('YT', ...)` per the existing pattern.
-  - [ ] New case: mount without `window.YT`; advance timers past the 5 s fallback threshold; assert the viewport-fallback `IntersectionObserver` was attached to the wrapper element. (Catches the regression where the fallback path silently breaks.)
-- [ ] `sveltekit_template/src/lib/components/LessonView.test.ts` (extend; the I.q ordering case stays):
-  - [ ] New case: mount `<LessonView>` with one block, simulate a `blockcomplete` event, assert `markLessonInProgress` was called and `onlessonengage` fired with `{moduleId, lessonId}`. (FR-P15 engage transition.)
-  - [ ] New case: mount with two blocks, simulate `blockcomplete` for both, assert `markLessonComplete` was called, `invalidateProgress` was called with the curriculum, and `onlessoncomplete` fired. (FR-P15 complete transition.)
-  - [ ] New case: stub `getLessonProgress` to return `{status: 'complete'}`; mount; assert `markLessonOpened` and `onlessonopen` fire (every mount opens), but `onlessonengage` and `onlessoncomplete` do NOT fire — no transition occurs on revisit. (FR-P15 revisit suppression.)
-  - [ ] New case: mount with `lesson.content_blocks = []`; assert `markLessonOpened` → `onlessonopen` → `markLessonComplete` → `onlessoncomplete` fire in that order with no engage event in between. (FR-P15 zero-block edge case.)
-- [ ] Bump version to v0.54.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] `CHANGELOG.md` — v0.54.0 under "Added" (real-DOM lesson-render-pipeline test coverage: TextBlock observer callback path, VideoBlock URL-change + fallback wiring, LessonView lifecycle event firing).
-- [ ] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`. The new tests should all pass on first run; any failure indicates a real bug uncovered by the tighter coverage (treat as a fix-before-merge, not a test-tuning exercise).
+- [x] `sveltekit_template/src/lib/components/TextBlock.observer.test.ts` (extend, do not delete I.q's coverage):
+  - [x] Add a case that simulates the `IntersectionObserver` callback firing with `isIntersecting: true` for the captured sentinel target, advances fake timers by 1 s, and asserts `ontextcomplete` was invoked exactly once. The current I.q tests verify *which* element is observed and that it has the right shape; this case verifies the runtime callback path the observer would actually take.
+  - [x] Add a case that simulates `isIntersecting: true` followed by `isIntersecting: false` before 1 s elapses, advances timers, and asserts `ontextcomplete` was NOT invoked (regression-lock for the early-leave cancel path).
+  - [x] Capture the observer-callback function via the `IntersectionObserver` constructor stub: `vi.stubGlobal('IntersectionObserver', ...)` where the fake records both the target and the callback so the test can drive it directly.
+- [x] `sveltekit_template/src/lib/components/VideoBlock.test.ts` (rewrite from helper-only to mount-based):
+  - [x] Keep the existing `createViewportTracker` cases — they still document the fallback timer logic.
+  - [x] New case: mount `<VideoBlock>` with a YouTube URL, assert `(window as any).YT` script-tag injection happened (via `document.querySelector('script[src*="youtube.com/iframe_api"]')`) and that the `[id^="yt-player-"]` placeholder element rendered.
+  - [x] New case: mount with one URL, then re-render with a different URL via prop update; capture `YT.Player` calls (stubbed) and assert (a) the previous player's `destroy()` was called, (b) a new player was created with the new `videoId` extracted from the new URL, (c) the internal `fired` flag was reset (proxy: `onvideocomplete` can fire again on the new player's `ENDED` state). Use `vi.useFakeTimers()` and `vi.stubGlobal('YT', ...)` per the existing pattern.
+  - [x] New case: mount without `window.YT`; advance timers past the 5 s fallback threshold; assert the viewport-fallback `IntersectionObserver` was attached to the wrapper element. (Catches the regression where the fallback path silently breaks.)
+- [x] `sveltekit_template/src/lib/components/LessonView.test.ts` (extend; the I.q ordering case stays):
+  - [x] New case: mount `<LessonView>` with one block, simulate a `blockcomplete` event, assert `markLessonInProgress` was called and `onlessonengage` fired with `{moduleId, lessonId}`. (FR-P15 engage transition.)
+  - [x] New case: mount with two blocks, simulate `blockcomplete` for both, assert `markLessonComplete` was called, `invalidateProgress` was called with the curriculum, and `onlessoncomplete` fired. (FR-P15 complete transition.)
+  - [x] New case: stub `getLessonProgress` to return `{status: 'complete'}`; mount; assert `markLessonOpened` and `onlessonopen` fire (every mount opens), but `onlessonengage` and `onlessoncomplete` do NOT fire — no transition occurs on revisit. (FR-P15 revisit suppression.)
+  - [x] New case: mount with `lesson.content_blocks = []`; assert `markLessonOpened` → `onlessonopen` → `markLessonComplete` → `onlessoncomplete` fire in that order with no engage event in between. (FR-P15 zero-block edge case.)
+- [x] Bump version to v0.54.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.54.0 under "Added" (real-DOM lesson-render-pipeline test coverage: TextBlock observer callback path, VideoBlock URL-change + fallback wiring, LessonView lifecycle event firing).
+- [x] Verify: `pyve test`, `pyve test tests/test_smoke_sveltekit.py`, `pnpm test`, `pnpm e2e`, `ruff`, `mypy`. The new tests should all pass on first run; any failure indicates a real bug uncovered by the tighter coverage (treat as a fix-before-merge, not a test-tuning exercise).
 
 **Out of scope:**
 

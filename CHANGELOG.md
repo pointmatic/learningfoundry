@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-05-01
+
+### Added
+
+- **Real-DOM lesson-render-pipeline test coverage** (Story I.t). Backfills the component-mount cases the prior FR-P9..FR-P15 stories deferred while Svelte 5 + vitest mounting was unsupported (resolved in v0.52.0 / Story I.q). [TextBlock.observer.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/TextBlock.observer.test.ts) gains two cases that capture the `IntersectionObserver` callback and drive `isIntersecting` directly — one verifies the 1 s in-viewport `ontextcomplete` fire (with re-entry latch), the other locks the early-leave cancel path. [VideoBlock.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/VideoBlock.test.ts) rewritten from helper-only to mount-based: asserts the `<script src=".../iframe_api">` tag injection plus `[id^="yt-player-"]` placeholder render on cold start, exercises the URL-change cycle (prior `YT.Player.destroy()` runs, new player created with the new `videoId`, `fired` latch reset so a second `ENDED` event fires `onvideocomplete` again), and confirms the viewport-fallback `IntersectionObserver` arms after 5 s when `window.YT` never loads. [LessonView.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/LessonView.test.ts) gains the FR-P15 transition matrix at the unit layer: engage transition (first `blockcomplete` → `markLessonInProgress` + `onlessonengage`), complete transition (every block completed → `markLessonComplete` + `invalidateProgress` + `onlessoncomplete`, with `engaged` latch holding `onlessonengage` to one fire), revisit suppression (`getLessonProgress` returns `complete` → `onlessonopen` only — no engage / complete events even when block observers fire), and the zero-block edge case (`onlessonopen` → `markLessonComplete` → `onlessoncomplete` in order with no engage in between).
+
+### Changed
+
+- `LessonView.test.ts` curriculum-store mock replaced wholesale rather than spread-over: the prior `await importOriginal()` pattern still executed `loadCurriculum()` against the unreachable `/curriculum.json` because the actual derived stores closed over the real `curriculum` readable. The new mock returns hand-stubbed readables for every export the component graph touches, so test runs no longer log a noisy `[learningfoundry] Failed to load curriculum: TypeError: Failed to parse URL from /curriculum.json` and the suite is no longer at risk of timing out under the 5 s default when the fetch retry happens to coincide with module compile time.
+
 ## [0.53.0] - 2026-05-01
 
 ### Fixed
