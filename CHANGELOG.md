@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.62.2] - 2026-05-02
+
+### Fixed
+
+- **Dashboard "Start module →" CTA didn't reflect locked state** (Story I.aa.3). [ProgressDashboard.svelte](src/learningfoundry/sveltekit_template/src/lib/components/ProgressDashboard.svelte) rendered the same active-blue button for every non-complete module regardless of whether `locking.sequential` had locked it. Story I.aa.2 caught the click at the lesson route and rendered a placeholder, but the dashboard was still inviting the click. Same anti-pattern as I.aa.2: locking enforcement was in one place (sidebar) and missed at every other entry point. Fix: dashboard now derives `lockedModules` from the same `lockedModuleIds` helper the sidebar uses, and renders a `Locked` indicator (Lucide Lock icon + `text-gray-400` + `aria-disabled="true"`) instead of the action button when a module is locked. The module title also picks up the Lock icon for visual cohesion with the sidebar idiom.
+
 ## [0.62.1] - 2026-05-02
 
 ### Fixed

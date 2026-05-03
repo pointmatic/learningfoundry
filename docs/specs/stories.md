@@ -1259,6 +1259,40 @@ The user's third symptom — "no visual indicator for locked modules" — was a 
 
 ---
 
+### Story I.aa.3: v0.62.2 — Dashboard 'Start Module' CTA Reflects Locked State [Done]
+
+Story I.aa.2 closed the URL-bar entry point for locked lessons (route-level `LockedLessonPlaceholder`). This story closes the *third* entry point: the dashboard's per-module "Start module →" / "Continue →" call-to-action button. Pre-fix, the dashboard rendered the same active-blue button for every non-complete module regardless of locking. The button visually invited a click that, post-I.aa.2, only led to the placeholder — a worse UX than not offering the click at all.
+
+**Root cause.** [ProgressDashboard.svelte:96-105](src/learningfoundry/sveltekit_template/src/lib/components/ProgressDashboard.svelte#L96-L105) had a two-state render branch (`stats.status === 'complete'` → `✓ Complete` badge; otherwise → action button), with no awareness of *locked* as a third state. Same anti-pattern as Story I.aa.2's lesson-route gap: the locking model was enforced in *one* place (the sidebar), missed at every other entry point.
+
+**Why this wasn't caught.** [ProgressDashboard.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/ProgressDashboard.test.ts) had thorough coverage for the `complete` vs `not_started` vs `in_progress` action rendering (Story I.r regression coverage) but no test passed `curriculum` with `locking.sequential = true` and asserted the resulting CTA shape. Same pyramid gap as I.aa.2: the helper layer (`isModuleLocked`) had thorough coverage; the integration layer ("does the dashboard CTA reflect lock state?") didn't.
+
+**Fix.** Three lines of script + a render-branch addition in [ProgressDashboard.svelte](src/learningfoundry/sveltekit_template/src/lib/components/ProgressDashboard.svelte):
+1. Import `lockedModuleIds` from `$lib/utils/locking.js` and `Lock` from `lucide-svelte`.
+2. Derive `lockedModules = $derived(curriculum ? lockedModuleIds(curriculum, progress) : new Set())`.
+3. Promote the per-module action area from a 2-way to a 3-way branch: `locked` → render a `<p aria-disabled="true">` with Lock icon + "Locked" text in `text-gray-400`; existing `complete` and `else` branches unchanged.
+4. Module title also picks up the Lock icon and gray-400 styling for visual cohesion with the sidebar.
+
+The locked indicator deliberately matches the sidebar's idiom (Lucide Lock + `text-gray-400`) so the dashboard and sidebar tell the same story.
+
+**Tasks:**
+
+- [x] Wrote failing test in [ProgressDashboard.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/ProgressDashboard.test.ts): mount with `locking.sequential = true`, module 1 not complete → module 2 locked. Asserts module 2's card has no `<button>`, contains "Locked" text, and renders a `lucide-lock` SVG. Positive control: module 1 still has the "Start module →" button.
+- [x] Confirmed test failed for the right reason (Start-module button rendered for module 2).
+- [x] Implemented the 3-way branch in `ProgressDashboard.svelte` and wired the title-row Lock icon.
+- [x] Verified all existing dashboard tests still pass (the 2-way branch test now exercises the unlocked path explicitly via `progress` shape; `curriculum` is optional so existing tests that don't pass it still see all modules as unlocked).
+- [x] Bumped version to v0.62.2 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.62.2 under "Fixed".
+- [x] Verify: `pyve test tests/` (264 pass), `pnpm test` (174 pass — was 173 + 1 new), `ruff check .` clean, `mypy src/` clean.
+
+**Out of scope:**
+
+- **Card-wide muting for locked modules.** Currently the title gets the gray-400 + Lock treatment and the CTA area gets the "Locked" indicator; the description, progress bar, and assessment lines stay full-color. A more aggressive treatment (gray-tinted border, faded description, gray progress bar) might better communicate "this whole card is gated." Easy follow-up if the current treatment doesn't read as locked clearly enough.
+- **Auditing other navigation surfaces for the same pattern.** Sidebar (Story I.j), lesson route (Story I.aa.2), and dashboard CTA (this story) cover the three entry points a learner uses. If a future story adds a fourth (e.g. a "next module" CTA at the end of a lesson), it must consult `lockedModuleIds` too — but the pattern is now established.
+- **Tooltip on the Locked indicator.** Hovering "Locked" could surface "Complete <previous module> to unlock" for symmetry with the lesson-route placeholder. Not blocking; the placeholder text on the route already explains.
+
+---
+
 ### Story I.bb: UI Surfacing of `WasmAssetMissingError` [Planned]
 
 Story I.aa hardened the asset pipeline so `/sql-wasm.wasm` reaches `static/` reliably, and exported a typed `WasmAssetMissingError` from [database.ts](src/learningfoundry/sveltekit_template/src/lib/db/database.ts) that gets thrown when the asset 404s at runtime. What's still missing: **the learner has no idea when recording is failing.** Today a thrown `WasmAssetMissingError` propagates up through `progress.ts` (`ProgressRepo` chokepoint, Story I.w) into UI call sites that just `await` and silently no-op the rejection. The CLI logs are the only signal — no help to a learner using a deployed app.

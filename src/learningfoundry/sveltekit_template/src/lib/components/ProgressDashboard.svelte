@@ -2,9 +2,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import type { Curriculum, Module, ModuleProgress, QuizScore } from '$lib/types/index.js';
-	import { getOptionalLessons } from '$lib/utils/locking.js';
+	import { getOptionalLessons, lockedModuleIds } from '$lib/utils/locking.js';
 	import { moduleStatus } from './progress-dashboard.helpers.js';
 	import ProgressBar from './ProgressBar.svelte';
+	import Lock from 'lucide-svelte/icons/lock';
 
 	interface Props {
 		modules: Module[];
@@ -57,6 +58,14 @@
 	const overallPct = $derived(
 		totalLessons === 0 ? 0 : Math.round((totalComplete / totalLessons) * 100)
 	);
+
+	// Story I.aa.3 — third entry-point closure for the locking model.
+	// The sidebar (Story I.i / I.j) and the lesson route (Story I.aa.2)
+	// already enforce locking. The dashboard CTA was the remaining
+	// invitation to a click that should not be available.
+	const lockedModules = $derived<Set<string>>(
+		curriculum ? lockedModuleIds(curriculum, progress) : new Set<string>()
+	);
 </script>
 
 <div class="space-y-6">
@@ -70,9 +79,19 @@
 	<div class="space-y-4">
 		{#each modules as mod (mod.id)}
 			{@const stats = moduleStats(mod)}
+			{@const locked = lockedModules.has(mod.id)}
 			<div class="rounded-lg border border-gray-200 bg-white p-4">
 				<div class="mb-2 flex items-center justify-between">
-					<h3 class="text-sm font-medium text-gray-800">{mod.title}</h3>
+					<h3
+						class="flex items-center gap-2 text-sm font-medium {locked
+							? 'text-gray-400'
+							: 'text-gray-800'}"
+					>
+						{#if locked}
+							<Lock size={14} aria-hidden="true" />
+						{/if}
+						{mod.title}
+					</h3>
 					<span class="text-xs text-gray-500">{stats.done}/{stats.total} lessons</span>
 				</div>
 				{#if mod.description}
@@ -93,7 +112,15 @@
 					</p>
 				{/if}
 
-				{#if stats.status !== 'complete'}
+				{#if locked}
+					<p
+						class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-gray-400"
+						aria-disabled="true"
+					>
+						<Lock size={12} aria-hidden="true" />
+						Locked
+					</p>
+				{:else if stats.status !== 'complete'}
 					<button
 						onclick={() => resumeFirst(mod)}
 						class="mt-3 text-xs font-medium text-blue-600 hover:underline"

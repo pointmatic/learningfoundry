@@ -313,3 +313,66 @@ describe('ProgressDashboard mount — per-module action vs ✓ Complete', () => 
 		expect(actionBtn!.textContent).toContain('Start module →');
 	});
 });
+
+// Story I.aa.3 — locked-module CTA. Story I.aa.2 added the lesson-route
+// failsafe so a learner who *deep-links* a locked URL gets the placeholder.
+// This story closes the third entry point: the dashboard's "Start module
+// →" button must reflect locked state, not invite the click in the first
+// place. Same fix shape as I.aa.2 — lock state is derived from the same
+// `lockedModuleIds` helper the sidebar uses; the CTA renders a disabled
+// "Locked" indicator instead of an action button.
+describe('ProgressDashboard mount — locked module CTA (Story I.aa.3)', () => {
+	let ProgressDashboard: typeof import('./ProgressDashboard.svelte').default;
+
+	beforeEach(async () => {
+		ProgressDashboard = (await import('./ProgressDashboard.svelte')).default;
+	});
+
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('locked sequential module renders a "Locked" indicator and no Start-module button; unlocked sibling still renders the button', async () => {
+		const m1 = makeModule('mod-01', 2);
+		const m2 = makeModule('mod-02', 2);
+		const curriculum = {
+			version: '1.0.0',
+			title: 'T',
+			description: '',
+			locking: { sequential: true, lesson_sequential: false },
+			modules: [
+				{ ...m1, locked: null, pre_assessment: null, post_assessment: null },
+				{ ...m2, locked: null, pre_assessment: null, post_assessment: null }
+			]
+		};
+		const progress = {
+			'mod-01': makeProgress(m1, 0),  // not complete → m2 stays locked
+			'mod-02': makeProgress(m2, 0)
+		};
+
+		const { render } = await import('@testing-library/svelte');
+		const { container } = render(ProgressDashboard, {
+			// `curriculum` is required for lock derivation.
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			props: { modules: [m1, m2], progress, curriculum: curriculum as any }
+		});
+
+		const cards = container.querySelectorAll('div.rounded-lg.border');
+		expect(cards.length).toBe(2);
+		const unlockedCard = cards[0] as HTMLElement;
+		const lockedCard = cards[1] as HTMLElement;
+
+		// Unlocked module 1 still has the action button.
+		expect(unlockedCard.querySelector('button')?.textContent ?? '').toContain(
+			'Start module →'
+		);
+
+		// Locked module 2: no action button, "Locked" indicator visible,
+		// rendered with the same gray-400 styling as the sidebar's locked items.
+		expect(lockedCard.querySelector('button')).toBeNull();
+		expect(lockedCard.textContent ?? '').toMatch(/locked/i);
+		// Lucide Lock SVG carries the `lucide-lock` class — same idiom as
+		// the sidebar's locked-module rendering for visual consistency.
+		expect(lockedCard.querySelector('svg.lucide-lock')).not.toBeNull();
+	});
+});
