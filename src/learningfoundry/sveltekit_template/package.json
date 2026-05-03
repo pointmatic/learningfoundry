@@ -9,8 +9,7 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "test": "vitest run",
-    "e2e": "playwright test",
-    "postinstall": "node -e \"const fs=require('fs'); fs.mkdirSync('static',{recursive:true}); fs.copyFileSync(require.resolve('sql.js/dist/sql-wasm.wasm'),'static/sql-wasm.wasm')\""
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@sveltejs/kit": "^2.0.0",

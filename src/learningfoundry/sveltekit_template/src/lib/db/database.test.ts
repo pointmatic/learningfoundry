@@ -5,7 +5,7 @@ import FDBFactory from 'fake-indexeddb/lib/FDBFactory';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // jsdom has no working `fetch` for sql.js's wasm load. Serve the bytes
 // straight from disk so the real sql.js can initialise during tests.
@@ -232,5 +232,66 @@ describe('Database — legacy IDB key migration (Story I.x)', () => {
 		// Second init — same instance — should not re-migrate or fail.
 		await a.getDb();
 		expect(await rawIdbGet('db')).toBeNull();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// DB-init hardening — surface a missing /sql-wasm.wasm as a typed error so
+// the UI layer can render a recoverable banner instead of every progress
+// write silently rejecting. Pre-fix the rejection was an opaque `Error`
+// from sql.js's WebAssembly fetch path, indistinguishable to callers from
+// "no progress yet".
+// ---------------------------------------------------------------------------
+
+describe('Database — wasm-asset failure surfaces as WasmAssetMissingError', () => {
+	let restoreFetch: () => void;
+
+	beforeEach(() => {
+		vi.resetModules();
+		localStorage.removeItem('learningfoundry-user-id');
+		freshIdb();
+
+		const previous = globalThis.fetch;
+		// Force every fetch for the wasm asset to 404, mimicking the
+		// recording-broken bug where pnpm postinstall didn't deliver the
+		// file to static/.
+		globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === 'string' ? input : input.toString();
+			if (url.endsWith('sql-wasm.wasm')) {
+				return Promise.resolve(
+					new Response('Not Found', { status: 404, statusText: 'Not Found' })
+				);
+			}
+			return previous
+				? previous(input, init)
+				: Promise.reject(new Error(`unmocked fetch: ${url}`));
+		}) as typeof fetch;
+		restoreFetch = () => {
+			globalThis.fetch = previous;
+		};
+	});
+
+	afterEach(() => {
+		restoreFetch();
+	});
+
+	it('getDb() rejects with WasmAssetMissingError when /sql-wasm.wasm 404s', async () => {
+		const { Database, WasmAssetMissingError } = await import('./database.js');
+		const database = new Database('user-w');
+		await expect(database.getDb()).rejects.toBeInstanceOf(WasmAssetMissingError);
+	});
+
+	it('the WasmAssetMissingError carries the asset URL for diagnostics', async () => {
+		const { Database, WasmAssetMissingError } = await import('./database.js');
+		const database = new Database('user-w2');
+		try {
+			await database.getDb();
+			throw new Error('expected getDb() to reject');
+		} catch (err) {
+			expect(err).toBeInstanceOf(WasmAssetMissingError);
+			expect((err as InstanceType<typeof WasmAssetMissingError>).assetUrl).toContain(
+				'sql-wasm.wasm'
+			);
+		}
 	});
 });

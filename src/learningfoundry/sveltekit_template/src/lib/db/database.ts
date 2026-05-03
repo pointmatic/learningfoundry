@@ -3,10 +3,12 @@
 /**
  * sql.js database wrapper with per-user IndexedDB persistence.
  *
- * The WASM binary is served from /sql-wasm.wasm (copied to static/ by the
- * postinstall script). The database is persisted to IndexedDB under the
- * key `db:${userId}` so each learner's progress is partitioned. The
- * `userId` is a UUID v4 stored in `localStorage` (Story I.x).
+ * The WASM binary is served from /sql-wasm.wasm — provisioned into
+ * `static/sql-wasm.wasm` by `pipeline._ensure_sql_wasm` (the Python
+ * preview pipeline is the single owner of this asset). The database is
+ * persisted to IndexedDB under the key `db:${userId}` so each learner's
+ * progress is partitioned. The `userId` is a UUID v4 stored in
+ * `localStorage` (Story I.x).
  *
  * Pre-v0.58.0 progress lived under the unkeyed `db` IDB record. On first
  * init for any userId the legacy `db` record is migrated under
@@ -18,6 +20,34 @@ import { getUserId } from './user-id.js';
 const IDB_DB_NAME = 'learningfoundry';
 const IDB_STORE_NAME = 'progress';
 const LEGACY_KEY = 'db';
+const WASM_ASSET_URL = '/sql-wasm.wasm';
+
+/**
+ * Thrown by `Database.getDb()` when the sql.js WASM asset cannot be
+ * fetched. UI callers can match on this class to surface a recoverable
+ * banner ("Progress recording is paused — try refreshing"), distinct
+ * from generic init failures.
+ *
+ * The bug this guards against: when `/sql-wasm.wasm` 404s (e.g. the
+ * Python preview pipeline failed to provision it), sql.js's own
+ * rejection path is unreliable — its module-level state can cache a
+ * previous successful load, masking the failure as a silently rejected
+ * progress write. The `Database` class does an explicit fetch precheck
+ * before delegating to `initSqlJs` so the failure is deterministic and
+ * caller-visible.
+ */
+export class WasmAssetMissingError extends Error {
+	readonly assetUrl: string;
+	constructor(assetUrl: string, cause?: unknown) {
+		super(
+			`sql.js wasm asset is unavailable at ${assetUrl}. ` +
+				`Recording is disabled until the dev server can serve this file.`
+		);
+		this.name = 'WasmAssetMissingError';
+		this.assetUrl = assetUrl;
+		if (cause !== undefined) (this as { cause?: unknown }).cause = cause;
+	}
+}
 
 const DDL = `
 CREATE TABLE IF NOT EXISTS lesson_progress (
@@ -105,14 +135,35 @@ export class Database {
 		if (this.#SQL) return this.#SQL;
 		if (!this.#sqlInitPromise) {
 			this.#sqlInitPromise = (async () => {
+				// Probe the wasm asset explicitly before delegating to sql.js.
+				// sql.js's own error path is unreliable here — its module-level
+				// state can cache a previous successful load, masking a 404
+				// behind a Database that "works" but is unbacked. We want
+				// every consumer to see a typed `WasmAssetMissingError`.
+				await this.#assertWasmAssetAvailable();
 				// Dynamic import keeps the WASM module out of the main bundle.
 				const initSqlJsFn = (await import('sql.js')).default;
-				const SQL = await initSqlJsFn({ locateFile: () => '/sql-wasm.wasm' });
+				const SQL = await initSqlJsFn({ locateFile: () => WASM_ASSET_URL });
 				this.#SQL = SQL;
 				return SQL;
 			})();
 		}
 		return this.#sqlInitPromise;
+	}
+
+	async #assertWasmAssetAvailable(): Promise<void> {
+		let response: Response;
+		try {
+			response = await fetch(WASM_ASSET_URL, {
+				method: 'HEAD',
+				cache: 'no-store'
+			});
+		} catch (err) {
+			throw new WasmAssetMissingError(WASM_ASSET_URL, err);
+		}
+		if (!response.ok) {
+			throw new WasmAssetMissingError(WASM_ASSET_URL);
+		}
 	}
 
 	#openIdb(): Promise<IDBDatabase> {

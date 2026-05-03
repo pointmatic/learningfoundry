@@ -218,6 +218,7 @@ class TestRunPreviewSkipsInstall:
     def test_unchanged_state_skips_pnpm_install(self, tmp_path: Path) -> None:
         with (
             patch("learningfoundry.pipeline.run_build"),
+            patch("learningfoundry.pipeline._ensure_sql_wasm"),
             patch(
                 "learningfoundry.generator.check_dep_state",
                 return_value=DepState.UNCHANGED,
@@ -240,6 +241,7 @@ class TestRunPreviewSkipsInstall:
     def test_first_build_state_runs_pnpm_install(self, tmp_path: Path) -> None:
         with (
             patch("learningfoundry.pipeline.run_build"),
+            patch("learningfoundry.pipeline._ensure_sql_wasm"),
             patch(
                 "learningfoundry.generator.check_dep_state",
                 return_value=DepState.FIRST_BUILD,
@@ -255,6 +257,7 @@ class TestRunPreviewSkipsInstall:
     def test_changed_state_runs_pnpm_install(self, tmp_path: Path) -> None:
         with (
             patch("learningfoundry.pipeline.run_build"),
+            patch("learningfoundry.pipeline._ensure_sql_wasm"),
             patch(
                 "learningfoundry.generator.check_dep_state",
                 return_value=DepState.CHANGED,
@@ -266,3 +269,95 @@ class TestRunPreviewSkipsInstall:
         assert self._was_called_with_install(mock_sub), (
             "pnpm install must run on CHANGED (new deps in package.json)"
         )
+
+
+class TestRunPreviewProvisionsWasm:
+    """`run_preview` must guarantee `static/sql-wasm.wasm` exists in the
+    output directory before the dev server starts, regardless of whether
+    `pnpm install` ran. Recording (lesson progress, quiz scores, exercise
+    status) depends on the SvelteKit app fetching `/sql-wasm.wasm` to
+    initialise sql.js — a 404 there silently breaks every DB write.
+
+    The pre-fix pipeline relied on pnpm's `postinstall` hook to copy the
+    file from `node_modules/sql.js/dist/sql-wasm.wasm`. That hook is
+    skipped whenever `check_dep_state == UNCHANGED` (i.e. on every
+    iterate-on-content rebuild), and is also unreliable across pnpm
+    versions/configs that don't honour root-package lifecycle scripts.
+    The Python pipeline is now the authority on this asset.
+    """
+
+    def _seed_node_modules_wasm(self, output_dir: Path) -> Path:
+        """Create the `node_modules/sql.js/dist/sql-wasm.wasm` source the
+        pipeline copies from. Returns the seeded path."""
+        src = output_dir / "node_modules" / "sql.js" / "dist" / "sql-wasm.wasm"
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_bytes(b"\x00asm-test-wasm-bytes")
+        (output_dir / "static").mkdir(parents=True, exist_ok=True)
+        return src
+
+    def test_unchanged_state_still_provisions_wasm(self, tmp_path: Path) -> None:
+        out = tmp_path / "out"
+        out.mkdir()
+        self._seed_node_modules_wasm(out)
+
+        with (
+            patch("learningfoundry.pipeline.run_build"),
+            patch(
+                "learningfoundry.generator.check_dep_state",
+                return_value=DepState.UNCHANGED,
+            ),
+            patch("learningfoundry.pipeline.subprocess.run") as mock_sub,
+        ):
+            mock_sub.return_value = MagicMock(returncode=0, stderr="")
+            run_preview(VALID_CURRICULUM, out)
+
+        wasm = out / "static" / "sql-wasm.wasm"
+        assert wasm.exists(), (
+            "static/sql-wasm.wasm must be provisioned even when pnpm install "
+            "is skipped — recording silently fails without it."
+        )
+        assert wasm.read_bytes() == b"\x00asm-test-wasm-bytes"
+
+    def test_first_build_provisions_wasm_after_pnpm_install(
+        self, tmp_path: Path
+    ) -> None:
+        out = tmp_path / "out"
+        out.mkdir()
+        seeded = self._seed_node_modules_wasm(out)
+
+        with (
+            patch("learningfoundry.pipeline.run_build"),
+            patch(
+                "learningfoundry.generator.check_dep_state",
+                return_value=DepState.FIRST_BUILD,
+            ),
+            patch("learningfoundry.pipeline.subprocess.run") as mock_sub,
+        ):
+            mock_sub.return_value = MagicMock(returncode=0, stderr="")
+            run_preview(VALID_CURRICULUM, out)
+
+        wasm = out / "static" / "sql-wasm.wasm"
+        assert wasm.exists()
+        assert wasm.read_bytes() == seeded.read_bytes()
+
+    def test_missing_wasm_source_raises_clear_error(self, tmp_path: Path) -> None:
+        """If `node_modules/sql.js/dist/sql-wasm.wasm` is absent (e.g. pnpm
+        install actually failed silently), the pipeline must fail loudly
+        rather than start a dev server that will 404 on every DB init."""
+        from learningfoundry.exceptions import GenerationError
+
+        out = tmp_path / "out"
+        (out / "static").mkdir(parents=True)
+        # Note: no node_modules/sql.js/dist/sql-wasm.wasm seeded.
+
+        with (
+            patch("learningfoundry.pipeline.run_build"),
+            patch(
+                "learningfoundry.generator.check_dep_state",
+                return_value=DepState.UNCHANGED,
+            ),
+            patch("learningfoundry.pipeline.subprocess.run") as mock_sub,
+        ):
+            mock_sub.return_value = MagicMock(returncode=0, stderr="")
+            with pytest.raises(GenerationError, match="sql-wasm"):
+                run_preview(VALID_CURRICULUM, out)

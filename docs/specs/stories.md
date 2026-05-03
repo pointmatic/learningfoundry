@@ -1126,6 +1126,125 @@ The third specific test (`video.spec.ts:12`) failed for the same reason — it s
 ---
 
 
+### Story I.aa: v0.61.0 — Reliable '/sql-wasm.wasm' Provisioning + Typed DB-Init Failure [Done]
+
+Recording broke silently on every `learningfoundry preview` run after the first. The CLI logged `[404] GET /sql-wasm.wasm`; the UI showed no progress checkmarks, no in-progress icons, no module/lesson advancement — every lesson event, quiz score, and exercise status write rejected at `Database.getDb()` and the rejection never surfaced to the learner.
+
+**Root cause.** The wasm asset had no single owner. Two fragile channels were *both* expected to keep `output_dir/static/sql-wasm.wasm` populated, and they cancelled each other:
+
+1. **Template copy via `_atomic_copy`.** The wasm source lives in [src/.../sveltekit_template/static/sql-wasm.wasm](src/learningfoundry/sveltekit_template/static/sql-wasm.wasm) but is gitignored ([.gitignore:36](.gitignore#L36)) — absent on clean checkouts and from the published wheel. Even when present locally, `static/sql-wasm.wasm` was *not* in `_PRESERVED_PATHS`, so every rebuild wiped any existing copy in `output_dir/static/`.
+2. **`pnpm postinstall` hook in [package.json:13](src/learningfoundry/sveltekit_template/package.json#L13).** Copied `node_modules/sql.js/dist/sql-wasm.wasm` → `static/sql-wasm.wasm`, but only when `pnpm install` ran — and `pipeline.run_preview` skips install when `check_dep_state == UNCHANGED` (every iterate-on-content rebuild). Also flaky across pnpm version/configuration combinations that don't honour root-package lifecycle scripts.
+
+The interaction: build N+1 wiped the wasm via channel 1 and skipped channel 2. The user's `learningfoundry-test/dist/` was reproducible evidence — `static/sql-wasm.wasm` missing, `node_modules/sql.js/dist/sql-wasm.wasm` present, `static/.gitkeep` mtime proving `_atomic_copy` had refreshed `static/` from the template (which only ships `.gitkeep`). The "works the first time then breaks" pattern matched exactly: the first preview installed deps and ran postinstall; every preview after didn't.
+
+**Why this wasn't caught.** The pipeline test class `TestRunPreviewSkipsInstall` already verified that `pnpm install` is correctly *skipped* on `DepState.UNCHANGED` — but never checked the *consequence* (no wasm). The frontend `database.test.ts` shimmed `fetch` to serve wasm bytes from disk, accidentally masking the very failure mode that breaks production. E2E always ran fresh (so postinstall always ran), exercising only the path that worked. And `Database.getDb()` rejected with an opaque `Error` from sql.js's WebAssembly fetch path, indistinguishable to UI callers from "no progress yet" — so the CLI logs were the only signal, and they read like dev-server noise.
+
+**Fix.** Single-owner the asset on the Python side, and make the DB-init failure typed and loud.
+
+- [pipeline.py](src/learningfoundry/pipeline.py) — new `_ensure_sql_wasm(output_dir)` helper called unconditionally from `run_preview` after the install gate. Copies `output_dir/node_modules/sql.js/dist/sql-wasm.wasm` → `output_dir/static/sql-wasm.wasm` whenever destination is missing or content-stale (size-based check on a version-pinned dep is a strong proxy). Raises `GenerationError` with a clear message if the source is absent, converting a runtime 404 into a build-time error.
+- [generator.py:34](src/learningfoundry/generator.py#L34) — `static/sql-wasm.wasm` added to `_PRESERVED_PATHS`. Belt-and-braces; `_ensure_sql_wasm` is the source of truth, but preserving an existing copy across `_atomic_copy` is cheap insurance.
+- [package.json:13](src/learningfoundry/sveltekit_template/package.json#L13) — `postinstall` line removed. Two-ways-of-doing-the-same-thing was how this bug got nasty; the Python pipeline is now the single owner.
+- [database.ts](src/learningfoundry/sveltekit_template/src/lib/db/database.ts) — exported new `WasmAssetMissingError` class. Inside `#initSqlJs`, a HEAD precheck against `/sql-wasm.wasm` runs *before* delegating to `initSqlJs` so a 404 surfaces as a typed error consumable by UI error boundaries — bypasses sql.js's module-level wasm caching, which previously masked 404s as silently rejected progress writes.
+
+**Tasks:**
+
+- [x] Wrote 6 failing tests covering each leaf of the bug:
+  - [tests/test_generator.py](tests/test_generator.py): `test_static_sql_wasm_is_preserved_across_rebuilds` — synthesises a clean template (no wasm), seeds the file in output, asserts it survives `_atomic_copy`.
+  - [tests/test_pipeline.py](tests/test_pipeline.py) `TestRunPreviewProvisionsWasm`: 3 tests covering `UNCHANGED` provisioning, `FIRST_BUILD` content match, and the loud-failure path when the source wasm is absent.
+  - [database.test.ts](src/learningfoundry/sveltekit_template/src/lib/db/database.test.ts): 2 tests under `Database — wasm-asset failure surfaces as WasmAssetMissingError` covering the rejection-class invariant and the `assetUrl` diagnostic field.
+- [x] Confirmed each test failed for the right reason before any fix code was written. The TS test failure was especially diagnostic: `getDb()` *resolved* on a 404 because sql.js's module-level state had cached the wasm from earlier-running tests in the same suite — confirming that relying on sql.js's own error path is unreliable and that the precheck is necessary.
+- [x] Implemented `pipeline._ensure_sql_wasm`; wired into `run_preview` after the conditional install block.
+- [x] Added `static/sql-wasm.wasm` to `generator._PRESERVED_PATHS`.
+- [x] Removed `postinstall` from `package.json`.
+- [x] Added `WasmAssetMissingError` class and HEAD-fetch precheck to `database.ts`; updated the file's module-level doc comment to reflect the new owner.
+- [x] Updated 3 existing `TestRunPreviewSkipsInstall` tests to patch `_ensure_sql_wasm` (consistent with their pre-existing patches of `run_build` and `subprocess.run`).
+- [x] Verified prevention scan: grep for `postinstall` / `require.resolve` / `fs.copyFileSync` / `node_modules.*dist` patterns elsewhere in the template — only the now-orphaned doc-comment reference and the test-file's bug-history comment matched. No other asset uses the broken pattern.
+- [x] Verified prevention scan: all `Database.getDb()` callers go through `progress.ts` (`ProgressRepo` chokepoint from Story I.w). UI consumers `await` `progress.ts` methods, so a thrown `WasmAssetMissingError` propagates up there as a single integration point for the follow-up banner work.
+- [x] `pyve test tests/` — 259 pass.
+- [x] `pnpm test` — 167 pass (including the 2 new wasm-asset cases).
+- [ ] **Housekeeping → Story I.bb:** UI surfacing of `WasmAssetMissingError`. The class is now thrown reliably; consumers in `progress.ts` need to either catch and re-throw with progress-write context, or let it propagate to a layout-level `<svelte:boundary>` that renders a recoverable banner ("Progress recording is paused — try refreshing"). Out of scope here because it's UI work separable from the asset-pipeline root-cause fix and benefits from a usability pass on copy/iconography.
+- [ ] **Housekeeping → Story I.cc:** investigate whether the user's earlier pnpm-vs-npm wiring grief is rooted in the same lifecycle-script handling, now that we no longer depend on `postinstall`. If pnpm in their environment skips the *postinstall* of root packages, it may also skip other lifecycle scripts that future template work might add — a discovery story rather than a fix.
+- [x] Bumped version to v0.61.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.61.0 under "Fixed".
+- [x] Verify: `pyve test tests/` (259 pass), `pnpm test` (167 pass).
+
+**Out of scope:**
+
+- **UI banner for `WasmAssetMissingError`.** Captured as deferred housekeeping above. The class and its propagation path exist; the UX work to render and recover from it is separate. → Story I.bb.
+- **Investigation of pnpm lifecycle-script reliability.** The user's earlier "pnpm has wiring problems passing certain params; only npm worked" report may share a root with the now-removed `postinstall` flakiness. Worth a discovery pass before adding more lifecycle-dependent template scripts. → Story I.cc.
+- **End-to-end test for the second-preview path.** The unit-level coverage in `tests/test_pipeline.py` exercises the exact gating + provisioning behaviour at the smallest scope; an e2e test that runs `learningfoundry preview` twice and checks recording would be valuable but adds infrastructure (process spawning, wasm pre-seeding under a clean output dir) for marginal additional confidence.
+- **Auditing other gitignored-template-asset risks.** The prevention scan was scoped to assets shipped via `postinstall`. A broader audit ("what else in `sveltekit_template/static/` is gitignored or otherwise relies on a post-template-copy step?") would surface lurking variants of this bug class. Worth doing but not blocking on the recording fix.
+- **CI integration to catch this regression.** The new pipeline tests cover the regression at the unit level; CI gate work belongs with the broader CI story (also deferred from I.z).
+
+---
+
+### Story I.bb: UI Surfacing of `WasmAssetMissingError` [Planned]
+
+Story I.aa hardened the asset pipeline so `/sql-wasm.wasm` reaches `static/` reliably, and exported a typed `WasmAssetMissingError` from [database.ts](src/learningfoundry/sveltekit_template/src/lib/db/database.ts) that gets thrown when the asset 404s at runtime. What's still missing: **the learner has no idea when recording is failing.** Today a thrown `WasmAssetMissingError` propagates up through `progress.ts` (`ProgressRepo` chokepoint, Story I.w) into UI call sites that just `await` and silently no-op the rejection. The CLI logs are the only signal — no help to a learner using a deployed app.
+
+**What "done" looks like:**
+
+A learner who hits a missing-wasm scenario (asset-pipeline regression, deploy misconfiguration, browser cache poisoning, network partition) sees a persistent, non-blocking banner — "Progress recording is paused. Refresh to retry." — and a refresh action. Their existing in-memory progress for the current session continues to render (read-from-IDB-once may have already populated stores), but writes are best-effort and the banner makes the tradeoff visible. Once a refresh succeeds, the banner clears.
+
+**Design considerations (to settle in story refinement, not pre-decided here):**
+
+- Where the catch lives. Options: (a) wrap each `progress.ts` write call site in UI components; (b) add a layout-level `<svelte:boundary>` that catches uncaught rejections from `progress.ts`; (c) move detection upstream — initialise the `Database` once at layout mount and surface init failures as a layout-level reactive store. (c) is probably right because it converts the failure from "every write rejects independently" into "one signal that the whole DB is unavailable." Confirm during implementation.
+- Whether `progress.ts` writes should *swallow* `WasmAssetMissingError` (since the banner already surfaces the failure) or let it propagate. Probably swallow — the rejection is informational once the banner is up; UI components shouldn't have to handle it.
+- Whether the read path (`getLessonProgress`, `listAllProgress`) should fall back to "empty" or surface the error. Read failures during initial render are a worse UX than write failures — render an empty dashboard with the banner, *not* an error page.
+- Telemetry hook for "this learner hit a wasm-missing event" so future deploy regressions get caught faster than this one did. May be out of scope until there's a telemetry pipeline.
+
+**Tasks (draft — refine when this story is picked up):**
+
+- [ ] Decide catch placement (probably layout-level init store; confirm).
+- [ ] Implement the banner component (copy, iconography, refresh CTA).
+- [ ] Wire `WasmAssetMissingError` detection into the chosen catch site.
+- [ ] Decide swallow-vs-propagate for `progress.ts` write methods; document the rule in the file's module comment.
+- [ ] Verify the read path handles a missing-wasm `Database` without rendering an error page (empty state + banner).
+- [ ] Add a vitest case that mounts the layout with a 404'd wasm fetch and asserts the banner renders.
+- [ ] Add a vitest case that mounts the layout with a working wasm and asserts the banner does not render.
+- [ ] Update [features.md](docs/specs/features.md) with the recording-paused user-visible state as a documented requirement (closes the requirements gap that Story I.aa identified).
+- [ ] Bump version, update CHANGELOG.
+- [ ] Verify: `pyve test`, `pnpm test`, `pnpm e2e`, ruff, mypy.
+
+**Out of scope:**
+
+- **Telemetry / error reporting beyond the in-app banner.** Worth doing, but couples to a not-yet-existent telemetry pipeline.
+- **Auto-retry mechanism.** A "retry now" button is fine; an automatic background retry loop adds complexity (backoff, jitter, exponential schedule) without clear demand. The refresh action is a reliable manual recovery path.
+- **Generalising the banner pattern to other recoverable errors.** Tempting but premature — the only known case today is `WasmAssetMissingError`. If a second case shows up, generalise then.
+
+---
+
+### Story I.cc: Investigate pnpm Lifecycle-Script Reliability [Planned]
+
+A discovery story, not a fix story. Scoped to gather evidence and decide whether further work is warranted.
+
+**Background.** During earlier setup of `learningfoundry-test`, the user reported that "pnpm has some wiring problems not passing certain params to npm and could only get it to work using npm directly." Story I.aa removed the template's `postinstall` hook (which had been one symptom of pnpm lifecycle-script unreliability) by moving the wasm-asset copy into the Python pipeline. That fix unblocks recording, but it sidesteps rather than diagnoses the underlying environmental issue. The risk: future template additions that rely on pnpm lifecycle scripts (`prepare`, `prepublish`, `prepack`, custom `pre*` / `post*` hooks for `dev` / `build` / `test`) may silently misbehave in the same way.
+
+**What "done" looks like:**
+
+A short investigation note (probably a section in [docs/specs/project-essentials.md](docs/specs/project-essentials.md) under "Architecture Quirks" or its own subsection) that captures: which lifecycle scripts pnpm reliably runs in this project's configuration, what the user's specific wiring grief was, whether it reproduces today, and a one-paragraph guideline for future template work ("don't rely on pnpm `postinstall`; do these things from the Python pipeline instead").
+
+If the investigation surfaces an actionable bug (e.g. a pnpm setting we should pin in [.npmrc](src/learningfoundry/sveltekit_template/.npmrc) or a pnpm version range we should require in `engines`), file a follow-up *fix* story rather than expanding this one.
+
+**Investigation plan (draft):**
+
+- [ ] Reconstruct the user's earlier pnpm-vs-npm grief — what command, what params, what failure mode, what was the workaround. Likely the cleanest path is just to ask the user; failing that, scrape git history / chat for the relevant context.
+- [ ] In a clean `learningfoundry-test/dist/` (or a fresh tmp output): seed a noop `postinstall` (`echo HELLO > postinstall.marker`); run `pnpm install`; check whether `postinstall.marker` was created. Repeat for `prepare`, `prepublish`. Record results.
+- [ ] Check pnpm version in user environment vs. what `engines` (if any) declares; check for `.npmrc` settings (`enable-pre-post-scripts`, `node-linker`, `package-manager-strict`) in user environment, project, and global config.
+- [ ] If lifecycle scripts work fine on a clean test: the original grief was version-specific or has self-resolved. Document and close.
+- [ ] If lifecycle scripts genuinely don't fire: bisect by `.npmrc` / pnpm version to identify the cause. Decide between (a) pinning settings in the project, (b) adding a `engines.pnpm` constraint, (c) explicitly documenting "we don't use pnpm lifecycle scripts; here's why" and constraining future template work.
+- [ ] Update [docs/specs/project-essentials.md](docs/specs/project-essentials.md) with the findings.
+- [ ] Bump version + CHANGELOG only if this story produces code/config changes (a docs-only outcome may not need a version bump — match how other docs-only changes were handled in the project).
+
+**Out of scope:**
+
+- **Switching the project from pnpm to npm.** Even if pnpm has ongoing issues, the migration cost likely outweighs the benefit; the Story I.aa fix already removes the load-bearing dependency.
+- **Investigating other Node tool reliability issues** (vite, vitest, playwright). Scoped to pnpm lifecycle scripts specifically.
+- **Adding lifecycle-script-dependent template features** ahead of this investigation. If a future story wants to add e.g. a `prepare` hook to the template, it should block on this story landing first.
+
+---
+
+
 ## Future
 
 <!--

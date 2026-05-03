@@ -3,6 +3,7 @@
 """Pipeline orchestrator — parse → resolve → generate."""
 
 import logging
+import shutil
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
@@ -181,8 +182,57 @@ def run_preview(
                 f"`pnpm install` failed in `{output_dir}`:\n{result.stderr}"
             )
 
+    _ensure_sql_wasm(output_dir)
+
     logger.info("Starting dev server on port %d", port)
     subprocess.run(
         ["pnpm", "run", "dev", "--port", str(port)],
         cwd=output_dir,
+    )
+
+
+def _ensure_sql_wasm(output_dir: Path) -> None:
+    """Provision ``static/sql-wasm.wasm`` from the installed sql.js package.
+
+    sql.js is loaded in the browser via ``initSqlJs({ locateFile: () =>
+    '/sql-wasm.wasm' })`` (see ``src/lib/db/database.ts``). If that URL
+    404s, every progress / quiz / exercise write silently fails — the
+    "recording is broken after second preview" bug.
+
+    This step is the single owner of the asset. It runs every preview
+    (regardless of ``DepState``) and copies the wasm out of
+    ``node_modules/sql.js/dist/`` into ``static/`` whenever the
+    destination is missing or content-stale. Replaces the previous
+    pnpm ``postinstall`` hook, which only ran on actual installs and
+    was unreliable across pnpm version/configuration combinations.
+
+    Raises:
+        GenerationError: If the source wasm in ``node_modules/`` is
+            missing — better to fail the build loudly than start a dev
+            server that 404s on every DB init.
+    """
+    from learningfoundry.exceptions import GenerationError
+
+    src = output_dir / "node_modules" / "sql.js" / "dist" / "sql-wasm.wasm"
+    dst = output_dir / "static" / "sql-wasm.wasm"
+
+    if not src.is_file():
+        raise GenerationError(
+            f"sql-wasm.wasm source not found at `{src}`. "
+            "`pnpm install` likely failed silently or sql.js is not in "
+            "the generated `package.json`. The dev server cannot serve "
+            "/sql-wasm.wasm without this file and recording will not work."
+        )
+
+    if dst.is_file() and dst.stat().st_size == src.stat().st_size:
+        # Cheap content check — sql.js wasm is content-addressed by
+        # version-pinned dep in package.json, so size match is a strong
+        # proxy for "same bytes" without reading both files.
+        return
+
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+    logger.info(
+        "Provisioned static/sql-wasm.wasm from node_modules/sql.js (%d bytes)",
+        dst.stat().st_size,
     )

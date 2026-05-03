@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.61.0] - 2026-05-02
+
+### Fixed
+
+- **Recording silently broken on every `learningfoundry preview` after the first** (Story I.aa). The CLI logged `[404] GET /sql-wasm.wasm`; the UI showed no progress checkmarks, no in-progress icons, no module/lesson advancement, because every lesson event / quiz score / exercise status write was rejecting at `Database.getDb()` and the rejection was never surfaced. Two fragile asset-supply channels were *both* expected to keep `output_dir/static/sql-wasm.wasm` populated, and they cancelled each other: (1) `_atomic_copy` rebuilt `static/` from a template that doesn't ship the wasm (gitignored), erasing any existing copy in `output_dir/static/`, while (2) the `pnpm postinstall` hook that *would* have re-provisioned the file only ran when `pipeline.run_preview` chose to actually `pnpm install` — which it skips on `DepState.UNCHANGED`, i.e. every iterate-on-content rebuild. The `Database.getDb()` rejection on the missing wasm was an opaque `Error` from sql.js's WebAssembly fetch path, indistinguishable to UI callers from "no progress yet", which is why the only signal was the 404 in the CLI logs.
+
+### Changed
+
+- **Python is now the single owner of `static/sql-wasm.wasm`.** New [pipeline.py](src/learningfoundry/pipeline.py) helper `_ensure_sql_wasm(output_dir)` is called unconditionally from `run_preview` after the install gate; it copies `output_dir/node_modules/sql.js/dist/sql-wasm.wasm` → `output_dir/static/sql-wasm.wasm` whenever the destination is missing or content-stale, and raises `GenerationError` with a clear message if the source is absent (converts a runtime 404 into a build-time error). `static/sql-wasm.wasm` also added to [generator.py](src/learningfoundry/generator.py) `_PRESERVED_PATHS` as belt-and-braces. The pnpm `postinstall` hook in [package.json](src/learningfoundry/sveltekit_template/package.json) is removed — two-ways-of-doing-the-same-thing was how this bug got nasty.
+
+### Added
+
+- **Typed DB-init failure: `WasmAssetMissingError`.** [database.ts](src/learningfoundry/sveltekit_template/src/lib/db/database.ts) now exports a typed error class and the `#initSqlJs` path does an explicit HEAD-fetch precheck against `/sql-wasm.wasm` before delegating to `initSqlJs`. Bypasses sql.js's module-level wasm caching (which previously masked 404s as silently rejected progress writes) so a missing asset surfaces as `instanceof WasmAssetMissingError` for any consumer that wants to render a recoverable banner. UI surfacing of the error is deferred to a follow-up story.
+
 ## [0.60.0] - 2026-05-02
 
 ### Fixed

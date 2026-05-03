@@ -193,6 +193,44 @@ class TestPreserveInstallState:
         # And node_modules is still there.
         assert (out / "node_modules" / "marker.txt").exists()
 
+    def test_static_sql_wasm_is_preserved_across_rebuilds(
+        self, tmp_path: Path
+    ) -> None:
+        """`static/sql-wasm.wasm` must survive `_atomic_copy` even when the
+        template ships no wasm (the gitignored / clean-checkout case).
+
+        Regression from the recording-broken-after-second-preview bug:
+        `_atomic_copy` rebuilds `static/` from the template each run, and
+        `static/sql-wasm.wasm` is gitignored so a clean template lacks it.
+        Without this preservation the file is silently erased on every
+        rebuild after pnpm's `postinstall` populated it once.
+        """
+        # Synthesise a "clean" template — copy the real one, then remove
+        # the wasm to simulate a fresh checkout / published wheel where
+        # the gitignored file is absent.
+        clean_template = tmp_path / "clean-template"
+        import shutil
+        shutil.copytree(TEMPLATE_DIR, clean_template, symlinks=True)
+        wasm_in_template = clean_template / "static" / "sql-wasm.wasm"
+        if wasm_in_template.exists():
+            wasm_in_template.unlink()
+
+        out = tmp_path / "app"
+        generate_app(_make_resolved(), out, template_dir=clean_template)
+
+        # Simulate the postinstall (or any prior provisioning step)
+        # having put the wasm into the output's static dir.
+        out_wasm = out / "static" / "sql-wasm.wasm"
+        out_wasm.write_bytes(b"\x00asm-fake-wasm-bytes")
+
+        # Second build with the same clean template — wasm must survive.
+        generate_app(_make_resolved(), out, template_dir=clean_template)
+        assert out_wasm.exists(), (
+            "static/sql-wasm.wasm was erased on rebuild — the wasm asset "
+            "is not in _PRESERVED_PATHS, so a clean template wipes it."
+        )
+        assert out_wasm.read_bytes() == b"\x00asm-fake-wasm-bytes"
+
 
 class TestCheckDepState:
     """Detection of whether `pnpm install` is needed after a build."""

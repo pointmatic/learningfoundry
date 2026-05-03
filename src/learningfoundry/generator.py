@@ -26,12 +26,19 @@ _TEMPLATE_DIR = Path(__file__).parent / "sveltekit_template"
 # (content-hashed under `static/content/<hash12>/<basename>`) survive a
 # rebuild — keeps `learningfoundry preview` snappy when only markdown
 # text changed and no new images were introduced.
+#
+# `static/sql-wasm.wasm` is preserved because it is gitignored and not
+# shipped in the template — `pipeline._ensure_sql_wasm` is the single
+# owner that provisions it from `node_modules/`. Preserving the file
+# across rebuilds is belt-and-braces so a stale build never silently
+# loses the asset between provisioning runs.
 _PRESERVED_PATHS: tuple[str, ...] = (
     "node_modules",
     "pnpm-lock.yaml",
     "build",
     ".svelte-kit",
     "static/content",
+    "static/sql-wasm.wasm",
 )
 
 
