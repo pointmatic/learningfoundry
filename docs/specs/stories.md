@@ -1216,6 +1216,49 @@ A first attempt extended `computeAutoExpand` to also reason about a `expandedMod
 
 ---
 
+### Story I.aa.2: v0.62.1 — Strict Schema Validation + Lesson-Route Locking Failsafe [Done]
+
+A user-visible reproduction of the locking feature being silently disabled. **Repro:** YAML curriculum has `sequential: true` written one indent level too high (directly under `curriculum:` instead of nested under `curriculum.locking:`). Pre-fix: every module is freely expandable, every lesson is freely openable, no lock icon appears in the sidebar — exactly as if locking were turned off.
+
+**Root cause is two distinct gaps that compound.**
+
+1. **Schema permissiveness.** [schema_v1.py](src/learningfoundry/schema_v1.py)'s Pydantic models defaulted to `extra='ignore'` (Pydantic v2's out-of-box default). The user's mis-placed `sequential: true` was an unknown field on `CurriculumDef` and was silently discarded; `LockingConfig` got its default `sequential=False`. There was no error, no warning, no log — the bug was indistinguishable from "feature disabled by config." Confirmed by parsing the user's actual `learningfoundry-test/curriculum.yml` and printing the resolved `static/curriculum.json`: `"locking": { "sequential": false, "lesson_sequential": false }` despite the YAML containing `sequential: true`.
+2. **No locking guard at the lesson route.** [+page.svelte](src/learningfoundry/sveltekit_template/src/routes/[module]/[lesson]/+page.svelte) read `page.params` and rendered `<LessonView>` if the requested module/lesson existed in the curriculum. It did not consult `lockedModuleIds` / `lockedLessonIds`. Even if the schema gap were fixed, a learner who typed a locked-lesson URL, refreshed an old tab, or followed a stale bookmark would still bypass the sidebar's locking enforcement entirely. The sidebar-only policy was defense-in-one-place rather than defense-in-depth.
+
+The user's third symptom — "no visual indicator for locked modules" — was a downstream consequence of (1), not a separate gap. The lock icon, gray-400 text, and `cursor-not-allowed` styling already existed in [ModuleList.svelte:79-86](src/learningfoundry/sveltekit_template/src/lib/components/ModuleList.svelte#L79-L86); they just never rendered because nothing was actually locked.
+
+**Why this wasn't caught.** [test_schema_v1.py](tests/test_schema_v1.py) had thorough happy-path coverage but no tests for misplaced or typo'd fields — the schema's silent-drop behaviour was untested. [locking.test.ts](src/learningfoundry/sveltekit_template/src/lib/utils/locking.test.ts) thoroughly covered `isModuleLocked` / `isLessonLocked` *as helpers* but no integration test exercised "given a curriculum with sequential locking, does the lesson route refuse to render a locked lesson?" — the route had no test file at all. The test pyramid had two well-tested layers (schema parsing, locking math) and a wide-open gap between them where the actual user-visible behaviour lives. The same shape as Story I.aa: **happy-path coverage doesn't catch silent failure modes.**
+
+**Fix — three pieces.**
+
+1. **Strict schema.** New `StrictModel` base class in [schema_v1.py](src/learningfoundry/schema_v1.py) sets `model_config = ConfigDict(extra='forbid')`. Every curriculum-schema model (`CurriculumDef`, `Module`, `Lesson`, `LockingConfig`, `CurriculumV1`, all `*Block` types, `AssessmentRef`) now inherits from `StrictModel`. A misplaced field anywhere in the YAML produces a `ValidationError` of the form `curriculum.sequential — Extra inputs are not permitted [type=extra_forbidden, ...]`, with a JSON-pointer path to the offending field name. Verified against the user's actual YAML: the strict validator now rejects it with that exact message instead of silently producing a non-locking output.
+2. **Lesson-route locking guard.** [+page.svelte](src/learningfoundry/sveltekit_template/src/routes/[module]/[lesson]/+page.svelte) now derives `isLocked` from the same `isModuleLocked` / `isLessonLocked` helpers the sidebar uses, and renders [LockedLessonPlaceholder.svelte](src/learningfoundry/sveltekit_template/src/lib/components/LockedLessonPlaceholder.svelte) (lock icon + module/lesson title + "Complete X to unlock this lesson" + Return-to-dashboard CTA) when the requested URL points at a locked lesson. The `navigateTo` side-effect in `onMount` / `$effect` is now guarded by `!isLocked` so a locked-URL load doesn't write `currentPosition` and therefore doesn't highlight the gated module in the sidebar.
+3. **Visual indicator regression-guard.** No change to the existing styling — the gap was that locking never fired, not that the styling was wrong. New regression test in [ModuleList.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/ModuleList.test.ts) asserts the locked-button carries `cursor-not-allowed` and `text-gray-400` so a future refactor can't silently regress it.
+
+**Tasks:**
+
+- [x] Wrote 4 failing schema-strictness tests (`test_sequential_at_curriculum_level_is_rejected`, `test_extra_field_at_module_level_is_rejected`, `test_extra_field_at_lesson_level_is_rejected`, `test_extra_field_at_locking_level_is_rejected`) plus a positive control (`test_correctly_nested_locking_still_validates`).
+- [x] Wrote 2 failing lesson-route tests in [page.test.ts](src/learningfoundry/sveltekit_template/src/routes/[module]/[lesson]/page.test.ts): a negative case (locked module → placeholder, no `<article>`) and a positive control (unlocked module → `<article>`, no "locked" text).
+- [x] Wrote 1 visual-indicator regression-guard in [ModuleList.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/ModuleList.test.ts): asserts `cursor-not-allowed` + `text-gray-400` on the locked button. (Passed against existing code; pure regression guard.)
+- [x] Confirmed each new test failed for the right reason before any fix code was written. The schema tests `DID NOT RAISE`; the route test rendered an `<article>` it shouldn't have.
+- [x] Added `StrictModel` base class with `extra='forbid'`; converted all 11 schema classes from `BaseModel` to `StrictModel`.
+- [x] Added the route's locking guard: `moduleIndex` / `lessonIndex` derived state, `isLocked` derived boolean, `blockedByTitle` derived for the placeholder copy, guarded `navigateTo` calls.
+- [x] Created [LockedLessonPlaceholder.svelte](src/learningfoundry/sveltekit_template/src/lib/components/LockedLessonPlaceholder.svelte) — Lock icon, module/lesson titles, "Complete <previous>" copy, Return-to-dashboard CTA.
+- [x] Verified against user's actual `learningfoundry-test/curriculum.yml`: now rejects with `curriculum.sequential — Extra inputs are not permitted` (was silently parsing as `locking.sequential = false`).
+- [x] Bumped version to v0.62.1 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.62.1 under "Fixed" / "Changed".
+- [x] Verify: `pyve test tests/` (264 pass — was 259 + 5 new schema), `pnpm test` (173 pass — was 170 + 3 new), `pyve testenv run ruff check .` clean, `pyve testenv run mypy src/` clean.
+
+**Out of scope:**
+
+- **Stronger visual styling for locked modules.** The existing Lock icon + gray-400 + cursor-not-allowed is a reasonable indicator. If after seeing it actually fire in the user's project the styling feels insufficient, a UX tweak (e.g. `bg-gray-50` on the locked `<li>`, or a dedicated `aria-label`) is a small follow-up.
+- **Deprecation policy for previously-tolerated extra fields.** This is a breaking change for any downstream curriculum that had benign extras. For this project there is one user and a small set of fixtures we control, so no migration path is needed; for a wider release a more graceful path (warning before the next major) might be warranted.
+- **Validation-time hint messages.** Pydantic's stock `Extra inputs are not permitted [field=X]` is clear but generic. A future enhancement could intercept the most common typos (`sequential` at curriculum level, `lock` for `locked`, `lessson_sequential`) and emit "Did you mean…?" hints. Not blocking.
+- **Locking enforcement at the resolver layer.** The lesson route's guard is a defense-in-depth at the *navigation* boundary; the schema's strictness is at the *ingestion* boundary. The middle layer (resolver → curriculum.json) is not strictly necessary as a third gate because both ends are now closed, but a future story could add a "no locked-default-status" invariant check in the resolver if the locking model grows more complex.
+- **Refining the placeholder UX.** The current placeholder is functional but minimal. Showing a progress preview ("you're 2/3 through Module 1"), a list of remaining-to-complete lessons, or contextual tooltips is potentially valuable but separate from the failsafe-correctness fix.
+
+---
+
 ### Story I.bb: UI Surfacing of `WasmAssetMissingError` [Planned]
 
 Story I.aa hardened the asset pipeline so `/sql-wasm.wasm` reaches `static/` reliably, and exported a typed `WasmAssetMissingError` from [database.ts](src/learningfoundry/sveltekit_template/src/lib/db/database.ts) that gets thrown when the asset 404s at runtime. What's still missing: **the learner has no idea when recording is failing.** Today a thrown `WasmAssetMissingError` propagates up through `progress.ts` (`ProgressRepo` chokepoint, Story I.w) into UI call sites that just `await` and silently no-op the rejection. The CLI logs are the only signal — no help to a learner using a deployed app.

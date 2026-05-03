@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "learningfoundry"
-version = "0.62.0"
+version = "0.62.1"
 description = "A curriculum engine that turns a YAML curriculum definition into a deployable SvelteKit learning application."
 readme = "README.md"
 license = "Apache-2.0"

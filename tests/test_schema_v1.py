@@ -345,3 +345,76 @@ class TestLockingConfig:
         assert lesson_0.unlock_module_on_complete is True
         quiz_block = curriculum.curriculum.modules[0].lessons[0].content_blocks[2]
         assert quiz_block.pass_threshold == 0.5  # type: ignore[union-attr]
+
+
+# ---------------------------------------------------------------------------
+# Story I.aa.2 — strict-schema rejection of misplaced fields. Pre-fix,
+# Pydantic silently dropped unknown fields, so a `sequential: true` written
+# at the curriculum top level (instead of nested under `locking:`) was
+# eaten without a peep — the resolved curriculum.json shipped with
+# `locking.sequential = false` and the entire module-locking feature was
+# silently disabled.
+# ---------------------------------------------------------------------------
+
+
+class TestStrictSchemaRejectsExtras:
+    """Misplaced or typo'd fields at curriculum / module / lesson /
+    locking level should produce a clear `ValidationError`, not silent
+    data loss."""
+
+    def test_sequential_at_curriculum_level_is_rejected(self) -> None:
+        # The exact mistake from the user's curriculum.yml — `sequential`
+        # was written one level too high (not nested under `locking:`).
+        with pytest.raises(ValidationError) as exc:
+            CurriculumDef.model_validate({
+                "title": "T",
+                "sequential": True,
+                "modules": [{
+                    "id": "mod-01", "title": "M",
+                    "lessons": [{"id": "lesson-01", "title": "L",
+                                 "content_blocks": []}],
+                }],
+            })
+        assert "sequential" in str(exc.value)
+
+    def test_extra_field_at_module_level_is_rejected(self) -> None:
+        with pytest.raises(ValidationError) as exc:
+            Module.model_validate({
+                "id": "mod-01", "title": "M",
+                "lock": True,  # typo: should be `locked`
+                "lessons": [{"id": "lesson-01", "title": "L",
+                             "content_blocks": []}],
+            })
+        assert "lock" in str(exc.value)
+
+    def test_extra_field_at_lesson_level_is_rejected(self) -> None:
+        with pytest.raises(ValidationError) as exc:
+            Lesson.model_validate({
+                "id": "lesson-01", "title": "L",
+                "optional": True,  # typo: not a real field
+                "content_blocks": [],
+            })
+        assert "optional" in str(exc.value)
+
+    def test_extra_field_at_locking_level_is_rejected(self) -> None:
+        from learningfoundry.schema_v1 import LockingConfig
+        with pytest.raises(ValidationError) as exc:
+            LockingConfig.model_validate({
+                "sequential": True,
+                "lessson_sequential": True,  # typo: triple-s
+            })
+        assert "lessson_sequential" in str(exc.value)
+
+    def test_correctly_nested_locking_still_validates(self) -> None:
+        # Positive control: the *correct* shape continues to parse.
+        cur = CurriculumDef.model_validate({
+            "title": "T",
+            "locking": {"sequential": True, "lesson_sequential": False},
+            "modules": [{
+                "id": "mod-01", "title": "M",
+                "lessons": [{"id": "lesson-01", "title": "L",
+                             "content_blocks": []}],
+            }],
+        })
+        assert cur.locking.sequential is True
+        assert cur.locking.lesson_sequential is False

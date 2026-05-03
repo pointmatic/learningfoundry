@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.62.1] - 2026-05-02
+
+### Fixed
+
+- **Locking config silently disabled when `sequential: true` was mis-placed in the YAML** (Story I.aa.2). Repro: a curriculum YAML with `sequential: true` written one indent level too high (directly under `curriculum:` instead of nested under `curriculum.locking:`) silently parsed with `locking.sequential = false`, so every module was freely expandable, every lesson freely openable, and no lock icon appeared in the sidebar. Pydantic's default `extra='ignore'` ate the unknown field without any warning. Compounded by [+page.svelte](src/learningfoundry/sveltekit_template/src/routes/[module]/[lesson]/+page.svelte) having no locking guard at all — even with the schema fixed, typing or bookmarking a locked-lesson URL would have bypassed the sidebar's enforcement entirely.
+
+### Changed
+
+- **Curriculum schema is now strict.** New `StrictModel` base class in [schema_v1.py](src/learningfoundry/schema_v1.py) sets `model_config = ConfigDict(extra='forbid')`. Every schema model (`CurriculumDef`, `Module`, `Lesson`, `LockingConfig`, `CurriculumV1`, `*Block` types, `AssessmentRef`) inherits from it. A misplaced or typo'd field anywhere in the YAML now produces a `ValidationError` with a JSON-pointer path to the offending field — e.g. `curriculum.sequential — Extra inputs are not permitted`. Breaking change for any curriculum YAML that contained benign extra fields; the project ships only the test fixtures and one user's curriculum, none of which use extras.
+
+### Added
+
+- **Lesson-route locking failsafe** (Story I.aa.2). [+page.svelte](src/learningfoundry/sveltekit_template/src/routes/[module]/[lesson]/+page.svelte) now derives `isLocked` from the same `isModuleLocked` / `isLessonLocked` helpers the sidebar uses, and renders a new [LockedLessonPlaceholder.svelte](src/learningfoundry/sveltekit_template/src/lib/components/LockedLessonPlaceholder.svelte) (lock icon + module/lesson titles + "Complete X to unlock this lesson" + Return-to-dashboard CTA) when the requested URL points at a locked lesson. The `navigateTo` side-effect is guarded by `!isLocked` so a locked-URL load doesn't write `currentPosition` and therefore doesn't highlight the gated module in the sidebar.
+
 ## [0.62.0] - 2026-05-02
 
 ### Fixed

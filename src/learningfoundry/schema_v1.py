@@ -5,7 +5,23 @@
 import re
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+
+class StrictModel(BaseModel):
+    """Base for every curriculum-schema model.
+
+    `extra='forbid'` makes Pydantic raise `ValidationError` on unknown
+    fields instead of silently dropping them — Story I.aa.2 root cause
+    was a `sequential: true` mis-placed at the curriculum top level
+    instead of nested under `locking:`. The unknown field was discarded
+    without a peep, the resolved curriculum.json shipped with
+    `locking.sequential = false`, and the entire module-locking feature
+    was silently disabled. Strict validation converts that class of typo
+    into a loud build-time error pointing at the offending field name.
+    """
+
+    model_config = ConfigDict(extra="forbid")
 
 _ID_RE = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 YOUTUBE_URL_RE = re.compile(
@@ -26,17 +42,17 @@ def _validate_id(v: str, field_name: str = "id") -> str:
     return v
 
 
-class AssessmentRef(BaseModel):
+class AssessmentRef(StrictModel):
     source: str
     ref: str
 
 
-class TextBlock(BaseModel):
+class TextBlock(StrictModel):
     type: Literal["text"]
     ref: str
 
 
-class VideoBlock(BaseModel):
+class VideoBlock(StrictModel):
     """Video embed. ``provider`` selects the player; ``extensions`` carries
     player-specific options (chapters, transcript refs, etc.) without
     forcing a one-size-fits-all schema across providers.
@@ -59,20 +75,20 @@ class VideoBlock(BaseModel):
         return self
 
 
-class QuizBlock(BaseModel):
+class QuizBlock(StrictModel):
     type: Literal["quiz"]
     source: str
     ref: str
     pass_threshold: float = Field(0.0, ge=0.0, le=1.0)
 
 
-class ExerciseBlock(BaseModel):
+class ExerciseBlock(StrictModel):
     type: Literal["exercise"]
     source: str
     ref: str
 
 
-class VisualizationBlock(BaseModel):
+class VisualizationBlock(StrictModel):
     type: Literal["visualization"]
     source: str
     ref: str
@@ -84,7 +100,7 @@ ContentBlock = Annotated[
 ]
 
 
-class Lesson(BaseModel):
+class Lesson(StrictModel):
     id: str
     title: str
     unlock_module_on_complete: bool = False
@@ -96,7 +112,7 @@ class Lesson(BaseModel):
         return _validate_id(v, "lesson id")
 
 
-class Module(BaseModel):
+class Module(StrictModel):
     id: str
     title: str
     description: str = ""
@@ -117,14 +133,14 @@ class Module(BaseModel):
         return self
 
 
-class LockingConfig(BaseModel):
+class LockingConfig(StrictModel):
     """Curriculum-level content locking configuration."""
 
     sequential: bool = False
     lesson_sequential: bool = False
 
 
-class CurriculumDef(BaseModel):
+class CurriculumDef(StrictModel):
     title: str
     description: str = ""
     locking: LockingConfig = Field(default_factory=LockingConfig)
@@ -158,6 +174,6 @@ class CurriculumDef(BaseModel):
         return self
 
 
-class CurriculumV1(BaseModel):
+class CurriculumV1(StrictModel):
     version: str
     curriculum: CurriculumDef

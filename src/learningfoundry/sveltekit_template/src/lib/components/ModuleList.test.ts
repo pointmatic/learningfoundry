@@ -135,6 +135,28 @@ describe('ModuleList mount — locked vs unlocked modules', () => {
 		expect(unlockedItem.querySelector('ul')).not.toBeNull();
 	});
 
+	// Story I.aa.2 — visual regression guard. The lock icon + aria-disabled
+	// is covered above; this pins the rest of the locked-module styling
+	// (cursor-not-allowed on the button, gray-400 text) so a future
+	// refactor of the Tailwind classes can't silently regress the visual
+	// indicator that tells learners a module is gated.
+	it('locked module button carries cursor-not-allowed and gray-400 styling', () => {
+		const m1 = makeModule('mod-01', 'First');
+		const m2 = makeModule('mod-02', 'Locked');
+		const progress = {
+			'mod-01': emptyProgress(m1),
+			'mod-02': emptyProgress(m2)
+		};
+		const { container } = render(ModuleList, {
+			props: { modules: [m1, m2], progress, lockedModules: new Set(['mod-02']) }
+		});
+		const lockedBtn = (
+			container.querySelectorAll('nav > ul > li')[1] as HTMLElement
+		).querySelector('button') as HTMLButtonElement;
+		expect(lockedBtn.className).toContain('cursor-not-allowed');
+		expect(lockedBtn.className).toContain('text-gray-400');
+	});
+
 	// Story I.aa.1 — orthogonal coverage to Story I.y. The previous fix
 	// handled "active lesson present, click course title": the position
 	// transitioned from non-null → null and the auto-expand $effect's
