@@ -1329,33 +1329,35 @@ A learner who hits a missing-wasm scenario (asset-pipeline regression, deploy mi
 
 ---
 
-### Story I.cc: Investigate pnpm Lifecycle-Script Reliability [Planned]
+### Story I.cc: pnpm Strict-Layout & sql.js Provisioning — Reframed and Closed [Done]
 
-A discovery story, not a fix story. Scoped to gather evidence and decide whether further work is warranted.
+**Reframe note.** This story originally read "Investigate pnpm Lifecycle-Script Reliability" with a `postinstall` repro plan, on the theory that pnpm was silently skipping lifecycle scripts. That was a misread of the I.aa retrospective. After conferring with the user about their actual pnpm-vs-npm grief from a separate repo (quizazz, host-app integration), the real findings are about pnpm's **strict node_modules layout** (transitive deps live under `.pnpm/<pkg>@<ver>/node_modules/<pkg>/` and aren't hoisted to top-level) and an **OIDC trusted-publishing gap in `pnpm publish`** — neither of which is about lifecycle scripts. The `postinstall` removal in I.aa was incidental; the underlying lifecycle-script theory was wrong. Reframed to a docs-only outcome capturing the actual learnings; the original investigation plan is dropped.
 
-**Background.** During earlier setup of `learningfoundry-test`, the user reported that "pnpm has some wiring problems not passing certain params to npm and could only get it to work using npm directly." Story I.aa removed the template's `postinstall` hook (which had been one symptom of pnpm lifecycle-script unreliability) by moving the wasm-asset copy into the Python pipeline. That fix unblocks recording, but it sidesteps rather than diagnoses the underlying environmental issue. The risk: future template additions that rely on pnpm lifecycle scripts (`prepare`, `prepublish`, `prepack`, custom `pre*` / `post*` hooks for `dev` / `build` / `test`) may silently misbehave in the same way.
+**Background — what the grief actually was.** The user's earlier difficulty was in the [quizazz](https://github.com/pointmatic/quizazz) host-integration path, where third-party SvelteKit apps embed `<QuizBlock>` from `@pointmatic/quizazz`. Two unrelated pnpm gaps surfaced:
 
-**What "done" looks like:**
+1. **Strict layout hides transitive deps' file paths.** Quizazz's README told hosts to `cp node_modules/sql.js/dist/*.wasm static/`. Under pnpm, `sql.js` is *transitive* through `@pointmatic/quizazz` and lives at `node_modules/.pnpm/sql.js@<ver>/node_modules/sql.js/dist/`, not at the top-level path npm would put it. Hosts hit `[404] GET /sql-wasm.wasm` until the README was updated to use a `find`-based wildcard (quizazz Story M.b).
+2. **`pnpm publish` skips the OIDC-token-for-npm-token exchange.** It forwards `--provenance` (sigstore signing succeeds and is visible in workflow logs) but doesn't exchange the GitHub OIDC token for an npm publish token, then 404s on the registry PUT. Quizazz's CI workflow drives the actual publish with `npm publish` and keeps `pnpm` for install/build/validate (quizazz Story M.f).
 
-A short investigation note (probably a section in [docs/specs/project-essentials.md](docs/specs/project-essentials.md) under "Architecture Quirks" or its own subsection) that captures: which lifecycle scripts pnpm reliably runs in this project's configuration, what the user's specific wiring grief was, whether it reproduces today, and a one-paragraph guideline for future template work ("don't rely on pnpm `postinstall`; do these things from the Python pipeline instead").
+**Verification done in learningfoundry's own setup:**
 
-If the investigation surfaces an actionable bug (e.g. a pnpm setting we should pin in [.npmrc](src/learningfoundry/sveltekit_template/.npmrc) or a pnpm version range we should require in `engines`), file a follow-up *fix* story rather than expanding this one.
+- [x] **Confirmed sql.js is a *direct* dep** of [src/learningfoundry/sveltekit_template/package.json](../../src/learningfoundry/sveltekit_template/package.json#L20) (`"sql.js": "^1.12.0"`). Direct deps *are* symlinked at the top level under pnpm's default layout.
+- [x] **Verified the symlink resolves correctly** in the user's actual `learningfoundry-test/dist/`: `node_modules/sql.js → .pnpm/sql.js@1.14.1/node_modules/sql.js`. So [pipeline.py `_ensure_sql_wasm`](../../src/learningfoundry/pipeline.py)'s read of `output_dir/node_modules/sql.js/dist/sql-wasm.wasm` resolves through the symlink and the pipeline behaves correctly.
+- [x] **Side-finding: sql.js@1.14.1 ships both `sql-wasm.wasm` and `sql-wasm-browser.wasm`** (the version range that started the quizazz host onboarding bug), but they are **byte-identical (SHA-256)** in this release. learningfoundry's `locateFile: () => '/sql-wasm.wasm'` runtime override therefore works correctly regardless of which filename Vite's `"browser"` export condition resolves at build time. **This is a coincidence of 1.14.x; do not rely on it.** A future sql.js release that genuinely diverges the two files would surface the same failure mode quizazz hit. Captured in [sql-js-wasm-robustness.md](sql-js-wasm-robustness.md) Pattern A note.
+- [x] **Documented findings** in [project-essentials.md](project-essentials.md) under a new "pnpm node_modules layout" subsection — direct-vs-transitive distinction, the strict-layout caveat, and a guideline for future learningfoundry pipeline code that needs to read files from `node_modules`.
+- [x] **Captured the upstream pnpm OIDC publish finding** in the `## Future` section of this file as a breadcrumb for if/when learningfoundry publishes to npm. Out of scope today (learningfoundry is not on npm).
+- [x] **No version bump** — docs-only outcome, matching the project's convention for docs-only changes.
 
-**Investigation plan (draft):**
+**Why the original investigation plan was dropped:**
 
-- [ ] Reconstruct the user's earlier pnpm-vs-npm grief — what command, what params, what failure mode, what was the workaround. Likely the cleanest path is just to ask the user; failing that, scrape git history / chat for the relevant context.
-- [ ] In a clean `learningfoundry-test/dist/` (or a fresh tmp output): seed a noop `postinstall` (`echo HELLO > postinstall.marker`); run `pnpm install`; check whether `postinstall.marker` was created. Repeat for `prepare`, `prepublish`. Record results.
-- [ ] Check pnpm version in user environment vs. what `engines` (if any) declares; check for `.npmrc` settings (`enable-pre-post-scripts`, `node-linker`, `package-manager-strict`) in user environment, project, and global config.
-- [ ] If lifecycle scripts work fine on a clean test: the original grief was version-specific or has self-resolved. Document and close.
-- [ ] If lifecycle scripts genuinely don't fire: bisect by `.npmrc` / pnpm version to identify the cause. Decide between (a) pinning settings in the project, (b) adding a `engines.pnpm` constraint, (c) explicitly documenting "we don't use pnpm lifecycle scripts; here's why" and constraining future template work.
-- [ ] Update [docs/specs/project-essentials.md](docs/specs/project-essentials.md) with the findings.
-- [ ] Bump version + CHANGELOG only if this story produces code/config changes (a docs-only outcome may not need a version bump — match how other docs-only changes were handled in the project).
+- ~~`postinstall` repro experiment~~ — wrong premise; the I.aa retrospective conflated "we removed `postinstall` to fix the bug" with "`postinstall` was unreliable." The actual I.aa fix was about collapsing two-source asset supply to one owner; the lifecycle script just happened to be the second source.
+- ~~Bisect by `.npmrc` / pnpm version~~ — unnecessary; lifecycle scripts are not the issue.
+- ~~`engines.pnpm` constraint~~ — premature without a real bug to constrain.
 
-**Out of scope:**
+**Out of scope (preserved from the original framing):**
 
-- **Switching the project from pnpm to npm.** Even if pnpm has ongoing issues, the migration cost likely outweighs the benefit; the Story I.aa fix already removes the load-bearing dependency.
-- **Investigating other Node tool reliability issues** (vite, vitest, playwright). Scoped to pnpm lifecycle scripts specifically.
-- **Adding lifecycle-script-dependent template features** ahead of this investigation. If a future story wants to add e.g. a `prepare` hook to the template, it should block on this story landing first.
+- **Switching the project from pnpm to npm.** Migration cost outweighs the benefit; pnpm's strict layout is fine for direct deps.
+- **Filing the upstream pnpm-publish bug.** User has considered it; not blocking learningfoundry. Captured in `## Future`.
+- **Generalising sql.js patterns into a shared library.** Discussed at length during the I.cc conversation; deferred until a third sql.js consumer appears or the existing consumers' surfaces converge. The patterns doc ([sql-js-wasm-robustness.md](sql-js-wasm-robustness.md)) is the working artifact in the meantime.
 
 ---
 
@@ -1384,4 +1386,6 @@ The `archive_stories` mode preserves this section verbatim when archiving storie
 - **Lifecycle timestamps** — `opened_at`, `engaged_at` columns symmetric with the existing `completed_at`. Deferred from FR-P15 with the explicit reasoning that adding one timestamp at a time yields asymmetric coverage; a coherent treatment covers all transitions, picks a retention/decimation policy, and integrates with whatever telemetry/export story is current at the time.
 - **Spaced repetition / adaptive sequencing**
 - **Multi-curriculum dashboard**
-- **Advanced Testing Infrastructure** - See docs/specs/future-testing-infra-plan.md  
+- **Advanced Testing Infrastructure** - See docs/specs/future-testing-infra-plan.md
+- **`pnpm publish` OIDC trusted-publishing gap (upstream).** `pnpm publish` forwards `--provenance` (sigstore signing succeeds and is visible in workflow logs) but skips the GitHub-OIDC-token-for-npm-publish-token exchange — the actual `PUT` to the npm registry then 404s expecting a stored `NPM_TOKEN`. Workaround: drive the publish step with `npm publish` directly while keeping `pnpm` for install/build/validate (this is what quizazz's CI does — see quizazz Story M.f). Worth filing upstream against pnpm; no impact on learningfoundry today since we don't publish to npm. Revisit if learningfoundry ever ships an npm package, or if pnpm closes the gap.
+- **Sql.js wrapper library extraction.** Both learningfoundry and quizazz consume `sql.js`. The robustness patterns (HEAD-fetch precheck, typed `WasmAssetMissingError`, init memoization, repo-boundary swallow) are documented at [sql-js-wasm-robustness.md](sql-js-wasm-robustness.md). Deliberately *not* extracted into a `@pointmatic/sql-js-kit` package today: N=2 is the classic premature-abstraction trap, the genuinely shared surface is ~60 lines, and the partitioning / UI-surface decisions diverge sharply between the two consumers. Revisit when a third consumer appears, or when learningfoundry and quizazz independently grow mirroring features (schema versioning, multi-DB, sync). Patterns doc travels in the meantime.

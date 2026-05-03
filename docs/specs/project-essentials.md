@@ -61,6 +61,13 @@ top-level `#` title — the wrapper provides it.
 - **Auth-migration plan when authentication lands:** swap the `localStorage` UUID for the auth-issued user ID, rename the IDB key once. No schema migration; no per-row `user_id` column. The current architecture treats `userId` as opaque.
 - Cross-tab anti-clobber for the *same* `userId` is **not yet solved** — two tabs writing concurrently still last-writer-wins on the IDB blob. Defer until there's evidence of multi-tab learner workflows or sync work makes it forced.
 
+**pnpm node_modules layout — direct vs transitive deps (Story I.cc):**
+- pnpm uses a **strict** node_modules layout by default. *Direct* deps declared in `package.json` are symlinked at the top level (`output_dir/node_modules/sql.js → .pnpm/sql.js@<ver>/node_modules/sql.js`); *transitive* deps live only under `.pnpm/<pkg>@<ver>/node_modules/<pkg>/` and are **not** hoisted to the top-level path npm would use.
+- The pipeline's [`_ensure_sql_wasm`](../../src/learningfoundry/pipeline.py) reads `output_dir/node_modules/sql.js/dist/sql-wasm.wasm`. This works because `sql.js` is a *direct* dep of [package.json](../../src/learningfoundry/sveltekit_template/package.json#L20). **Verified** in `learningfoundry-test/dist/` against pnpm 10.x and sql.js 1.14.1.
+- **Guideline for future pipeline code:** if you ever need to read a *transitive* dep's file, do not hard-code `node_modules/<pkg>/...` — use `find output_dir/node_modules -name '<file>' -print -quit` or have the upstream direct dep re-export the asset. The quizazz README's `find node_modules -name 'sql-wasm*.wasm' -exec cp {} static/ \;` one-liner is the prior-art recipe for this.
+- **Side-finding on sql.js@1.14.x:** the package now ships both `sql-wasm.wasm` and `sql-wasm-browser.wasm` (Vite's `"browser"` export condition resolves to the latter). In 1.14.1 the two files are **byte-identical (SHA-256)** — `locateFile: () => '/sql-wasm.wasm'` works regardless of which name Vite resolves at build time. **This is a coincidence, not a contract.** A future sql.js release that genuinely diverges them would resurface the failure mode. See [sql-js-wasm-robustness.md](sql-js-wasm-robustness.md) Pattern A and Pattern C for context.
+- Lifecycle scripts (`postinstall`, `prepare`, `prepublish`) are **not** the source of any current bug — Story I.cc was reframed away from a lifecycle-script investigation after the user clarified the actual grief was the strict-layout caveat above (in a separate repo, host-integration scenario).
+
 ### Domain Conventions
 
 **Curriculum IDs are hyphenated lowercase strings:**
