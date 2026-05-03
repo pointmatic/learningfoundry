@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProgressRepo } from './progress.js';
+import { WasmAssetMissingError } from './database.js';
 import type { Database } from './database.js';
 
 // I.w replaces the prior `vi.mock('./database.js', ...)` pattern with
@@ -111,6 +112,90 @@ describe('markLessonInProgress (Story I.p caller-contract narrowing)', () => {
 		expect(sql).toMatch(/'in_progress'/);
 		expect(sql).toMatch(
 			/ON CONFLICT.*DO UPDATE SET\s+status = CASE WHEN status = 'complete' THEN 'complete' ELSE 'in_progress' END/s
+		);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Story I.bb — `WasmAssetMissingError` is swallowed at the ProgressRepo
+// boundary so UI components don't have to defend on every call site. The
+// layout-level banner (`RecordingPausedBanner`) is the user-facing surface.
+// ---------------------------------------------------------------------------
+
+describe('ProgressRepo — WasmAssetMissingError handling (Story I.bb)', () => {
+	function makeRepoWithBrokenDb(): ProgressRepo {
+		const fakeDatabase = {
+			getDb: () => Promise.reject(new WasmAssetMissingError('/sql-wasm.wasm')),
+			persist: () => Promise.resolve()
+		} as unknown as Database;
+		return new ProgressRepo(fakeDatabase);
+	}
+
+	it('markLessonComplete resolves quietly when wasm is missing', async () => {
+		const repo = makeRepoWithBrokenDb();
+		await expect(repo.markLessonComplete('mod-01', 'lesson-01')).resolves.toBeUndefined();
+	});
+
+	it('markLessonOpened resolves quietly when wasm is missing', async () => {
+		const repo = makeRepoWithBrokenDb();
+		await expect(repo.markLessonOpened('mod-01', 'lesson-01')).resolves.toBeUndefined();
+	});
+
+	it('markLessonInProgress resolves quietly when wasm is missing', async () => {
+		const repo = makeRepoWithBrokenDb();
+		await expect(repo.markLessonInProgress('mod-01', 'lesson-01')).resolves.toBeUndefined();
+	});
+
+	it('saveQuizScore resolves quietly when wasm is missing', async () => {
+		const repo = makeRepoWithBrokenDb();
+		await expect(
+			repo.saveQuizScore({ quizRef: 'q1', score: 1, maxScore: 1, questionCount: 1 })
+		).resolves.toBeUndefined();
+	});
+
+	it('updateExerciseStatus resolves quietly when wasm is missing', async () => {
+		const repo = makeRepoWithBrokenDb();
+		await expect(repo.updateExerciseStatus('ex1', 'complete')).resolves.toBeUndefined();
+	});
+
+	it('resetProgress resolves quietly when wasm is missing', async () => {
+		const repo = makeRepoWithBrokenDb();
+		await expect(repo.resetProgress()).resolves.toBeUndefined();
+	});
+
+	it('getLessonProgress returns null when wasm is missing', async () => {
+		const repo = makeRepoWithBrokenDb();
+		await expect(repo.getLessonProgress('mod-01', 'lesson-01')).resolves.toBeNull();
+	});
+
+	it('getQuizScore returns null when wasm is missing', async () => {
+		const repo = makeRepoWithBrokenDb();
+		await expect(repo.getQuizScore('q1')).resolves.toBeNull();
+	});
+
+	it('getModuleProgress returns an empty not_started shape so the dashboard renders', async () => {
+		const repo = makeRepoWithBrokenDb();
+		const mp = await repo.getModuleProgress('mod-01', ['lesson-01', 'lesson-02']);
+		expect(mp.moduleId).toBe('mod-01');
+		expect(mp.status).toBe('not_started');
+		expect(Object.keys(mp.lessons)).toEqual(['lesson-01', 'lesson-02']);
+		expect(mp.lessons['lesson-01'].status).toBe('not_started');
+		expect(mp.lessons['lesson-02'].completedAt).toBeNull();
+		expect(mp.preAssessment).toBeNull();
+		expect(mp.postAssessment).toBeNull();
+	});
+
+	it('non-WASM errors still propagate', async () => {
+		const fakeDatabase = {
+			getDb: () => Promise.reject(new Error('something else broke')),
+			persist: () => Promise.resolve()
+		} as unknown as Database;
+		const repo = new ProgressRepo(fakeDatabase);
+		await expect(repo.markLessonComplete('mod-01', 'lesson-01')).rejects.toThrow(
+			'something else broke'
+		);
+		await expect(repo.getLessonProgress('mod-01', 'lesson-01')).rejects.toThrow(
+			'something else broke'
 		);
 	});
 });

@@ -1162,7 +1162,7 @@ The interaction: build N+1 wiped the wasm via channel 1 and skipped channel 2. T
 - [x] Verified prevention scan: all `Database.getDb()` callers go through `progress.ts` (`ProgressRepo` chokepoint from Story I.w). UI consumers `await` `progress.ts` methods, so a thrown `WasmAssetMissingError` propagates up there as a single integration point for the follow-up banner work.
 - [x] `pyve test tests/` — 259 pass.
 - [x] `pnpm test` — 167 pass (including the 2 new wasm-asset cases).
-- [ ] **Housekeeping → Story I.bb:** UI surfacing of `WasmAssetMissingError`. The class is now thrown reliably; consumers in `progress.ts` need to either catch and re-throw with progress-write context, or let it propagate to a layout-level `<svelte:boundary>` that renders a recoverable banner ("Progress recording is paused — try refreshing"). Out of scope here because it's UI work separable from the asset-pipeline root-cause fix and benefits from a usability pass on copy/iconography.
+- [x] **Housekeeping → Story I.bb:** UI surfacing of `WasmAssetMissingError`. The class is now thrown reliably; consumers in `progress.ts` need to either catch and re-throw with progress-write context, or let it propagate to a layout-level `<svelte:boundary>` that renders a recoverable banner ("Progress recording is paused — try refreshing"). Out of scope here because it's UI work separable from the asset-pipeline root-cause fix and benefits from a usability pass on copy/iconography. — Done v0.63.0.
 - [ ] **Housekeeping → Story I.cc:** investigate whether the user's earlier pnpm-vs-npm wiring grief is rooted in the same lifecycle-script handling, now that we no longer depend on `postinstall`. If pnpm in their environment skips the *postinstall* of root packages, it may also skip other lifecycle scripts that future template work might add — a discovery story rather than a fix.
 - [x] Bumped version to v0.61.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
 - [x] `CHANGELOG.md` — v0.61.0 under "Fixed".
@@ -1293,7 +1293,7 @@ The locked indicator deliberately matches the sidebar's idiom (Lucide Lock + `te
 
 ---
 
-### Story I.bb: UI Surfacing of `WasmAssetMissingError` [Planned]
+### Story I.bb: v0.63.0 — UI Surfacing of 'WasmAssetMissingError' [Done]
 
 Story I.aa hardened the asset pipeline so `/sql-wasm.wasm` reaches `static/` reliably, and exported a typed `WasmAssetMissingError` from [database.ts](src/learningfoundry/sveltekit_template/src/lib/db/database.ts) that gets thrown when the asset 404s at runtime. What's still missing: **the learner has no idea when recording is failing.** Today a thrown `WasmAssetMissingError` propagates up through `progress.ts` (`ProgressRepo` chokepoint, Story I.w) into UI call sites that just `await` and silently no-op the rejection. The CLI logs are the only signal — no help to a learner using a deployed app.
 
@@ -1310,16 +1310,16 @@ A learner who hits a missing-wasm scenario (asset-pipeline regression, deploy mi
 
 **Tasks (draft — refine when this story is picked up):**
 
-- [ ] Decide catch placement (probably layout-level init store; confirm).
-- [ ] Implement the banner component (copy, iconography, refresh CTA).
-- [ ] Wire `WasmAssetMissingError` detection into the chosen catch site.
-- [ ] Decide swallow-vs-propagate for `progress.ts` write methods; document the rule in the file's module comment.
-- [ ] Verify the read path handles a missing-wasm `Database` without rendering an error page (empty state + banner).
-- [ ] Add a vitest case that mounts the layout with a 404'd wasm fetch and asserts the banner renders.
-- [ ] Add a vitest case that mounts the layout with a working wasm and asserts the banner does not render.
-- [ ] Update [features.md](docs/specs/features.md) with the recording-paused user-visible state as a documented requirement (closes the requirements gap that Story I.aa identified).
-- [ ] Bump version, update CHANGELOG.
-- [ ] Verify: `pyve test`, `pnpm test`, `pnpm e2e`, ruff, mypy.
+- [x] Decide catch placement: option (c) — layout-level init store. New [src/lib/stores/db-init.ts](src/learningfoundry/sveltekit_template/src/lib/stores/db-init.ts) exposes a `dbInit` writable (`pending` | `ready` | `wasm-missing` | `failed`) populated by an idempotent `initializeDatabase()` that calls `database.getDb()` once and converts a typed `WasmAssetMissingError` rejection into the `wasm-missing` status. `+layout.svelte` calls it in a one-shot `$effect`.
+- [x] Implement the banner component: [RecordingPausedBanner.svelte](src/learningfoundry/sveltekit_template/src/lib/components/RecordingPausedBanner.svelte) — AlertTriangle icon, amber palette, `role="status"` + `aria-live="polite"`, "Progress recording is paused. Your activity in this session will not be saved. Try refreshing to retry." copy, Refresh button that calls `location.reload()`. Renders only when `dbInit === 'wasm-missing'`.
+- [x] Wire `WasmAssetMissingError` detection into the chosen catch site: `+layout.svelte` mounts `<RecordingPausedBanner />` above `<main>` in a flex column, so the banner pins to the top and `<main>` keeps its `overflow-y-auto` scroll behaviour.
+- [x] Decided swallow-vs-propagate for `progress.ts`: **swallow** the typed `WasmAssetMissingError` at the repo boundary so UI components don't have to defend on every call site. Writes resolve as no-ops; reads return `null` / empty `not_started`. Non-WASM errors still propagate. Module-level doc comment in [progress.ts](src/learningfoundry/sveltekit_template/src/lib/db/progress.ts) records the rule.
+- [x] Verified the read path: `getModuleProgress` returns an empty `not_started` shape when wasm is missing; `getLessonProgress` and `getQuizScore` return `null`. New test cases in [progress.test.ts](src/learningfoundry/sveltekit_template/src/lib/db/progress.test.ts) lock these behaviours.
+- [x] Added vitest cases that the banner does/does-not render: 4 cases in [RecordingPausedBanner.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/RecordingPausedBanner.test.ts) cover `pending` (hidden), `ready` (hidden — working wasm path), `wasm-missing` (rendered with refresh CTA — 404'd wasm path), and a reactive `pending → wasm-missing` transition. 6 cases in [db-init.test.ts](src/learningfoundry/sveltekit_template/src/lib/stores/db-init.test.ts) lock the store transitions and idempotency. 10 cases in [progress.test.ts](src/learningfoundry/sveltekit_template/src/lib/db/progress.test.ts) lock the swallow-on-WASM-missing contract for every read and write method.
+- [x] Updated [features.md](docs/specs/features.md) FR-4 with the recording-paused state as a hard requirement.
+- [x] Bumped version to v0.63.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.63.0 under "Added" / "Changed".
+- [x] Verify: `pyve test tests/` (264 pass), `pyve test tests/test_smoke_sveltekit.py` (12 pass, 1 skip), `pnpm test` (194 pass — was 174 + 20 new), `pnpm e2e` (14 pass), `ruff check .` clean, `mypy src/` clean.
 
 **Out of scope:**
 

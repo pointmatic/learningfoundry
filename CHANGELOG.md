@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.63.0] - 2026-05-03
+
+### Added
+
+- **`WasmAssetMissingError` is now visible to the learner** (Story I.bb). When `Database.getDb()` rejects because `/sql-wasm.wasm` is unavailable, a persistent layout-level banner appears above the main content area: "Progress recording is paused. Your activity in this session will not be saved. Try refreshing to retry." with a Refresh CTA that calls `location.reload()`. Pre-fix the failure was CLI-log-only — the learner saw checkmarks fail to land, no in-progress icons, no module advancement, and no UI signal explaining why. Story I.aa hardened the asset pipeline so this should be rare in deployed apps; Story I.bb closes the loop on what the learner actually sees if it ever recurs (asset-pipeline regression, deploy misconfiguration, browser cache poisoning, network partition).
+- New [src/lib/stores/db-init.ts](src/learningfoundry/sveltekit_template/src/lib/stores/db-init.ts) — `dbInit` writable store (`pending` | `ready` | `wasm-missing` | `failed`) plus an idempotent `initializeDatabase()` that drives the store from a one-shot `database.getDb()` call wired into `+layout.svelte`. Single-signal layout-level surfacing (option (c) from the story design notes), so per-write rejections don't have to handle the case independently.
+- New [RecordingPausedBanner.svelte](src/learningfoundry/sveltekit_template/src/lib/components/RecordingPausedBanner.svelte) renders only when `dbInit` is in `wasm-missing` state. AlertTriangle icon, amber palette, accessible `role="status"` + `aria-live="polite"`.
+
+### Changed
+
+- **`progress.ts` swallows `WasmAssetMissingError` at the repository boundary.** Once the layout banner is up, per-call rejections are an information duplicate that every UI call site would have to defend against. Writes (`markLessonComplete` / `markLessonOpened` / `markLessonInProgress` / `saveQuizScore` / `updateExerciseStatus` / `resetProgress`) resolve as no-ops; reads (`getLessonProgress`, `getQuizScore`) return `null`; `getModuleProgress` returns an empty `not_started` shape so the dashboard renders the empty state instead of an error page. Non-WASM errors still propagate. Module-level doc comment in [progress.ts](src/learningfoundry/sveltekit_template/src/lib/db/progress.ts) documents the rule so a future maintainer doesn't refactor the catches away.
+- **`+layout.svelte`** wraps `<main>` in a flex column that hosts the banner above the scrollable content region; main keeps `overflow-y-auto`, banner stays pinned at the top.
+- **[features.md](docs/specs/features.md) FR-4** now documents the recording-paused state as a hard requirement (closes the requirements gap Story I.aa identified).
+
 ## [0.62.2] - 2026-05-02
 
 ### Fixed

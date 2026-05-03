@@ -4,7 +4,9 @@
 	import { afterNavigate } from '$app/navigation';
 	import { curriculum, modules } from '$lib/stores/curriculum.js';
 	import { progressStore, invalidateProgress } from '$lib/stores/progress.js';
+	import { initializeDatabase } from '$lib/stores/db-init.js';
 	import ModuleList from '$lib/components/ModuleList.svelte';
+	import RecordingPausedBanner from '$lib/components/RecordingPausedBanner.svelte';
 	import ResetCourseButton from '$lib/components/ResetCourseButton.svelte';
 	import { clearActivePosition } from './layout.helpers.js';
 	import { resetMainScrollOnForwardNav } from './layout.scroll.js';
@@ -32,6 +34,13 @@
 		if (cur) {
 			void invalidateProgress(cur);
 		}
+	});
+
+	// One-shot DB init so a `WasmAssetMissingError` surfaces via the
+	// `dbInit` store and the layout-level banner. Per-call rejections in
+	// `progress.ts` are swallowed once the banner is up (Story I.bb).
+	$effect(() => {
+		void initializeDatabase();
 	});
 </script>
 
@@ -62,7 +71,10 @@
 	</aside>
 
 	<!-- Main content -->
-	<main bind:this={mainEl} class="flex-1 overflow-y-auto px-6 py-4">
-		{@render children()}
-	</main>
+	<div class="flex flex-1 flex-col overflow-hidden">
+		<RecordingPausedBanner />
+		<main bind:this={mainEl} class="flex-1 overflow-y-auto px-6 py-4">
+			{@render children()}
+		</main>
+	</div>
 </div>

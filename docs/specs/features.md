@@ -260,9 +260,17 @@ The locking configuration (parsed from YAML and global config) controls which mo
 - `unlock_module_on_complete`: completing this lesson unlocks its siblings and the next module regardless of sequential state.
 - The frontend enforces locking by making locked modules/lessons non-interactive (Story I.j).
 
+**Recording-paused state (Story I.bb):**
+When the sql.js WASM asset (`/sql-wasm.wasm`) cannot be fetched at runtime — asset-pipeline regression, deploy misconfiguration, browser cache poisoning, network partition — `Database.getDb()` rejects with the typed `WasmAssetMissingError`. The frontend MUST:
+- Surface a persistent, non-blocking banner above the main content area: "Progress recording is paused. Your activity in this session will not be saved. Try refreshing to retry." with a refresh CTA that reloads the page.
+- Continue rendering the dashboard, sidebar, and lesson views as if no progress had been recorded yet (empty `not_started` state). A missing-WASM read MUST NOT render an error page.
+- Best-effort write attempts (lesson opens, quiz scores, exercise status) MUST resolve quietly so UI flows complete without unhandled rejections; the banner is the user-facing signal.
+- The banner clears once a refresh successfully fetches the WASM asset (`dbInit` transitions to `ready`).
+
 **Edge Cases:**
 - Browser storage cleared → Database is recreated; progress resets. This is expected behavior (ephemeral).
 - Multiple browser tabs → No cross-tab sync in v1; last-write-wins on the same IndexedDB backing store.
+- WASM asset missing → recording-paused banner; reads return empty, writes are no-ops (Story I.bb).
 
 ### FR-5: quizazz Integration
 
