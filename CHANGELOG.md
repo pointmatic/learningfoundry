@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.62.0] - 2026-05-02
+
+### Fixed
+
+- **Course-title click on the dashboard didn't collapse a manually-expanded module** (Story I.aa.1). Repro: on the dashboard with no lesson active (`currentPosition === null`), expand a module by clicking its header, then click the course title — pre-fix, the module stayed expanded. Story I.y had only fixed the path where a lesson *was* active. Root cause: [layout.helpers.ts](src/learningfoundry/sveltekit_template/src/routes/layout.helpers.ts) `clearActivePosition` set `currentPosition` to null and relied on `ModuleList`'s auto-expand `$effect` to observe the change and collapse the module. But Svelte 5's `$store` deref maintains an internal `$state` for the store and updates it via `Object.is`-equality — so a `set(null)` on an already-null `currentPosition` produces no change to the dependent effect, and the effect never re-ran. The course-title-click reset path simply did not fire when the learner started from the dashboard.
+
+### Changed
+
+- **`expandedModuleId` lifted from component-local state to a Svelte writable.** `ModuleList`'s previously-local `let expandedModuleId = $state<string | null>(null)` is now exported as `writable<string | null>(null)` from [stores/curriculum.ts](src/learningfoundry/sveltekit_template/src/lib/stores/curriculum.ts), so external callers can collapse modules directly without going through the `$effect`. `clearActivePosition` now resets two stores: `currentPosition` (unchanged from Story I.y) and `expandedModuleId` (new). The auto-expand `$effect` keeps its original 2-arg `computeAutoExpand` signature and continues to handle auto-expand-on-navigation and FR-P14 Finish; it just stops being a side-channel for the course-title-click case. `lastAutoExpandedModuleId` stays component-local — it has no external consumer.
+
 ## [0.61.0] - 2026-05-02
 
 ### Fixed

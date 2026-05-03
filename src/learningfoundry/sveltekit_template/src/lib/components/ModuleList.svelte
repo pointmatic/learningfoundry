@@ -1,6 +1,6 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
-	import { currentPosition } from '$lib/stores/curriculum.js';
+	import { currentPosition, expandedModuleId } from '$lib/stores/curriculum.js';
 	import type { Curriculum, Module, ModuleProgress } from '$lib/types/index.js';
 	import { getOptionalLessons, lockedLessonIds } from '$lib/utils/locking.js';
 	import { computeAutoExpand, resolveModuleHeaderClick } from './module-list.helpers.js';
@@ -21,7 +21,17 @@
 		lockedModules = new Set()
 	}: Props = $props();
 
-	let expandedModuleId = $state<string | null>(null);
+	// `expandedModuleId` is module-level (Story I.aa.1) so external callers
+	// — `clearActivePosition` on the course-title link — can collapse a
+	// manually-expanded module directly. The previous fix attempt routed
+	// through the `$currentPosition`-driven `$effect`, but Svelte 5
+	// short-circuits a `set(null)` on an already-null `$store` deref via
+	// `Object.is`-equality, so the effect never re-ran for a learner who
+	// expanded a module on the dashboard and then clicked the title link
+	// without ever opening a lesson.
+	// `lastAutoExpandedModuleId` stays component-local — it's pure
+	// auto-expand bookkeeping (Story I.f manual-toggle preservation) and
+	// has no external consumer.
 	let lastAutoExpandedModuleId = $state<string | null>(null);
 
 	function modulePercent(mod: Module): number {
@@ -34,22 +44,25 @@
 	}
 
 	function toggleModule(id: string) {
-		const action = resolveModuleHeaderClick(id, expandedModuleId, lockedModules);
+		const action = resolveModuleHeaderClick(id, $expandedModuleId, lockedModules);
 		if (action.kind === 'noop') return;
-		expandedModuleId = action.kind === 'collapse' ? null : action.id;
+		expandedModuleId.set(action.kind === 'collapse' ? null : action.id);
 	}
 
 	// Auto-expand the module containing the current lesson.
 	// Only fire when `currentPosition.moduleId` changes to a *new* value;
 	// `lastAutoExpandedModuleId` breaks the self-dependency that previously
 	// caused manual toggles to revert immediately. When the position is
-	// cleared (Finish on the last lesson, FR-P14), collapse the previously
-	// expanded module so the dashboard sidebar starts from a clean slate.
+	// cleared from a non-null value (Finish on the last lesson, FR-P14),
+	// collapse the previously expanded module so the dashboard sidebar
+	// starts from a clean slate. Course-title-click reset from the
+	// dashboard is handled separately in `clearActivePosition` (Story
+	// I.aa.1) because the $effect can't observe a same-value `set(null)`.
 	$effect(() => {
 		const pos = $currentPosition;
 		const next = computeAutoExpand(pos?.moduleId ?? null, lastAutoExpandedModuleId);
 		if (next) {
-			expandedModuleId = next.expandedModuleId;
+			expandedModuleId.set(next.expandedModuleId);
 			lastAutoExpandedModuleId = next.lastAutoExpandedModuleId;
 		}
 	});
@@ -60,7 +73,7 @@
 		{#each modules as mod (mod.id)}
 			{@const pct = modulePercent(mod)}
 			{@const locked = lockedModules.has(mod.id)}
-			{@const isExpanded = !locked && expandedModuleId === mod.id}
+			{@const isExpanded = !locked && $expandedModuleId === mod.id}
 			{@const optional = curriculum ? getOptionalLessons(mod.id, curriculum, progress) : new Set<string>()}
 			{@const lockedLessons = curriculum ? lockedLessonIds(mod.id, curriculum, progress) : new Set<string>()}
 			<li

@@ -106,4 +106,5 @@ describe('computeAutoExpand (FR-P14 sidebar reset on null position)', () => {
 			lastAutoExpandedModuleId: 'mod-02'
 		});
 	});
+
 });

@@ -8,7 +8,7 @@ import {
 	resolveNextAction,
 } from '$lib/components/module-list.helpers.js';
 import { clearActivePosition } from './layout.helpers.js';
-import { currentPosition } from '$lib/stores/curriculum.js';
+import { currentPosition, expandedModuleId } from '$lib/stores/curriculum.js';
 
 // ---------------------------------------------------------------------------
 // Bug 1 — Finish button calls goto('/') on last lesson
@@ -109,14 +109,17 @@ describe('activeModuleClass (Bug 3 — active module highlight)', () => {
 // learner clicks the course title to return to the dashboard.
 //
 // Cascading behaviour: ModuleList's `$effect` watches `$currentPosition`
-// and uses `computeAutoExpand` to collapse on null (already covered by
-// the test above at line ~67); the active-highlight CSS reads
-// `$currentPosition?.moduleId` directly. So clearing currentPosition is
-// sufficient to both collapse the module and drop the highlight; the bug
-// was that the title link never triggered the clear.
+// and uses `computeAutoExpand` to collapse on a *non-null → null*
+// transition (already covered by the test above at line ~67); the
+// active-highlight CSS reads `$currentPosition?.moduleId` directly.
+//
+// Story I.aa.1 added a second store reset: `expandedModuleId` is cleared
+// directly so a *manually*-expanded module also collapses. The effect
+// path alone could not handle this case because Svelte 5's `$store`
+// short-circuits a `set(null)` on an already-null value via `Object.is`.
 // ---------------------------------------------------------------------------
 
-describe('clearActivePosition (Bug 4 — sidebar collapse on home nav)', () => {
+describe('clearActivePosition (Story I.y / I.aa.1 — sidebar collapse on home nav)', () => {
 	it('sets currentPosition to null', () => {
 		currentPosition.set({ moduleId: 'mod-01', lessonId: 'lesson-01' });
 		expect(get(currentPosition)).not.toBeNull();
@@ -124,9 +127,24 @@ describe('clearActivePosition (Bug 4 — sidebar collapse on home nav)', () => {
 		expect(get(currentPosition)).toBeNull();
 	});
 
-	it('is a no-op when currentPosition is already null', () => {
+	it('leaves currentPosition null when it was already null', () => {
 		currentPosition.set(null);
 		clearActivePosition();
+		expect(get(currentPosition)).toBeNull();
+	});
+
+	it('clears expandedModuleId so a manually-expanded module collapses on title click (Story I.aa.1)', () => {
+		expandedModuleId.set('mod-01');
+		currentPosition.set(null);
+		clearActivePosition();
+		expect(get(expandedModuleId)).toBeNull();
+	});
+
+	it('clears expandedModuleId regardless of whether a lesson was active (covers both I.y and I.aa.1 paths)', () => {
+		expandedModuleId.set('mod-02');
+		currentPosition.set({ moduleId: 'mod-02', lessonId: 'lesson-01' });
+		clearActivePosition();
+		expect(get(expandedModuleId)).toBeNull();
 		expect(get(currentPosition)).toBeNull();
 	});
 });

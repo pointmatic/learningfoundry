@@ -11,20 +11,34 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
 import type { Module, ModuleProgress } from '$lib/types/index.js';
 
-const { currentPositionValue } = vi.hoisted(() => ({
-	currentPositionValue: { value: null as { moduleId: string; lessonId: string } | null }
+type Pos = { moduleId: string; lessonId: string } | null;
+
+const { currentPositionValue, subscribers } = vi.hoisted(() => ({
+	currentPositionValue: { value: null as Pos },
+	subscribers: [] as Array<(v: Pos) => void>
 }));
 
-vi.mock('$lib/stores/curriculum.js', () => {
-	const noop = () => {};
+vi.mock('$lib/stores/curriculum.js', async () => {
+	const { writable } = await import('svelte/store');
 	return {
 		currentPosition: {
-			subscribe: (fn: (v: { moduleId: string; lessonId: string } | null) => void) => {
+			subscribe: (fn: (v: Pos) => void) => {
+				subscribers.push(fn);
 				fn(currentPositionValue.value);
-				return noop;
+				return () => {
+					const i = subscribers.indexOf(fn);
+					if (i >= 0) subscribers.splice(i, 1);
+				};
 			},
-			set: vi.fn()
-		}
+			set: vi.fn((v: Pos) => {
+				currentPositionValue.value = v;
+				for (const fn of subscribers) fn(v);
+			})
+		},
+		// Real writable — `ModuleList` subscribes via `$expandedModuleId`
+		// and `clearActivePosition` writes via `.set(null)`. Story I.aa.1
+		// state-lift validates by exercising those code paths exactly.
+		expandedModuleId: writable<string | null>(null)
 	};
 });
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
@@ -68,6 +82,9 @@ describe('ModuleList mount — locked vs unlocked modules', () => {
 
 	beforeEach(async () => {
 		currentPositionValue.value = null;
+		subscribers.length = 0;
+		const { expandedModuleId } = await import('$lib/stores/curriculum.js');
+		expandedModuleId.set(null);
 		ModuleList = (await import('./ModuleList.svelte')).default;
 	});
 
@@ -116,6 +133,44 @@ describe('ModuleList mount — locked vs unlocked modules', () => {
 		const { flushSync } = await import('svelte');
 		flushSync();
 		expect(unlockedItem.querySelector('ul')).not.toBeNull();
+	});
+
+	// Story I.aa.1 — orthogonal coverage to Story I.y. The previous fix
+	// handled "active lesson present, click course title": the position
+	// transitioned from non-null → null and the auto-expand $effect's
+	// reset branch fired. This test pins the case where the learner
+	// manually expanded a module from the dashboard (currentPosition
+	// stays null the whole time) and *then* clicks the course title:
+	// `clearActivePosition` is responsible for collapsing the module
+	// directly via `expandedModuleId.set(null)`, because Svelte 5's
+	// `$store` deref filters a same-value `set(null)` and the $effect
+	// would not re-run.
+	it('clearActivePosition collapses a manually-expanded module even when currentPosition was already null (course-title click on dashboard)', async () => {
+		const m1 = makeModule('mod-01', 'First');
+		const progress = { 'mod-01': emptyProgress(m1) };
+
+		const { container } = render(ModuleList, {
+			props: { modules: [m1], progress }
+		});
+
+		const item = container.querySelector('nav > ul > li') as HTMLElement;
+		const btn = item.querySelector('button') as HTMLButtonElement;
+
+		// Manually expand by clicking the module header.
+		btn.click();
+		const { flushSync } = await import('svelte');
+		flushSync();
+		expect(item.querySelector('ul')).not.toBeNull();
+
+		// Simulate the course-title link click — the layout handler that
+		// runs is `clearActivePosition()`.
+		const { clearActivePosition } = await import(
+			'../../routes/layout.helpers.js'
+		);
+		clearActivePosition();
+		flushSync();
+
+		expect(item.querySelector('ul')).toBeNull();
 	});
 
 	it('active module carries border-l-blue-500 bg-blue-50; inactive sibling does not', async () => {

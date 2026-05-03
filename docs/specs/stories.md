@@ -1178,6 +1178,44 @@ The interaction: build N+1 wiped the wasm via channel 1 and skipped channel 2. T
 
 ---
 
+### Story I.aa.1: v0.62.0 — Sidebar Collapse on Course-Title Click from Dashboard [Done]
+
+A sidebar regression orthogonal to Story I.y. **Repro:** on the dashboard (no lesson active, `currentPosition === null`), manually expand a module by clicking its header, then click the course title link. Pre-fix: the module remained expanded. Story I.y had only fixed the path where a lesson *was* active (`currentPosition` transitioning non-null → null collapses through the auto-expand `$effect`).
+
+**Root cause.** [layout.helpers.ts](src/learningfoundry/sveltekit_template/src/routes/layout.helpers.ts) `clearActivePosition` set `currentPosition` to null. ModuleList's auto-expand `$effect` was supposed to observe that change and collapse. But Svelte 5's `$store` deref maintains an internal `$state` for the store and updates it via `Object.is`-equality — so a `set(null)` on an already-null `currentPosition` produces no change to the dependent effect, and the effect never re-runs. The course-title-click reset path simply did not fire when the learner started from the dashboard.
+
+A first attempt extended `computeAutoExpand` to also reason about a `expandedModuleId` argument so the helper could distinguish "manually expanded" from "auto-expanded" inputs. That change passed its helper-level unit test but failed the component-level mount test for exactly the reason above: the helper was never invoked because the `$effect` never re-ran. The hypothesis was wrong, and the fix had to be a level higher up the stack.
+
+**Why this wasn't caught by Story I.y's review.** Story I.y added two regression cases in [layout.test.ts](src/learningfoundry/sveltekit_template/src/routes/layout.test.ts): `populated → null` and `null → null`. The `null → null` case asserted that `clearActivePosition` *was called*; it didn't assert anything about the resulting sidebar state because that test scope (the layout helpers, not ModuleList) couldn't observe component-local state. Same anti-pattern flagged in Story I.aa: a test guarded the gating behaviour but not the consequence.
+
+**Fix.** Lift `expandedModuleId` from `ModuleList`'s component-local `$state` to a module-level `writable` in [stores/curriculum.ts](src/learningfoundry/sveltekit_template/src/lib/stores/curriculum.ts), so external callers can collapse modules directly without going through the `$effect`. `clearActivePosition` now resets two stores: `currentPosition` (for the active-lesson highlight, unchanged from Story I.y) and `expandedModuleId` (new). The auto-expand `$effect` keeps its original 2-arg `computeAutoExpand` signature and continues to handle the auto-expand-on-navigation and FR-P14 Finish paths; it just stops being a side-channel for the course-title-click case. `lastAutoExpandedModuleId` stays component-local — it's pure auto-expand bookkeeping for Story I.f manual-toggle preservation, with no external consumer.
+
+**Tasks:**
+
+- [x] Wrote failing tests at two scopes:
+  - Helper-level (in [module-list.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/module-list.test.ts)) for the first hypothesis (extend `computeAutoExpand`); these were *removed* when the hypothesis was revised because the helper signature is unchanged in the final fix.
+  - Component-level real-DOM mount (in [ModuleList.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/ModuleList.test.ts)): mount `ModuleList`, click a header to manually expand, call `clearActivePosition()`, assert the inner `<ul>` is gone. This test is what caught the wrong-hypothesis pivot and is the gate artefact for the fix.
+  - Layout helper tests (in [layout.test.ts](src/learningfoundry/sveltekit_template/src/routes/layout.test.ts)): two new cases asserting `clearActivePosition` clears `expandedModuleId` both when `currentPosition` was non-null (I.y path) and when it was null (I.aa.1 path).
+- [x] Confirmed each test failed for the right reason, then made each pass.
+- [x] Lifted `expandedModuleId` to a `writable<string | null>` in [stores/curriculum.ts](src/learningfoundry/sveltekit_template/src/lib/stores/curriculum.ts).
+- [x] Updated [ModuleList.svelte](src/learningfoundry/sveltekit_template/src/lib/components/ModuleList.svelte) to subscribe via `$expandedModuleId` and write via `expandedModuleId.set(...)`. Original `$effect` and `computeAutoExpand` signature restored — the lift sidesteps the `Object.is` short-circuit entirely.
+- [x] Updated [layout.helpers.ts](src/learningfoundry/sveltekit_template/src/routes/layout.helpers.ts) `clearActivePosition` to reset both stores and re-documented the `Object.is` rationale inline so a future maintainer doesn't refactor the second `set(null)` away.
+- [x] Reverted the failed `computeAutoExpand`-signature-extension from this story's first attempt (the helper file is byte-identical to its v0.61.0 state). Reverted the `untrack` import added during the same dead end.
+- [x] Updated [ModuleList.test.ts](src/learningfoundry/sveltekit_template/src/lib/components/ModuleList.test.ts) mock for `$lib/stores/curriculum.js` to (a) make the `currentPosition` mock notify subscribers on `set` (matching writable semantics, so the auto-expand $effect path is testable), and (b) export a real Svelte `writable` for `expandedModuleId` so `clearActivePosition`'s `.set(null)` actually drives the component.
+- [x] Renamed Story I.y's "is a no-op when currentPosition is already null" test to "leaves currentPosition null when it was already null" — under I.aa.1, `clearActivePosition` is no longer a no-op in that case, it now also resets `expandedModuleId`.
+- [x] Bumped version to v0.62.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] `CHANGELOG.md` — v0.62.0 under "Fixed" / "Changed".
+- [x] Verify: `pyve test tests/` (259 pass), `pnpm test` (170 pass — was 167, +1 ModuleList real-DOM, +2 layout-helper anti-regression cases). `ruff check .` clean.
+
+**Out of scope:**
+
+- **Migrating other component-local state to stores.** The lift was specific to `expandedModuleId` because it has an external consumer (`clearActivePosition`). State that is purely component-internal (`lastAutoExpandedModuleId`, sidebar scroll position, etc.) stays local; lifting unnecessarily inverts dependencies and complicates testing.
+- **Refactor of the auto-expand `$effect`'s ergonomics.** The effect now writes to two state shapes (a store and a `$state` rune); a future cleanup might unify them. Not blocking — current shape is clear if the comment is read.
+- **Auditing Svelte 5 `$store` Object.is-equality elsewhere.** The same short-circuit may bite other "set null on already-null" patterns in the codebase. A broader sweep is worthwhile but separate; the only known case today is `currentPosition`.
+- **End-to-end Playwright coverage.** The component-level real-DOM test exercises the exact wiring; an e2e click-the-title-link test would be valuable for visual confirmation but adds infrastructure for marginal additional confidence.
+
+---
+
 ### Story I.bb: UI Surfacing of `WasmAssetMissingError` [Planned]
 
 Story I.aa hardened the asset pipeline so `/sql-wasm.wasm` reaches `static/` reliably, and exported a typed `WasmAssetMissingError` from [database.ts](src/learningfoundry/sveltekit_template/src/lib/db/database.ts) that gets thrown when the asset 404s at runtime. What's still missing: **the learner has no idea when recording is failing.** Today a thrown `WasmAssetMissingError` propagates up through `progress.ts` (`ProgressRepo` chokepoint, Story I.w) into UI call sites that just `await` and silently no-op the rejection. The CLI logs are the only signal — no help to a learner using a deployed app.

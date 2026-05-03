@@ -36,6 +36,21 @@ export interface NavPosition {
 
 export const currentPosition = writable<NavPosition | null>(null);
 
+/**
+ * Which module the sidebar has expanded, if any. Lifted out of
+ * `ModuleList`'s component-local `$state` (Story I.aa.1) so external
+ * callers — specifically `clearActivePosition` on the course-title link —
+ * can collapse a manually-expanded module directly. Pre-fix, the only
+ * channel was `currentPosition`'s `$effect`, which Svelte 5's `$store`
+ * deref filters by `Object.is`-equality: a `set(null)` on an already-null
+ * `currentPosition` produced no effect re-run, so a module manually
+ * expanded from the dashboard stayed open forever.
+ *
+ * Set null to collapse all modules. The `ModuleList` `$effect` still
+ * writes here on auto-expand-on-navigation and on FR-P14 Finish reset.
+ */
+export const expandedModuleId = writable<string | null>(null);
+
 // ---------------------------------------------------------------------------
 // Derived helpers
 // ---------------------------------------------------------------------------
