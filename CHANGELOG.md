@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`interleaveModuleFlow`, `capitalizeRole`, `formatPassThreshold`** helpers in [module-list.helpers.ts](src/learningfoundry/sveltekit_template/src/lib/components/module-list.helpers.ts) plus 10 new unit tests in `module-list.test.ts` and 5 new DOM tests in `LessonList.test.ts`.
 - [ModuleList.svelte](src/learningfoundry/sveltekit_template/src/lib/components/ModuleList.svelte) now passes `mod.assessments` to `LessonList`.
 
+### Phase J close (Story J.g)
+
+- **Cross-cutting Phase J smoke fixture** at [tests/fixtures/phase-j-curriculum.yml](tests/fixtures/phase-j-curriculum.yml) and [tests/fixtures/phase-j-content/](tests/fixtures/phase-j-content/) exercises every Phase J affordance — lesson + module `meta`, all three tutorial directives, all three assessment roles with mixed positions, and `duration_minutes` aggregation — in a single curriculum. The new [tests/test_phase_j_smoke.py](tests/test_phase_j_smoke.py) (9 cases) pins the composition end-to-end through parse → resolve → generate. Per-feature tests stay narrow; this one is the integration anchor.
+- **README "Pedagogical authoring" section** stitches the per-feature docs into a single author-facing story with a worked example covering meta blocks, tutorial directives, and the `assessments[]` array. Includes a migration paragraph for `pre_assessment` / `post_assessment` → `assessments[]` for any external curriculum that pre-dates v0.68.0.
+- **features.md FR-2** now has a brief "Phase J: Pedagogical authoring" header tying the J.a–J.f subsections together and pointing at the integration test.
+
+J.g is doc + integration-test only — shares the v0.69.0 release with J.f, no extra version bump.
+
 ### Notes
 
 - Defensive belt: a lesson-anchored assessment whose target lesson does not exist is silently dropped at render time. The parser already rejects unknown refs at build time (`Module.validate_assessment_lesson_refs`); this guard ensures the component does not crash if one slips through.

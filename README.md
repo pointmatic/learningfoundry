@@ -19,7 +19,7 @@ A curriculum engine that turns a YAML curriculum definition into a deployable Sv
 - [Video blocks](#video-blocks)
 - [Lesson titles and markdown headings](#lesson-titles-and-markdown-headings)
 - [Images and assets](#images-and-assets)
-- [Tutorial scaffold directives](#tutorial-scaffold-directives)
+- [Pedagogical authoring](#pedagogical-authoring)
 - [Content locking](#content-locking)
 - [Configuration File](#configuration-file)
 - [Development Setup](#development-setup)
@@ -376,11 +376,63 @@ For production deployment to a CDN, just run `cd dist && pnpm build` — the `st
 
 ---
 
-## Tutorial scaffold directives
+## Pedagogical authoring
 
-Lesson markdown supports three named **container directives** that surface the worked-example → faded-example → independent-practice progression with distinct styling. Each directive opens with `::: <name>` on its own line and closes with `:::` on its own line; the body is itself markdown:
+Phase J adds first-class authoring affordances for the worked-example → faded-example → independent-practice progression and for declaring pedagogical context the build pipeline can act on. Three building blocks compose into one story:
+
+1. **`meta` blocks** declare the *intent* of a module or lesson — its theme, role, opening hook, learning items, and time estimate.
+2. **Container directives** in lesson markdown style worked / faded / independent-practice cards inline.
+3. **`assessments[]`** on each module places quizzes at named positions (before all lessons, before/after a specific lesson, after all lessons) — replacing the legacy `pre_assessment` / `post_assessment` pair (see migration note below).
+
+A small worked example bringing the three together:
+
+```yaml
+modules:
+  - id: mod-01
+    title: "Why convolutions exist"
+
+    meta:
+      theme: "Why convolutions exist"
+      objectives:
+        - "Explain why FC nets fail on images"
+        - "Describe weight sharing"
+      target_audience: "Intermediate Python; high-school math"
+
+    assessments:
+      - role: pre
+        position: before_lessons
+        source: quizazz
+        ref: assessments/mod-01-pre.yml
+      - role: practice
+        position: { before_lesson: lesson-02 }
+        source: quizazz
+        ref: assessments/mod-01-practice.yml
+        pass_threshold: 0.7
+      - role: post
+        position: after_lessons
+        source: quizazz
+        ref: assessments/mod-01-post.yml
+        pass_threshold: 0.8
+
+    lessons:
+      - id: lesson-01
+        title: "What is a convolution?"
+        meta:
+          role: opener
+          hook:
+            tagline: "What if your first layer of vision was just a flashlight on the world?"
+          introduces: [receptive_field, simple_cells]
+          duration_minutes: 15
+        content_blocks:
+          - type: text
+            ref: content/mod-01/lesson-01.md
+```
+
+And the lesson markdown can sprinkle in the three directives:
 
 ```markdown
+# What is a convolution?
+
 ::: worked-example
 Compute the output shape for a 32×32 input, 3×3 kernel, stride 1, padding 0.
 
@@ -396,13 +448,70 @@ Given a 28×28 input, design a `Conv2d` that outputs 14×14. State your kernel, 
 :::
 ```
 
-**How it renders:**
+### `meta` reference
+
+**Lesson `meta`** carries:
+- `role` — open string, conventional values `opener`, `concept`, `story`, `math`, `tutorial`, `practice`, `hands_on`, `bonus`. Renders as a small chip in the sidebar.
+- `hook` — `{ tagline, image_prompt? }`. The tagline renders as a quiet italic line above the lesson title.
+- `introduces` / `reinforces` — lists of learning-item ids (open vocabulary; useful for downstream tooling).
+- `duration_minutes` — integer; aggregated across the curriculum into `total_duration_minutes` and surfaced on the index page as `≈ Xh Ym`.
+
+**Module `meta`** carries:
+- `theme`, `big_problem`, `objectives`, `experiential_summary`, `target_audience`. Rendering of these is deferred; today they pass through to `curriculum.json` for downstream tooling.
+
+Both meta models accept extra fields (`extra="allow"`) so authors can attach genre-specific data without schema churn.
+
+### Tutorial scaffold directives
+
+Three named container directives:
 
 - `::: worked-example` — filled gray card. Use it for fully worked solutions.
 - `::: faded-example` — outlined dim card. Use it for similar problems with reduced scaffolding.
 - `::: independent-practice` — amber-highlighted challenge prompt. Use it for problems the learner solves on their own.
 
-Inner markdown (headings, lists, math, emphasis) renders normally inside each directive. Unknown directive names pass through untouched at render time. Static styling only — no progressive-reveal interactivity in v1.
+Inner markdown (headings, lists, math, emphasis) renders normally inside each directive. Unknown directive names pass through untouched at render time. Static styling only — no progressive-reveal interactivity in v1. An unbalanced known-name block (open with no `:::` close on its own line) fails the build with the lesson location, so the failure mode is loud rather than rendered as silent prose.
+
+### Assessments
+
+Each module declares an `assessments[]` array; each entry carries:
+
+- `role` — open string. Conventional values: `pre`, `practice`, `post`, `checkpoint`. Surfaces as a capitalized label in the sidebar (`Pre Assessment`, `Practice Assessment`, …).
+- `position` — discriminated union:
+  - `before_lessons` — anchors at the start of the module flow.
+  - `after_lessons` — anchors at the end.
+  - `{ before_lesson: <lesson-id> }` — anchors immediately before the named lesson.
+  - `{ after_lesson: <lesson-id> }` — anchors immediately after.
+- `source`, `ref` — provider + path, same shape as `quiz` content blocks.
+- `pass_threshold` — optional `0.0`–`1.0`. Recorded but not gating in v1; surfaces as a `"X% to pass"` annotation on the assessment row when set.
+
+Lesson-anchored refs (`before_lesson` / `after_lesson`) are validated against the module's `lessons` at build time — typing a wrong lesson id fails the build with the module id, role, and unknown lesson id.
+
+### Migrating from `pre_assessment` / `post_assessment` (pre-v0.68.0)
+
+`Module.pre_assessment` and `Module.post_assessment` were removed in v0.68.0 (Story J.e). To migrate an external curriculum that pre-dates the cutover, replace each block with a single `assessments[]` entry using the `before_lessons` or `after_lessons` position:
+
+```yaml
+# BEFORE (v0.67.x and earlier)
+pre_assessment:
+  source: quizazz
+  ref: assessments/mod-01-pre.yml
+post_assessment:
+  source: quizazz
+  ref: assessments/mod-01-post.yml
+
+# AFTER (v0.68.0+)
+assessments:
+  - role: pre
+    position: before_lessons
+    source: quizazz
+    ref: assessments/mod-01-pre.yml
+  - role: post
+    position: after_lessons
+    source: quizazz
+    ref: assessments/mod-01-post.yml
+```
+
+Strict-mode Pydantic rejects an unmigrated `pre_assessment` / `post_assessment` field with a `ValidationError` naming the offending field, so the build fails loudly until the migration is complete. There is no compatibility shim or deprecation warning — pre-1.0 makes the clean break acceptable.
 
 ---
 

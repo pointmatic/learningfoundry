@@ -1,0 +1,75 @@
+# Cross-cutting Phase J smoke fixture (Story J.g). Exercises every Phase J
+# affordance simultaneously so an end-to-end test can verify the features
+# compose cleanly through parse → resolve → generate. Per-feature tests
+# are kept narrow; this fixture is the integration anchor.
+
+version: "1.0.0"
+
+curriculum:
+  title: "Phase J Smoke"
+  description: "Cross-cutting fixture exercising every Phase J affordance."
+
+  modules:
+    - id: mod-01
+      title: "Why convolutions exist"
+      description: "Tour of the pedagogy that motivates convolutional layers."
+
+      # Story J.a — module-level meta.
+      meta:
+        theme: "Why convolutions exist"
+        big_problem: "Fully-connected networks ignore image structure."
+        objectives:
+          - "Explain why FC nets fail on images"
+          - "Describe weight sharing"
+        experiential_summary: "Build your first conv layer in PyTorch."
+        target_audience: "Intermediate Python; high-school math"
+
+      # Story J.e + J.f — generalized assessments array with all three role
+      # vocabulary entries and all three position forms.
+      assessments:
+        - role: pre
+          position: before_lessons
+          source: quizazz
+          ref: assessments/mod-01-pre.yml
+        - role: practice
+          position: { before_lesson: lesson-02 }
+          source: quizazz
+          ref: assessments/mod-01-practice.yml
+          pass_threshold: 0.7
+        - role: post
+          position: after_lessons
+          source: quizazz
+          ref: assessments/mod-01-post.yml
+          pass_threshold: 0.8
+
+      lessons:
+        - id: lesson-01
+          title: "What is a convolution?"
+          # Story J.a — lesson-level meta with hook + introduces +
+          # duration_minutes (J.c aggregate).
+          meta:
+            role: opener
+            hook:
+              tagline: "What if your first layer of vision was just a flashlight on the world?"
+              image_prompt: "A 1960s neuroscience lab; oscilloscope tracing a single spike."
+            introduces: [receptive_field, simple_cells]
+            reinforces: []
+            duration_minutes: 15
+          content_blocks:
+            # Story J.d.1 — worked-example directive lives inside this
+            # lesson's markdown.
+            - type: text
+              ref: content/mod-01/lesson-01.md
+
+        - id: lesson-02
+          title: "Hands-on: build your first conv"
+          meta:
+            role: hands_on
+            introduces: [pytorch_conv2d]
+            reinforces: [receptive_field]
+            duration_minutes: 30
+          content_blocks:
+            # Story J.d.1 — faded-example + independent-practice live in
+            # this lesson's markdown.
+            - type: text
+              ref: content/mod-01/lesson-02.md

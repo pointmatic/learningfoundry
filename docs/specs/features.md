@@ -213,6 +213,10 @@ Resolve all content references in the parsed curriculum to their actual content.
 - Image reference points at a non-existent file → `ContentResolutionError` with the markdown file path AND the lesson location ("module `mod-01` / lesson `lesson-01` / block[0]") in the error message.
 - Same image referenced from N lessons → Copied exactly once; all N markdown rewrites point at the same `/content/<hash12>/<basename>` URL.
 
+#### Phase J: Pedagogical authoring
+
+The remaining subsections under FR-2 — `meta` blocks, the generalized `assessments[]` array, module-flow rendering, the curriculum-wide time aggregate, and the tutorial-scaffold container directives — are the Phase J pedagogical-authoring affordances that compose into a single author-facing story. They were landed as separate stories (J.a → J.f) for blast-radius reasons but are designed to be used together. See README's "Pedagogical authoring" section for a unified worked example and the migration note for `pre_assessment` / `post_assessment` → `assessments[]`. The cross-cutting integration test that pins the composition lives at `tests/test_phase_j_smoke.py`.
+
 **Module assessments — generalized array (Phase J / Story J.e):**
 
 Each module declares assessments as a list of `AssessmentDefinition` entries — one entry per assessment — replacing the legacy two-slot `pre_assessment` / `post_assessment` fields (removed outright; pre-1.0 makes the breakage acceptable).

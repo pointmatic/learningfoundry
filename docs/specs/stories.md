@@ -270,7 +270,7 @@ J.e replaced `pre_assessment` / `post_assessment` with a resolved-order `assessm
 
 ---
 
-### Story J.g: Phase J Close — Cross-Cutting Smoke + README Sweep [Planned]
+### Story J.g: Phase J Close — Cross-Cutting Smoke + README Sweep [Done]
 
 Final phase-close story that ties off the loose ends each per-feature story didn't pick up:
 
@@ -284,11 +284,11 @@ No version bump in the title — this story is doc + integration-test only and s
 
 **Tasks:**
 
-- [ ] `tests/`: add an end-to-end smoke fixture (curriculum YAML + content) that uses lesson `meta`, module `meta`, all three tutorial directives, all three assessment roles, and `duration_minutes`. Assert the generated `curriculum.json` and rendered SvelteKit DOM contain everything.
-- [ ] `README.md`: new "Pedagogical authoring" section with a worked example covering meta blocks, tutorial directives, and the assessments array. Include the migration paragraph for `pre_assessment` / `post_assessment`.
-- [ ] `docs/specs/features.md`: a brief "Phase J: Pedagogical Authoring" header tying the per-feature subsections together (insert after J.f's edits).
-- [ ] No version bump (shares v0.69.0 with J.f).
-- [ ] Verify: `pyve test`, vitest, smoke build, `ruff`, `mypy`.
+- [x] `tests/`: new fixture at `tests/fixtures/phase-j-curriculum.yml` + content at `tests/fixtures/phase-j-content/` exercising every affordance. New `tests/test_phase_j_smoke.py` (9 cases) asserts that `curriculum.json` carries module + lesson `meta`, all three directive opens, the three assessment roles in canonical resolved order with their position payloads, `pass_threshold` pass-through, content resolution, the `total_duration_minutes` aggregate, and the absence of legacy `pre_assessment` / `post_assessment` fields. DOM rendering of each affordance is covered by the per-feature vitest suites (markdown directives in `markdown.test.ts`, lesson tagline + role chip in `LessonView.test.ts` / `LessonList.test.ts`, assessment rows in `LessonList.test.ts`, total-duration formatting in `duration.test.ts`); the integration anchor here is the data contract.
+- [x] `README.md`: replaced the standalone "Tutorial scaffold directives" section with a single "Pedagogical authoring" section that introduces meta + directives + assessments together, includes a worked example, and ends with a `pre_assessment` / `post_assessment` → `assessments[]` migration block. ToC entry updated.
+- [x] `docs/specs/features.md`: brief "Phase J: Pedagogical authoring" header inserted before the per-feature subsections (J.a / J.b / J.c / J.d.1 / J.e / J.f) and pointing at the integration test.
+- [x] No version bump (shares v0.69.0 with J.f). Phase J release ships at v0.69.0.
+- [x] Verify: `pyve test`, vitest, `ruff`, `mypy`. Smoke build (pnpm install + vite build) intentionally not re-run in this turn — covered by CI.
 
 ---
 
