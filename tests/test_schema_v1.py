@@ -12,8 +12,11 @@ from learningfoundry.schema_v1 import (
     CurriculumDef,
     CurriculumV1,
     ExerciseBlock,
+    Hook,
     Lesson,
+    LessonMeta,
     Module,
+    ModuleMeta,
     QuizBlock,
     TextBlock,
     VideoBlock,
@@ -418,3 +421,125 @@ class TestStrictSchemaRejectsExtras:
         })
         assert cur.locking.sequential is True
         assert cur.locking.lesson_sequential is False
+
+
+class TestPedagogicalMeta:
+    """Story J.a — Hook, LessonMeta, ModuleMeta and their attachment as
+    optional fields on Lesson and Module."""
+
+    def test_hook_minimal(self) -> None:
+        h = Hook.model_validate({"tagline": "What if vision was a flashlight?"})
+        assert h.tagline == "What if vision was a flashlight?"
+        assert h.image_prompt is None
+
+    def test_hook_with_image_prompt(self) -> None:
+        h = Hook.model_validate({
+            "tagline": "T",
+            "image_prompt": "A 1960s neuroscience lab.",
+        })
+        assert h.image_prompt == "A 1960s neuroscience lab."
+
+    def test_hook_requires_tagline(self) -> None:
+        with pytest.raises(ValidationError):
+            Hook.model_validate({"image_prompt": "x"})
+
+    def test_hook_allows_extra_fields(self) -> None:
+        h = Hook.model_validate({"tagline": "T", "alt_text": "x"})
+        assert h.model_dump()["alt_text"] == "x"
+
+    def test_lesson_meta_all_fields_optional(self) -> None:
+        m = LessonMeta.model_validate({})
+        assert m.role is None
+        assert m.hook is None
+        assert m.introduces == []
+        assert m.reinforces == []
+        assert m.duration_minutes is None
+
+    def test_lesson_meta_full(self) -> None:
+        m = LessonMeta.model_validate({
+            "role": "opener",
+            "hook": {"tagline": "T"},
+            "introduces": ["receptive_field", "simple_cells"],
+            "reinforces": [],
+            "duration_minutes": 15,
+        })
+        assert m.role == "opener"
+        assert m.hook is not None
+        assert m.hook.tagline == "T"
+        assert m.introduces == ["receptive_field", "simple_cells"]
+        assert m.duration_minutes == 15
+
+    def test_lesson_meta_allows_extra_fields(self) -> None:
+        m = LessonMeta.model_validate({"role": "opener", "custom_field": 42})
+        assert m.model_dump()["custom_field"] == 42
+
+    def test_lesson_meta_rejects_wrong_type(self) -> None:
+        with pytest.raises(ValidationError):
+            LessonMeta.model_validate({"duration_minutes": "fifteen"})
+        with pytest.raises(ValidationError):
+            LessonMeta.model_validate({"introduces": "not-a-list"})
+
+    def test_module_meta_all_fields_optional(self) -> None:
+        m = ModuleMeta.model_validate({})
+        assert m.theme is None
+        assert m.big_problem is None
+        assert m.objectives == []
+        assert m.experiential_summary is None
+        assert m.target_audience is None
+
+    def test_module_meta_full(self) -> None:
+        m = ModuleMeta.model_validate({
+            "theme": "Why convolutions exist",
+            "big_problem": "FC nets ignore image structure.",
+            "objectives": ["Explain why FC nets fail", "Describe weight sharing"],
+            "experiential_summary": "Build your first conv layer.",
+            "target_audience": "Intermediate Python; high-school math",
+        })
+        assert m.theme == "Why convolutions exist"
+        assert m.objectives == [
+            "Explain why FC nets fail",
+            "Describe weight sharing",
+        ]
+
+    def test_module_meta_allows_extra_fields(self) -> None:
+        m = ModuleMeta.model_validate({"theme": "T", "stretch_goal": "publish"})
+        assert m.model_dump()["stretch_goal"] == "publish"
+
+    def test_lesson_meta_attaches_to_lesson(self) -> None:
+        lesson = Lesson.model_validate({
+            "id": "lesson-01",
+            "title": "L",
+            "meta": {
+                "role": "opener",
+                "hook": {"tagline": "T"},
+                "duration_minutes": 10,
+            },
+            "content_blocks": [],
+        })
+        assert lesson.meta is not None
+        assert lesson.meta.role == "opener"
+        assert lesson.meta.hook is not None
+        assert lesson.meta.hook.tagline == "T"
+
+    def test_lesson_meta_absent_is_none(self) -> None:
+        lesson = Lesson.model_validate({
+            "id": "lesson-01", "title": "L", "content_blocks": [],
+        })
+        assert lesson.meta is None
+
+    def test_module_meta_attaches_to_module(self) -> None:
+        mod = Module.model_validate({
+            "id": "mod-01",
+            "title": "M",
+            "meta": {"theme": "Why convolutions exist"},
+            "lessons": [{"id": "lesson-01", "title": "L", "content_blocks": []}],
+        })
+        assert mod.meta is not None
+        assert mod.meta.theme == "Why convolutions exist"
+
+    def test_module_meta_absent_is_none(self) -> None:
+        mod = Module.model_validate({
+            "id": "mod-01", "title": "M",
+            "lessons": [{"id": "lesson-01", "title": "L", "content_blocks": []}],
+        })
+        assert mod.meta is None

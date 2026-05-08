@@ -22,7 +22,7 @@ For efficiency, when you change modes, start a new LLM conversation.
 ### For LLMs
 
 **Modes**
-This Project-Guide offers a human-in-the-loop workflow for you to follow that can be dynamically reconfigured based on the project `mode`. Each `mode` defines a focused sequence of steps to guide you (the LLM) to help generate artifacts for some facet in the project lifecycle. This document is customized for plan_phase.
+This Project-Guide offers a human-in-the-loop workflow for you to follow that can be dynamically reconfigured based on the project `mode`. Each `mode` defines a focused cycle of steps to guide you (the LLM) to help generate artifacts for some facet in the project lifecycle. This document is customized for code_direct.
 
 **Approval Gate**
 When you have completed the steps, pause for the developer to review, correct, redirect, or ask questions about your work.  
@@ -222,123 +222,89 @@ Use this when tests invoke CLI entry points (console scripts), because `pythonpa
 
 ---
 
-# plan_phase mode (sequence)
+# code_direct mode (cycle)
 
-> Generate a phase of stories with a shared theme or goal (pre-1.0 only)
-
-
-Generate a combined concept/features/tech-spec document for a new phase in an existing project, then add the phase and stories to `docs/specs/stories.md`.
-
-Use this mode when the developer wants to add a significant new capability to a project that already has an established codebase and spec documents.
-
-## Prerequisites
-
-Before planning a new phase, the following should exist:
-- `docs/specs/concept.md`
-- `docs/specs/features.md`
-- `docs/specs/tech-spec.md`
-- `docs/specs/stories.md`
-
-`plan_phase` is the **pre-1.0** phase-planning mode. Once the package version is at v1.0.0 or beyond, **every phase must use `plan_production_phase`** (which adds production-readiness scrutiny, breaking-change negotiation, and an explicit version-bump target). See the `## Version Cadence` section in `docs/specs/stories.md` for the rationale.
-
-## Steps
-
-1. **Verify this is the right mode.** Read the package version from `pyproject.toml` (or equivalent manifest). If the version is **`>= 1.0.0`**, **halt** and recommend `plan_production_phase` instead — `plan_phase` is pre-1.0 only. Do not proceed without explicit developer override (e.g., "I know we're post-1.0 but this phase is internal infrastructure and doesn't ship; proceed with `plan_phase`"). Continue to step 2 only if the version is below 1.0.0 or the developer explicitly overrides.
-
-2. Read the existing spec documents to understand the current project state.
-
-   `docs/specs/stories.md` may be in one of two shapes:
-
-   a. **Populated** — contains one or more `## Phase <Letter>:` sections from prior phases. Use the highest existing phase letter as the basis for the next one (see step 6).
-
-   b. **Empty (post-archive)** — `archive_stories` was just run and `stories.md` contains only the header and a `## Future` section, no phases. In this case, look in `docs/specs/.archive/` for files named `stories-vX.Y.Z.md`. Read the one with the highest version and find its highest `## Phase <Letter>:` heading — that is the basis for the next phase letter. Phase letters **continue across the archive boundary**; they do not reset.
-
-   If neither `stories.md` nor `.archive/` contains any phases, this is a fresh project — start at `A`.
-
-3. Gather information from the developer about the new phase:
-   - phase_name: A short name for the phase (e.g., "Mode System", "API Integration")
-   - problem_gap: What capability is missing or what problem this phase solves
-   - new_features: What the phase will add (functional requirements)
-   - technical_approach: How it will be built (architecture changes, new modules, new dependencies)
-   - constraints: Any limitations or compatibility requirements with existing code
-   - scope: What this phase will and won't do
-
-4. Generate a phase plan document at `docs/specs/phase-<letter>-<name>-plan.md` that combines:
-   - **Gap analysis**: What exists vs. what's needed
-   - **Feature requirements**: What the phase adds (mini features.md)
-   - **Technical changes**: New/modified modules, dependencies, config changes (mini tech-spec.md)
-   - **Out of scope**: What's deferred to future phases. **Walk through each Out-of-scope item with the developer** before committing the phase plan — confirm each item is genuinely deferrable rather than something that should be in this phase. Out-of-scope is a negotiation, not a unilateral declaration.
-
-5. Present the phase plan to the developer for approval.
-
-6. After approval, add a new phase section and stories to `docs/specs/stories.md`:
-   - **Determine the next phase letter** by applying the algorithm from step 2:
-     - If `stories.md` had existing phases, the next letter is the successor of the highest one (e.g., `K` → `L`).
-     - If `stories.md` was empty but `.archive/` had a `stories-vX.Y.Z.md`, read the latest archived file, find its highest phase letter, and take its successor (e.g., archived Phase `J` → next phase `K`).
-     - If neither had phases, start at `A`.
-   - The successor follows the base-26-no-zero scheme (`Z` → `AA`, `ZZ` → `AAA`). See the Phase and Story ID Scheme below for details.
-   - If `stories.md` was empty, **insert the new phase as the first phase** in the file (after the header and `---`, before any `## Future` section). Otherwise append after the highest existing phase but before `## Future`.
-   - Break the phase into stories following the standard story format.
-   - Include a spike story if the phase introduces a new integration boundary.
-
-7. Present the updated stories to the developer for approval.
-
-8. **After the stories are approved, append any new must-know facts to `project-essentials.md`.** Run this step **once** at the end of phase planning — not per-story.
-
-   First, check whether `docs/specs/project-essentials.md` exists:
-   - **If it does NOT exist**: this is a legacy project that has never had project-essentials captured. Create it fresh from the artifact template at `docs/project-guide/templates/artifacts/project-essentials.md` (installed by `project-guide init`; refreshed by `project-guide update`). The **File header conventions** section is mandatory baseline content — pre-fill `<YEAR>`, `<OWNER>`, and `<LICENSE>` from the project's `LICENSE` file and `pyproject.toml` (or equivalent manifest) and remove the trailing TODO note. Do **not** ask the developer whether to include the headers — the question below is only ever about *additional* facts. Note: this is the same create path as `refactor_plan`, and legacy projects are the highest-value case for a first-time capture.
-   - **If it exists**: read the current content and keep it in mind for the next sub-step.
-
-   Then ask the developer: **"Does this phase introduce any new must-know facts that future LLMs should know? New architecture boundaries, new workflow rules, new gotchas?"** Put these concrete worked examples in front of them — phase planning is specifically about *adding* capability, so the relevant gotchas are usually about interactions between the new and old worlds:
-
-   - **New architecture boundary.** Did the phase introduce a new module, layer, or integration surface that has rules the rest of the codebase doesn't? *Example:* "Phase K adds an `archive` action type. Action handlers live in `project_guide/actions.py`; metadata registration is in `.metadata.yml`; the runtime split is that only `archive` actions fire deterministically via the CLI, while `create`/`modify` are LLM-handled. Don't add new action types without updating both files and the `VALID_ARTIFACT_ACTIONS` constant."
-   - **New workflow rule or CLI contract.** Did the phase add a flag, env var, or error-message format that downstream tooling may depend on? *Example:* "Phase L added `--no-input` with a pinned error-message contract in `tests/test_cli.py::test_require_setting_contract_exit_code_and_message`. Downstream tools (pyve) may cite this message verbatim — do not change it without a coordinated release."
-   - **New hidden coupling between files.** Did the phase introduce a pair of files (or a file and a generated output) that must stay in sync? *Example:* "Phase M wires the render pipeline to `docs/specs/project-essentials.md` via `_header-common.md`'s `{% if project_essentials %}` guard — removing the guard silently breaks every render. Covered by the post-render placeholder validator from M.b."
-   - **New deferred-but-documented item.** Did the phase explicitly defer something to a future phase? That deferral itself may be a must-know fact — future work on adjacent areas may accidentally re-implement what you decided to skip.
-   - **Principle**: if the phase introduced a new *invariant* or *convention* that someone working in this codebase a year from now would waste an hour rediscovering, it belongs in project-essentials. If the phase was a straightforward feature addition with no new invariants, skip this step.
-
-   **Skip if there are none.** Not every phase introduces new must-know facts. A pure feature addition that follows existing conventions does not need new project-essentials content — confirm with the developer and skip.
-
-   If the developer provides new facts, **append** (do not rewrite or reorder) them to `docs/specs/project-essentials.md`. The append-only semantics are deliberate: `plan_phase` runs once per phase and is not the place to refactor existing project-essentials content — that's `refactor_plan`'s Final Step job. Add new `###` subsections under the appropriate category (or create a new category if none fits). Follow the artifact template's heading convention: **do NOT include a top-level `#` heading** (the rendered `go.md` wrapper provides `## Project Essentials`), and use `###` for subsections so they nest correctly.
-
-   Present the updated file to the developer for approval. Show only what was added (since this is an append operation, the diff is minimal).
+> Generate code directly, test after
 
 
-**After completing all steps below**, prompt the user to change modes:
+Implement stories rapidly with direct commits to main. Focus on feature completion and iteration speed over process overhead.
 
-```bash
-project-guide mode code_test_first
-```
+**Next Action**
+Restart the cycle of steps. 
+
+---
+
+## Version Cadence (quick reference)
+
+When bumping the package version for a completed story, follow the **Version Cadence** rule documented at the top of `docs/specs/stories.md`. Quick reference:
+
+- Bugfix or trivial change → **patch**
+- Feature or improvement → **minor**
+- Breaking change → **major** (post-1.0 only; only via `plan_production_phase`)
+- **Phase-bundled releases:** stories within a phase can run unversioned during work; the phase ships a single release/tag at end-of-phase, with bump magnitude determined by the highest-impact change in the bundle.
+
+**Do not extrapolate the bump magnitude from `pyproject.toml`'s current version.** Re-read `docs/specs/stories.md`'s Version Cadence section if unsure.
+
+## Out-of-scope items in stories
+
+When announcing a story (Step 2 in code cycles, or the equivalent gate in other cycle modes), check whether the story or its parent phase plan has an "Out of scope" section. If so, **briefly summarize those items to the developer**. They are a negotiation point — the developer may opt some items back into scope before implementation begins. Do not silently treat them as deferred.
 
 ---
 
 
-## Phase and Story ID Scheme
+## Cycle Steps
 
-Phase and story IDs use a base-26 letter scheme with no zero. The same scheme applies to both — single letters first, then two-letter combinations, etc. This keeps IDs short while supporting projects of any size, and lets archive boundaries continue the sequence cleanly.
+For each story:
 
-### Phase letters
+1. **Read** the story's checklist from `docs/specs/stories.md` — always re-fetch from disk with the `Read` tool at the start of each cycle. The developer may have edited the file since you last viewed it (added tasks, reworded scope, marked items done), so do not rely on prior conversation context for its contents.
+2. **Identify and announce** the intended next story to the developer **before implementing anything**. State the **story ID** (e.g., `Story B.c`), **title**, and a **one-line scope summary** of what implementing it covers. Then wait for the developer to say "go" (a precise confirmation of *this specific story*) — or to redirect you to a different story. Do not start implementation work on the strength of your own pick; the announce-and-wait beat exists so the developer can redirect cheaply before any code is written.
+3. **Implement** all tasks in the checklist
+4. **Add copyright/license headers** to every new source file
+5. **Run tests** -- `pyve run pytest` (fix failures before continuing)
+6. **Run linting** -- fix any issues immediately
+7. **Mark tasks** as `[x]` in `stories.md` and change story suffix to `[Done]`
+8. **Bump version** in package manifest and source — only if the story has a version assigned. **Determine the bump magnitude per the Version Cadence rule** (see `docs/specs/stories.md`'s Version Cadence section, summarized in this mode's header above): patch for bugfix, minor for feature, major for breaking (post-1.0 only via `plan_production_phase`). **Do not extrapolate from `pyproject.toml`'s current version** — re-read the cadence rule if unsure.
+9. **Update CHANGELOG.md** with the version entry
+10. **Present** the completed story concisely: what changed (files + line refs), verification results (test counts, lint status), and the suggested next story. Do not propose commits, pushes, or bundling options. Do not offer "want me to also…?" follow-ups.
+11. **Wait** for the developer to say "go" before starting the next cycle. "Go" re-enters the cycle at **Step 1** — a fresh `stories.md` read and a new announce in Step 2 — never silent implementation of whatever you assumed was next.
 
-Phases are labeled `A`, `B`, …, `Z`, then `AA`, `AB`, …, `AZ`, `BA`, …, `ZZ`, then `AAA`, …. The scheme is base-26 with no zero — there is no "phase 0" and `B` follows `A` (not `AB`).
+## Velocity Practices
 
-Examples in order: `A`, `B`, …, `Z`, `AA`, `AB`, `AC`, …, `AZ`, `BA`, `BB`, …, `ZZ`, `AAA`, ….
+**LLM's role in each cycle:**
 
-### Story sub-letters
+- **Version bump per story** — magnitude per the Version Cadence rule (bugfix=patch, feature=minor, breaking=major-post-1.0-only); bump in package manifest and source
+- **Minimal process overhead** -- focus on making it work, not making it perfect
+- **Tests run after every story** -- not after every file, but before presenting to developer
+- **Fix linting immediately** -- small incremental fixes, not batch cleanup
+- **Update CHANGELOG.md** with the version entry before presenting
 
-Within a phase, stories use lowercase letters following the same scheme: `A.a`, `A.b`, …, `A.z`, then `A.aa`, `A.ab`, …, `A.az`, `A.ba`, ….
+**Developer's role (do NOT prompt for, offer, or initiate):**
 
-Examples: `A.a`, `A.b`, …, `A.z`, `A.aa`, `A.ab`, ….
+- **Direct commits to main** -- no branches, no PRs, no code review (velocity convention)
+- **Commit messages** reference story IDs: `"Story A.a: v0.1.0 Hello World"`
+- **Decides when to commit** -- the LLM presents, the developer commits. Multiple stories may be bundled into one commit at the developer's discretion — that is not the LLM's call to make or suggest.
 
-### Continuing across archive boundaries
+## Story Ordering
 
-When `stories.md` is archived (via `archive_stories` mode), the fresh `stories.md` starts empty — but phase letters do **not** reset. To determine the next phase letter:
+- Start with Story A.a (Hello World) if not yet implemented
+- The Step 2 announce-and-wait gate is where the developer confirms (or redirects). If you are unsure which story is next, that is the moment to surface the ambiguity in the announce — e.g., "I see two candidates: Story B.c and Story B.d. Which should I work on?" — not a moment to silently pick one.
+- Never skip ahead -- complete stories in order within each phase
 
-1. Look in `docs/specs/.archive/` for files matching `stories-vX.Y.Z.md`.
-2. If any exist, read the one with the highest version and find the highest phase letter inside it. The next phase letter is the successor in the base-26 sequence (e.g., if the archive's last phase was `K`, the next is `L`; if it was `AZ`, the next is `BA`).
-3. If `.archive/` is missing or empty, start at `A`.
+## File Header Reminder
 
-Story sub-letters reset within each phase — they do not continue across phases or archive boundaries.
+Every new source file must include the copyright and license header as the very first content (before code, docstrings, or imports).
 
----
+## When to Switch Modes
 
+Switch to **code_test_first** when:
+- Working on a story with complex logic that benefits from TDD
+- The developer requests test-first approach
+
+Switch to **debug** when:
+- A bug is discovered during implementation
+- Tests are failing unexpectedly
+
+Switch to **production mode** when:
+- CI/CD phase is complete and branch protection is enabled
+- The project is ready for public users
 

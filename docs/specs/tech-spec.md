@@ -341,10 +341,32 @@ class VisualizationBlock(BaseModel):
 
 ContentBlock = TextBlock | VideoBlock | QuizBlock | ExerciseBlock | VisualizationBlock
 
+class Hook(BaseModel):
+    """Opening hook for a lesson. ``extra='allow'`` (Phase J / J.a)."""
+    tagline: str
+    image_prompt: str | None = None
+
+class LessonMeta(BaseModel):
+    """Pedagogical metadata on a lesson. ``extra='allow'``."""
+    role: str | None = None             # opener|concept|story|math|tutorial|practice|hands_on|bonus
+    hook: Hook | None = None
+    introduces: list[str] = []
+    reinforces: list[str] = []
+    duration_minutes: int | None = None
+
+class ModuleMeta(BaseModel):
+    """Pedagogical metadata on a module. ``extra='allow'``."""
+    theme: str | None = None
+    big_problem: str | None = None
+    objectives: list[str] = []
+    experiential_summary: str | None = None
+    target_audience: str | None = None
+
 class Lesson(BaseModel):
     id: str
     title: str
     unlock_module_on_complete: bool = False  # Unlock siblings + next module on complete
+    meta: LessonMeta | None = None      # Phase J pedagogical metadata; passed through verbatim
     content_blocks: list[ContentBlock]
 
     @field_validator("id")
@@ -358,6 +380,7 @@ class Module(BaseModel):
     title: str
     description: str = ""
     locked: bool | None = None      # None = inherit from locking config
+    meta: ModuleMeta | None = None  # Phase J pedagogical metadata; passed through verbatim
     pre_assessment: AssessmentRef | None = None
     post_assessment: AssessmentRef | None = None
     lessons: list[Lesson]

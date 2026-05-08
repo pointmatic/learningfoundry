@@ -379,6 +379,84 @@ class TestImageAssetCopy:
         assert dest.stat().st_mtime_ns == first_mtime
 
 
+class TestPedagogicalMetaInCurriculumJson:
+    """Story J.a — `lesson.meta` and `module.meta` propagate verbatim
+    into curriculum.json."""
+
+    def _make_resolved_with_meta(self) -> ResolvedCurriculum:
+        return ResolvedCurriculum(
+            version="1.0.0",
+            title="Test",
+            description="",
+            modules=[
+                ResolvedModule(
+                    id="mod-01",
+                    title="Module One",
+                    description="",
+                    locked=None,
+                    pre_assessment=None,
+                    post_assessment=None,
+                    meta={
+                        "theme": "Why convolutions exist",
+                        "objectives": ["Explain weight sharing"],
+                        "big_problem": None,
+                        "experiential_summary": None,
+                        "target_audience": None,
+                    },
+                    lessons=[
+                        ResolvedLesson(
+                            id="lesson-01",
+                            title="L",
+                            meta={
+                                "role": "opener",
+                                "hook": {
+                                    "tagline": "What if vision was a flashlight?",
+                                    "image_prompt": None,
+                                },
+                                "introduces": ["receptive_field"],
+                                "reinforces": [],
+                                "duration_minutes": 15,
+                            },
+                            content_blocks=[],
+                        )
+                    ],
+                )
+            ],
+        )
+
+    def test_lesson_meta_emitted_verbatim(self, tmp_path: Path) -> None:
+        out = tmp_path / "app"
+        generate_app(
+            self._make_resolved_with_meta(), out, template_dir=TEMPLATE_DIR
+        )
+        data = json.loads((out / "static" / "curriculum.json").read_text())
+        lesson = data["modules"][0]["lessons"][0]
+        assert lesson["meta"]["role"] == "opener"
+        assert lesson["meta"]["hook"]["tagline"] == (
+            "What if vision was a flashlight?"
+        )
+        assert lesson["meta"]["introduces"] == ["receptive_field"]
+        assert lesson["meta"]["duration_minutes"] == 15
+
+    def test_module_meta_emitted_verbatim(self, tmp_path: Path) -> None:
+        out = tmp_path / "app"
+        generate_app(
+            self._make_resolved_with_meta(), out, template_dir=TEMPLATE_DIR
+        )
+        data = json.loads((out / "static" / "curriculum.json").read_text())
+        module = data["modules"][0]
+        assert module["meta"]["theme"] == "Why convolutions exist"
+        assert module["meta"]["objectives"] == ["Explain weight sharing"]
+
+    def test_meta_absent_is_null(self, tmp_path: Path) -> None:
+        # Curriculum without meta — JSON contains `"meta": null`.
+        out = tmp_path / "app"
+        generate_app(_make_resolved(), out, template_dir=TEMPLATE_DIR)
+        data = json.loads((out / "static" / "curriculum.json").read_text())
+        assert data["modules"][0]["meta"] is None
+        assert data["modules"][0]["lessons"][0]["meta"] is None
+
+
 class TestStaticContentPreserved:
     """`static/content/` must be in `_PRESERVED_PATHS` so previously-copied
     assets survive a `learningfoundry build` re-run."""

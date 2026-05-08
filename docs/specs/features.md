@@ -210,6 +210,15 @@ Resolve all content references in the parsed curriculum to their actual content.
 - Image reference points at a non-existent file → `ContentResolutionError` with the markdown file path AND the lesson location ("module `mod-01` / lesson `lesson-01` / block[0]") in the error message.
 - Same image referenced from N lessons → Copied exactly once; all N markdown rewrites point at the same `/content/<hash12>/<basename>` URL.
 
+**Pedagogical metadata (Phase J / Story J.a):**
+
+Both `Lesson` and `Module` accept an optional `meta` block carrying author-declared pedagogical context. The pipeline does not interpret these fields beyond schema validation — they are passed through verbatim into `curriculum.json` for downstream rendering and tooling.
+
+- `lesson.meta` (`LessonMeta`): `role` (e.g. `opener`, `concept`, `tutorial`, `practice`, `hands_on`, `bonus`), `hook` (a `{tagline, image_prompt?}` object), `introduces` / `reinforces` (lists of learning-item IDs the lesson covers), `duration_minutes`.
+- `module.meta` (`ModuleMeta`): `theme`, `big_problem`, `objectives`, `experiential_summary`, `target_audience`.
+- Both meta blocks (and the nested `Hook`) use Pydantic `extra="allow"`, so authors can attach genre-specific fields without schema churn.
+- Frontend rendering of `meta` lands in subsequent Phase J stories (J.b–J.c). Story J.a is schema + JSON pass-through only.
+
 ### FR-3: SvelteKit Application Generation
 
 Generate a complete, build-ready SvelteKit project from the resolved curriculum.

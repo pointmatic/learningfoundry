@@ -100,10 +100,56 @@ ContentBlock = Annotated[
 ]
 
 
+class Hook(StrictModel):
+    """Opening hook for a lesson — a tagline and optional image prompt.
+
+    ``extra='allow'`` lets authors attach genre-specific fields without
+    schema churn (Phase J pedagogical-authoring contract).
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    tagline: str
+    image_prompt: str | None = None
+
+
+class LessonMeta(StrictModel):
+    """Pedagogical metadata for a lesson.
+
+    All fields are optional; the meta block as a whole is optional on
+    ``Lesson``. ``extra='allow'`` so authors can attach their own fields.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    role: str | None = None
+    hook: Hook | None = None
+    introduces: list[str] = Field(default_factory=list)
+    reinforces: list[str] = Field(default_factory=list)
+    duration_minutes: int | None = None
+
+
+class ModuleMeta(StrictModel):
+    """Pedagogical metadata for a module.
+
+    All fields are optional; the meta block as a whole is optional on
+    ``Module``. ``extra='allow'`` so authors can attach their own fields.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    theme: str | None = None
+    big_problem: str | None = None
+    objectives: list[str] = Field(default_factory=list)
+    experiential_summary: str | None = None
+    target_audience: str | None = None
+
+
 class Lesson(StrictModel):
     id: str
     title: str
     unlock_module_on_complete: bool = False
+    meta: LessonMeta | None = None
     content_blocks: list[ContentBlock]
 
     @field_validator("id")
@@ -117,6 +163,7 @@ class Module(StrictModel):
     title: str
     description: str = ""
     locked: bool | None = None
+    meta: ModuleMeta | None = None
     pre_assessment: AssessmentRef | None = None
     post_assessment: AssessmentRef | None = None
     lessons: list[Lesson]

@@ -82,12 +82,40 @@ export interface ContentBlock {
 // Curriculum structure — mirror learningfoundry.resolver.ResolvedCurriculum
 // ---------------------------------------------------------------------------
 
+/** Opening hook for a lesson — mirrors `learningfoundry.schema_v1.Hook`. */
+export interface Hook {
+	tagline: string;
+	image_prompt?: string | null;
+	[key: string]: unknown;
+}
+
+/** Pedagogical metadata on a lesson — mirrors `learningfoundry.schema_v1.LessonMeta`. */
+export interface LessonMeta {
+	role?: string | null;
+	hook?: Hook | null;
+	introduces?: string[];
+	reinforces?: string[];
+	duration_minutes?: number | null;
+	[key: string]: unknown;
+}
+
+/** Pedagogical metadata on a module — mirrors `learningfoundry.schema_v1.ModuleMeta`. */
+export interface ModuleMeta {
+	theme?: string | null;
+	big_problem?: string | null;
+	objectives?: string[];
+	experiential_summary?: string | null;
+	target_audience?: string | null;
+	[key: string]: unknown;
+}
+
 export interface Lesson {
 	id: string;
 	title: string;
 	content_blocks: ContentBlock[];
 	/** When this lesson completes, mark sibling lessons in this module as optional and unlock the next module. */
 	unlock_module_on_complete?: boolean;
+	meta?: LessonMeta | null;
 }
 
 export interface Module {
@@ -99,6 +127,7 @@ export interface Module {
 	lessons: Lesson[];
 	/** Per-module override. `null`/omitted = inherit from curriculum/global locking config. */
 	locked?: boolean | null;
+	meta?: ModuleMeta | null;
 }
 
 export interface LockingConfig {

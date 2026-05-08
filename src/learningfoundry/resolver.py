@@ -41,6 +41,7 @@ class ResolvedLesson:
     id: str
     title: str
     unlock_module_on_complete: bool = False
+    meta: dict[str, Any] | None = None
     content_blocks: list[ResolvedContentBlock] = field(default_factory=list)
 
 
@@ -52,6 +53,7 @@ class ResolvedModule:
     locked: bool | None
     pre_assessment: dict[str, Any] | None
     post_assessment: dict[str, Any] | None
+    meta: dict[str, Any] | None = None
     lessons: list[ResolvedLesson] = field(default_factory=list)
 
 
@@ -187,6 +189,7 @@ def _resolve_module(
         locked=module.locked,
         pre_assessment=pre,
         post_assessment=post,
+        meta=module.meta.model_dump() if module.meta is not None else None,
         lessons=resolved_lessons,
     )
 
@@ -218,6 +221,7 @@ def _resolve_lesson(
         id=lesson.id,
         title=lesson.title,
         unlock_module_on_complete=lesson.unlock_module_on_complete,
+        meta=lesson.meta.model_dump() if lesson.meta is not None else None,
         content_blocks=resolved_blocks,
     )
 

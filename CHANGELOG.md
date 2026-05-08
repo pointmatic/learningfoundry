@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.64.0] - 2026-05-08
+
+### Added
+
+- **Pedagogical metadata on lessons and modules** (Story J.a — Phase J kickoff). New `Hook`, `LessonMeta`, and `ModuleMeta` Pydantic models in [schema_v1.py](src/learningfoundry/schema_v1.py); optional `meta` fields on `Lesson` and `Module`. `LessonMeta` carries `role`, `hook` (`tagline` + optional `image_prompt`), `introduces`, `reinforces`, and `duration_minutes`; `ModuleMeta` carries `theme`, `big_problem`, `objectives`, `experiential_summary`, and `target_audience`. All meta models use `extra="allow"` so authors can attach genre-specific fields without schema churn.
+- **`meta` propagated verbatim into `curriculum.json`.** [resolver.py](src/learningfoundry/resolver.py) carries the resolved meta dicts on `ResolvedLesson` and `ResolvedModule`; [generator.py](src/learningfoundry/generator.py) emits them through `dataclasses.asdict`. Absent meta serializes as `"meta": null`.
+- **TypeScript mirrors** for `Hook`, `LessonMeta`, and `ModuleMeta` in [lib/types/index.ts](src/learningfoundry/sveltekit_template/src/lib/types/index.ts).
+
+### Notes
+
+- No frontend rendering of `meta` yet — surfacing of `meta.role` and `meta.hook.tagline` lands in Story J.b; `duration_minutes` aggregation lands in Story J.c.
+
 ## [0.63.0] - 2026-05-03
 
 ### Added
