@@ -9,6 +9,9 @@ import yaml
 from pydantic import ValidationError
 
 from learningfoundry.schema_v1 import (
+    AfterLesson,
+    AssessmentDefinition,
+    BeforeLesson,
     CurriculumDef,
     CurriculumV1,
     ExerciseBlock,
@@ -49,9 +52,13 @@ class TestValidCurriculum:
         data = load_fixture("valid-curriculum.yml")
         curriculum = CurriculumV1.model_validate(data)
         mod = curriculum.curriculum.modules[0]
-        assert mod.pre_assessment is not None
-        assert mod.pre_assessment.source == "quizazz"
-        assert mod.post_assessment is not None
+        assert len(mod.assessments) == 2
+        roles = [a.role for a in mod.assessments]
+        assert roles == ["pre", "post"]
+        assert mod.assessments[0].source == "quizazz"
+        assert mod.assessments[0].position == "before_lessons"
+        assert mod.assessments[1].position == "after_lessons"
+        assert mod.assessments[1].pass_threshold == 0.8
 
     def test_optional_description_defaults_to_empty(self) -> None:
         data = load_fixture("valid-curriculum.yml")
@@ -543,3 +550,156 @@ class TestPedagogicalMeta:
             "lessons": [{"id": "lesson-01", "title": "L", "content_blocks": []}],
         })
         assert mod.meta is None
+
+
+class TestAssessmentDefinition:
+    """Story J.e — `assessments[]` array on Module replaces the old
+    two-slot `pre_assessment` / `post_assessment`. Each entry carries a
+    `role` (open string), a `position` (discriminated union), `source`,
+    `ref`, and an optional `pass_threshold`."""
+
+    def _module_with_assessment(self, assessment: dict) -> dict:  # type: ignore[type-arg]
+        return {
+            "id": "mod-01",
+            "title": "M",
+            "assessments": [assessment],
+            "lessons": [
+                {"id": "lesson-01", "title": "L1", "content_blocks": []},
+                {"id": "lesson-02", "title": "L2", "content_blocks": []},
+            ],
+        }
+
+    def test_position_before_lessons_string(self) -> None:
+        mod = Module.model_validate(
+            self._module_with_assessment({
+                "role": "pre",
+                "position": "before_lessons",
+                "source": "quizazz",
+                "ref": "a/b.yml",
+            })
+        )
+        assert mod.assessments[0].position == "before_lessons"
+
+    def test_position_after_lessons_string(self) -> None:
+        mod = Module.model_validate(
+            self._module_with_assessment({
+                "role": "post",
+                "position": "after_lessons",
+                "source": "quizazz",
+                "ref": "a/b.yml",
+            })
+        )
+        assert mod.assessments[0].position == "after_lessons"
+
+    def test_position_before_lesson_mapping(self) -> None:
+        mod = Module.model_validate(
+            self._module_with_assessment({
+                "role": "practice",
+                "position": {"before_lesson": "lesson-02"},
+                "source": "quizazz",
+                "ref": "a/b.yml",
+            })
+        )
+        pos = mod.assessments[0].position
+        assert isinstance(pos, BeforeLesson)
+        assert pos.before_lesson == "lesson-02"
+
+    def test_position_after_lesson_mapping(self) -> None:
+        mod = Module.model_validate(
+            self._module_with_assessment({
+                "role": "practice",
+                "position": {"after_lesson": "lesson-01"},
+                "source": "quizazz",
+                "ref": "a/b.yml",
+            })
+        )
+        pos = mod.assessments[0].position
+        assert isinstance(pos, AfterLesson)
+        assert pos.after_lesson == "lesson-01"
+
+    def test_pass_threshold_optional(self) -> None:
+        mod = Module.model_validate(
+            self._module_with_assessment({
+                "role": "pre",
+                "position": "before_lessons",
+                "source": "quizazz",
+                "ref": "a/b.yml",
+            })
+        )
+        assert mod.assessments[0].pass_threshold is None
+
+    def test_pass_threshold_validates_range(self) -> None:
+        Module.model_validate(
+            self._module_with_assessment({
+                "role": "post",
+                "position": "after_lessons",
+                "source": "quizazz",
+                "ref": "a/b.yml",
+                "pass_threshold": 0.7,
+            })
+        )
+        with pytest.raises(ValidationError):
+            Module.model_validate(
+                self._module_with_assessment({
+                    "role": "post",
+                    "position": "after_lessons",
+                    "source": "quizazz",
+                    "ref": "a/b.yml",
+                    "pass_threshold": 1.5,
+                })
+            )
+
+    def test_unknown_lesson_ref_raises(self) -> None:
+        with pytest.raises(ValidationError) as exc:
+            Module.model_validate(
+                self._module_with_assessment({
+                    "role": "practice",
+                    "position": {"before_lesson": "lesson-99"},
+                    "source": "quizazz",
+                    "ref": "a/b.yml",
+                })
+            )
+        msg = str(exc.value)
+        assert "lesson-99" in msg
+        assert "mod-01" in msg
+        assert "practice" in msg
+
+    def test_invalid_position_string_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            Module.model_validate(
+                self._module_with_assessment({
+                    "role": "pre",
+                    "position": "anywhere",  # not a Literal value
+                    "source": "quizazz",
+                    "ref": "a/b.yml",
+                })
+            )
+
+    def test_assessments_default_empty(self) -> None:
+        mod = Module.model_validate({
+            "id": "mod-01", "title": "M",
+            "lessons": [{"id": "lesson-01", "title": "L", "content_blocks": []}],
+        })
+        assert mod.assessments == []
+
+    def test_extra_field_on_assessment_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            AssessmentDefinition.model_validate({
+                "role": "pre",
+                "position": "before_lessons",
+                "source": "quizazz",
+                "ref": "a/b.yml",
+                "stranger": "danger",  # not a real field
+            })
+
+    def test_module_with_pre_assessment_field_rejected(self) -> None:
+        # Removed in Story J.e — strict-mode rejects the legacy field.
+        with pytest.raises(ValidationError) as exc:
+            Module.model_validate({
+                "id": "mod-01", "title": "M",
+                "pre_assessment": {"source": "quizazz", "ref": "x.yml"},
+                "lessons": [
+                    {"id": "lesson-01", "title": "L", "content_blocks": []}
+                ],
+            })
+        assert "pre_assessment" in str(exc.value)

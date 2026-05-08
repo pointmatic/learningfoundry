@@ -186,8 +186,10 @@ class TestRunValidate:
             "version: \"1.0.0\"\n"
             "curriculum:\n  title: T\n  modules:\n"
             "    - id: mod-01\n      title: M\n"
-            "      pre_assessment:\n        source: quizazz\n"
-            "        ref: assessments/pre.yml\n"
+            "      assessments:\n        - role: pre\n"
+            "          position: before_lessons\n"
+            "          source: quizazz\n"
+            "          ref: assessments/pre.yml\n"
             "      lessons:\n        - id: lesson-01\n          title: L\n"
             "          content_blocks: []\n"
         )

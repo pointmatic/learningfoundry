@@ -42,9 +42,43 @@ def _validate_id(v: str, field_name: str = "id") -> str:
     return v
 
 
-class AssessmentRef(StrictModel):
+class BeforeLesson(StrictModel):
+    """Assessment positioned immediately before the named lesson (Story J.e)."""
+
+    before_lesson: str
+
+
+class AfterLesson(StrictModel):
+    """Assessment positioned immediately after the named lesson (Story J.e)."""
+
+    after_lesson: str
+
+
+# `position` discriminated union for `AssessmentDefinition`. The two
+# string literals anchor to the start / end of the lesson list; the two
+# model variants anchor to a specific lesson by id (validated against
+# `Module.lessons` via a `model_validator` on `Module`).
+AssessmentPosition = (
+    Literal["before_lessons", "after_lessons"] | BeforeLesson | AfterLesson
+)
+
+
+class AssessmentDefinition(StrictModel):
+    """A single assessment (quiz, exam, ...) bound to a module at a
+    declared position. Replaces the previous two-slot
+    ``pre_assessment`` / ``post_assessment`` fields (Story J.e).
+
+    ``role`` is an open string — conventional values are ``pre``,
+    ``practice``, ``post``, ``checkpoint`` — used as a UI label and a
+    tag for downstream consumers; the schema does not constrain the
+    vocabulary.
+    """
+
+    role: str
+    position: AssessmentPosition
     source: str
     ref: str
+    pass_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
 class TextBlock(StrictModel):
@@ -164,8 +198,7 @@ class Module(StrictModel):
     description: str = ""
     locked: bool | None = None
     meta: ModuleMeta | None = None
-    pre_assessment: AssessmentRef | None = None
-    post_assessment: AssessmentRef | None = None
+    assessments: list[AssessmentDefinition] = Field(default_factory=list)
     lessons: list[Lesson]
 
     @field_validator("id")
@@ -177,6 +210,25 @@ class Module(StrictModel):
     def check_has_lessons(self) -> "Module":
         if not self.lessons:
             raise ValueError(f"Module `{self.id}` must contain at least one lesson.")
+        return self
+
+    @model_validator(mode="after")
+    def validate_assessment_lesson_refs(self) -> "Module":
+        """Every ``BeforeLesson`` / ``AfterLesson`` ref must name a lesson
+        that exists in ``self.lessons``. Catches typos at parse time
+        rather than as a silent placement failure at render time."""
+        lesson_ids = {lesson.id for lesson in self.lessons}
+        for assessment in self.assessments:
+            ref_id: str | None = None
+            if isinstance(assessment.position, BeforeLesson):
+                ref_id = assessment.position.before_lesson
+            elif isinstance(assessment.position, AfterLesson):
+                ref_id = assessment.position.after_lesson
+            if ref_id is not None and ref_id not in lesson_ids:
+                raise ValueError(
+                    f"Module `{self.id}` assessment role=`{assessment.role}` "
+                    f"references unknown lesson id `{ref_id}`."
+                )
         return self
 
 

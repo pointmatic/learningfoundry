@@ -304,9 +304,25 @@ def _dispatch_parser(major_version: int):
 from pydantic import BaseModel, field_validator, model_validator
 from pathlib import Path
 
-class AssessmentRef(BaseModel):
+class BeforeLesson(BaseModel):
+    before_lesson: str              # Lesson id this assessment sits immediately before
+
+class AfterLesson(BaseModel):
+    after_lesson: str               # Lesson id this assessment sits immediately after
+
+# Discriminated union — Pydantic resolves variants by shape (Story J.e).
+AssessmentPosition = (
+    Literal["before_lessons", "after_lessons"] | BeforeLesson | AfterLesson
+)
+
+class AssessmentDefinition(BaseModel):
+    """A single assessment bound to a module at a declared position.
+    Replaces legacy `pre_assessment` / `post_assessment` fields (Story J.e)."""
+    role: str                       # Open string: pre|practice|post|checkpoint|...
+    position: AssessmentPosition
     source: str                     # "quizazz"
     ref: str                        # Path to assessment YAML file
+    pass_threshold: float | None = None  # 0.0–1.0; recorded but not enforced in v1
 
 class TextBlock(BaseModel):
     type: str = "text"
@@ -381,13 +397,18 @@ class Module(BaseModel):
     description: str = ""
     locked: bool | None = None      # None = inherit from locking config
     meta: ModuleMeta | None = None  # Phase J pedagogical metadata; passed through verbatim
-    pre_assessment: AssessmentRef | None = None
-    post_assessment: AssessmentRef | None = None
+    assessments: list[AssessmentDefinition] = []  # Phase J / J.e — replaces pre/post fields
     lessons: list[Lesson]
 
     @model_validator(mode="after")
     def check_has_lessons(self) -> "Module":
         """Module must contain at least one lesson."""
+        ...
+
+    @model_validator(mode="after")
+    def validate_assessment_lesson_refs(self) -> "Module":
+        """Every BeforeLesson / AfterLesson ref must name a lesson that
+        exists in self.lessons (Story J.e)."""
         ...
 
 class LockingConfig(BaseModel):
@@ -432,12 +453,23 @@ class ResolvedCurriculum:
     assets: list[Asset] = field(default_factory=list)  # See asset_resolver.py
 
 @dataclass
+class ResolvedAssessment:
+    """One resolved assessment, ready for emission (Story J.e). Order in
+    `ResolvedModule.assessments` is canonical iteration order materialized
+    by the resolver."""
+    role: str
+    position: str | dict             # "before_lessons"|"after_lessons" | {"before_lesson": ...} | {"after_lesson": ...}
+    source: str
+    ref: str
+    pass_threshold: float | None
+    content: dict                    # Resolved quizazz manifest
+
+@dataclass
 class ResolvedModule:
     id: str
     title: str
     description: str
-    pre_assessment: dict | None      # Resolved quizazz manifest or None
-    post_assessment: dict | None
+    assessments: list[ResolvedAssessment]   # Phase J / J.e — replaces pre/post
     lessons: list[ResolvedLesson]
 
 @dataclass
@@ -817,9 +849,16 @@ curriculum:
     - id: mod-01
       title: "Introduction to Neural Networks"
       description: "..."
-      pre_assessment:
-        source: quizazz
-        ref: assessments/mod-01-pre.yml
+      assessments:
+        - role: pre
+          position: before_lessons
+          source: quizazz
+          ref: assessments/mod-01-pre.yml
+        - role: post
+          position: after_lessons
+          source: quizazz
+          ref: assessments/mod-01-post.yml
+          pass_threshold: 0.8
       lessons:
         - id: lesson-01
           title: "What is a Neural Network?"
@@ -837,9 +876,6 @@ curriculum:
             - type: visualization
               source: d3foundry
               ref: visualizations/mod-01-cnn-architecture.yml
-      post_assessment:
-        source: quizazz
-        ref: assessments/mod-01-post.yml
 ```
 
 ### Resolved Curriculum (in-memory)
@@ -860,8 +896,24 @@ In addition to the module/lesson/content tree, `ResolvedCurriculum` carries an `
       "id": "mod-01",
       "title": "Introduction to Neural Networks",
       "description": "...",
-      "pre_assessment": { "...quizazz manifest..." },
-      "post_assessment": { "...quizazz manifest..." },
+      "assessments": [
+        {
+          "role": "pre",
+          "position": "before_lessons",
+          "source": "quizazz",
+          "ref": "assessments/mod-01-pre.yml",
+          "pass_threshold": null,
+          "content": { "...quizazz manifest..." }
+        },
+        {
+          "role": "post",
+          "position": "after_lessons",
+          "source": "quizazz",
+          "ref": "assessments/mod-01-post.yml",
+          "pass_threshold": 0.8,
+          "content": { "...quizazz manifest..." }
+        }
+      ],
       "lessons": [
         {
           "id": "lesson-01",
@@ -925,12 +977,26 @@ export interface Curriculum {
   modules: Module[];
 }
 
+export type AssessmentPosition =
+  | "before_lessons"
+  | "after_lessons"
+  | { before_lesson: string }
+  | { after_lesson: string };
+
+export interface AssessmentDefinition {
+  role: string;
+  position: AssessmentPosition;
+  source: string;
+  ref: string;
+  pass_threshold: number | null;
+  content: QuizManifest;
+}
+
 export interface Module {
   id: string;
   title: string;
   description: string;
-  pre_assessment: QuizManifest | null;
-  post_assessment: QuizManifest | null;
+  assessments: AssessmentDefinition[];   // Story J.e — replaces pre/post fields
   lessons: Lesson[];
 }
 

@@ -17,12 +17,16 @@ curriculum:
         theme: "Why convolutions exist"
         objectives:
           - "Explain why FC nets fail on images"
-      pre_assessment:
-        source: quizazz
-        ref: assessments/mod-01-pre.yml
-      post_assessment:
-        source: quizazz
-        ref: assessments/mod-01-post.yml
+      assessments:
+        - role: pre
+          position: before_lessons
+          source: quizazz
+          ref: assessments/mod-01-pre.yml
+        - role: post
+          position: after_lessons
+          source: quizazz
+          ref: assessments/mod-01-post.yml
+          pass_threshold: 0.8
       lessons:
         - id: lesson-01
           title: "Lesson One"

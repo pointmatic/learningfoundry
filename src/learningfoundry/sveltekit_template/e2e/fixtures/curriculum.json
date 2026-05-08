@@ -10,8 +10,7 @@
 			"title": "Module One",
 			"description": "Short-text completion + tall-text scroll.",
 			"locked": null,
-			"pre_assessment": null,
-			"post_assessment": null,
+			"assessments": [],
 			"lessons": [
 				{
 					"id": "lesson-01",
@@ -52,8 +51,7 @@
 			"title": "Module Two",
 			"description": "Trailing module so the curriculum has at least three lessons total.",
 			"locked": null,
-			"pre_assessment": null,
-			"post_assessment": null,
+			"assessments": [],
 			"lessons": [
 				{
 					"id": "lesson-01",

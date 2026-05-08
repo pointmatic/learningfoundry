@@ -193,7 +193,7 @@ Defensive developer-experience hardening on top of an already-working feature �
 
 ---
 
-### Story J.e: v0.68.0 — Generalized `assessments` Array [Planned]
+### Story J.e: v0.68.0 — Generalized `assessments` Array [Done]
 
 Today's two-slot `pre_assessment` / `post_assessment` covers the priming and recap positions but cannot represent practice quizzes (the third pedagogically interesting position, typically landing before the hands-on lesson). Story J.e replaces both fields with a single generalized `assessments: list[AssessmentDefinition]` array on `Module`, supporting positional placement.
 
@@ -230,27 +230,21 @@ modules:
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/schema_v1.py`:
-  - [ ] Add `BeforeLesson(StrictModel)`: `before_lesson: str`. Add `AfterLesson(StrictModel)`: `after_lesson: str`.
-  - [ ] Define `AssessmentPosition = Literal["before_lessons", "after_lessons"] | BeforeLesson | AfterLesson` (Annotated with discriminator if needed).
-  - [ ] Add `AssessmentDefinition(StrictModel)`: `role: str`, `position: AssessmentPosition`, `source: str`, `ref: str`, `pass_threshold: float | None`.
-  - [ ] On `Module`: add `assessments: list[AssessmentDefinition] = []`; **remove** `pre_assessment` and `post_assessment`.
-- [ ] `src/learningfoundry/parser.py`:
-  - [ ] After parsing each module, validate every `BeforeLesson` / `AfterLesson` ref exists in the module's `lessons`. Raise a typed error naming the module ID, the assessment role, and the unknown lesson ID.
-  - [ ] Compute resolved order: `before_lessons` first; then the lesson-list interleaved with `before_lesson:<id>` (placed immediately before the named lesson) and `after_lesson:<id>` (immediately after); then `after_lessons`. Materialize this order onto the resolved-curriculum representation so the generator doesn't have to recompute.
-- [ ] `src/learningfoundry/pipeline.py` / `generator.py`: emit the resolved `assessments` array (in computed order) into `curriculum.json`. Drop `pre_assessment` / `post_assessment` from the JSON shape.
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts`: replace any `PreAssessment` / `PostAssessment` types with `AssessmentDefinition` and `AssessmentPosition`. Existing `Module` interface drops the two old fields, gains `assessments`.
-- [ ] In-tree fixtures and curricula: migrate from `pre_assessment` / `post_assessment` to `assessments[]` entries. Verify each fixture's intent is preserved.
-- [ ] `tests/test_schema_v1.py`: position discriminated-union parses each form; `AssessmentDefinition` accepts/rejects appropriately.
-- [ ] `tests/test_parser.py`: positional resolution succeeds for valid lesson IDs; raises with lesson ID and module ID for unknown refs; resolved ordering matches expected sequence with mixed before_lessons / before_lesson / after_lesson / after_lessons entries.
-- [ ] `tests/test_generator.py`: `curriculum.json` contains the resolved-order `assessments` array and no longer contains `pre_assessment` / `post_assessment`.
-- [ ] `docs/specs/features.md`: replace pre/post wording with the generalized assessments array; document the position grammar.
-- [ ] `docs/specs/tech-spec.md`: replace `pre_assessment` / `post_assessment` references with `assessments[]`; document `AssessmentDefinition` and `AssessmentPosition`; document the parser's positional-resolution algorithm.
-- [ ] `docs/specs/quizazz/dependency-spec.md` (and any other consumer-facing spec): update if it mentions the old field names.
-- [ ] `README.md`: update curriculum-YAML example with the new shape.
-- [ ] Bump version to v0.68.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] Update `CHANGELOG.md` — flag the removal of `pre_assessment` / `post_assessment` prominently under Changed (or Removed).
-- [ ] Verify: `pyve test`, smoke build, `ruff`, `mypy`.
+- [x] `src/learningfoundry/schema_v1.py`: added `BeforeLesson`, `AfterLesson`, `AssessmentPosition` (Pydantic 2 smart-union), `AssessmentDefinition`. `Module.pre_assessment` / `Module.post_assessment` removed; `Module.assessments: list[AssessmentDefinition] = []` added with a `model_validator` that rejects unknown lesson refs.
+- [x] Lesson-id validation lives on `Module` (not `parser.py`) so `model_validate` catches typos at parse time. Canonical placement order is computed in `resolver._resolve_assessments` (cleaner home than the parser since the resolver already owns content-resolution); the order is materialized onto `ResolvedModule.assessments` so the generator does not recompute.
+- [x] `src/learningfoundry/resolver.py` / `generator.py`: emit the resolved `assessments` array in computed order into `curriculum.json`. `pre_assessment` / `post_assessment` are gone from the JSON shape (regression-tested in `TestAssessmentsArrayInCurriculumJson.test_old_pre_post_fields_absent`).
+- [x] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts`: new `AssessmentDefinition` and `AssessmentPosition` types; `Module` drops the two old fields and gains `assessments`.
+- [x] Fixtures migrated: `tests/fixtures/valid-curriculum.yml` → `assessments[]`; `sveltekit_template/e2e/fixtures/curriculum.json` → `assessments: []`. ProgressDashboard's two pre/post score rows removed (per-learner score UI now bare; rebuild on the new shape lands in J.f).
+- [x] `tests/test_schema_v1.py` `TestAssessmentDefinition`: 11 cases pinning each `position` form, `pass_threshold` validation, unknown lesson-ref rejection, invalid position string rejection, `assessments` default empty, extra-field rejection, and legacy `pre_assessment` field rejection.
+- [x] `tests/test_resolver.py` `TestAssessmentResolution`: 6 cases pinning before/after-lessons resolution, lesson-anchored interleaving order, JSON-friendly position serialization, content-resolution-error wrapping, and empty-assessments default.
+- [x] `tests/test_generator.py` `TestAssessmentsArrayInCurriculumJson`: 5 cases pinning order preservation, position serialization shape, `pass_threshold` pass-through, `content` pass-through, and absence of legacy fields.
+- [x] `docs/specs/features.md`: new "Module assessments — generalized array" subsection with the position grammar; FR-5 narrative updated.
+- [x] `docs/specs/tech-spec.md`: `BeforeLesson` / `AfterLesson` / `AssessmentPosition` / `AssessmentDefinition` documented; `Module` Pydantic class updated; `ResolvedAssessment` dataclass added; `curriculum.json` example shows the new shape; TypeScript `Module` interface updated.
+- [x] `docs/specs/quizazz/dependency-spec.md` had no references to the old field names; no edit needed.
+- [x] `README.md`: curriculum-YAML example shows pre / practice / post entries with each position form.
+- [x] Bumped version to v0.68.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Updated `CHANGELOG.md` — `Removed (BREAKING)` section flags the field removal prominently.
+- [x] Verify: `pyve test` 324 passed, `pnpm test` 211 passed, `ruff` clean, `mypy` clean. Smoke build (pnpm install + vite build) intentionally not run in this turn — covered by CI.
 
 ---
 

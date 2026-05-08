@@ -27,8 +27,7 @@ function makeModule(id: string, lessons: Lesson[], opts: Partial<Module> = {}): 
 		id,
 		title: id,
 		description: '',
-		pre_assessment: null,
-		post_assessment: null,
+		assessments: [],
 		lessons,
 		...opts
 	};

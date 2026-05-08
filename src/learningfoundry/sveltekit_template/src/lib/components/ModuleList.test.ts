@@ -48,8 +48,7 @@ function makeModule(id: string, title: string, lessonCount = 2): Module {
 		id,
 		title,
 		description: '',
-		pre_assessment: null,
-		post_assessment: null,
+		assessments: [],
 		lessons: Array.from({ length: lessonCount }, (_, i) => ({
 			id: `lesson-${String(i + 1).padStart(2, '0')}`,
 			title: `L${i + 1}`,

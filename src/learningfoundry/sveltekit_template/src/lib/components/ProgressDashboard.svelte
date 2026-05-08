@@ -99,19 +99,6 @@
 				{/if}
 				<ProgressBar percent={stats.pct} />
 
-				{#if mod.pre_assessment && quizScores[`pre:${mod.id}`]}
-					{@const qs = quizScores[`pre:${mod.id}`]}
-					<p class="mt-2 text-xs text-gray-500">
-						Pre-assessment: {qs.score}/{qs.maxScore}
-					</p>
-				{/if}
-				{#if mod.post_assessment && quizScores[`post:${mod.id}`]}
-					{@const qs = quizScores[`post:${mod.id}`]}
-					<p class="mt-1 text-xs text-gray-500">
-						Post-assessment: {qs.score}/{qs.maxScore}
-					</p>
-				{/if}
-
 				{#if locked}
 					<p
 						class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-gray-400"

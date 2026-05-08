@@ -118,12 +118,39 @@ export interface Lesson {
 	meta?: LessonMeta | null;
 }
 
+/**
+ * Position of an assessment within a module's flow (Story J.e).
+ * Either anchored to the start/end of the lesson list, or to a specific
+ * lesson by id (`{ before_lesson: 'lesson-07' }` /
+ * `{ after_lesson: 'lesson-07' }`).
+ */
+export type AssessmentPosition =
+	| 'before_lessons'
+	| 'after_lessons'
+	| { before_lesson: string }
+	| { after_lesson: string };
+
+/**
+ * A single assessment bound to a module at a declared position
+ * (Story J.e). Replaces the legacy two-slot `pre_assessment` /
+ * `post_assessment` fields. The order in `Module.assessments` is the
+ * canonical iteration order resolved at build time.
+ */
+export interface AssessmentDefinition {
+	role: string;
+	position: AssessmentPosition;
+	source: string;
+	ref: string;
+	pass_threshold: number | null;
+	content: QuizManifest;
+}
+
 export interface Module {
 	id: string;
 	title: string;
 	description: string;
-	pre_assessment: QuizManifest | null;
-	post_assessment: QuizManifest | null;
+	/** Assessments in canonical placement order — emitted by the resolver. */
+	assessments: AssessmentDefinition[];
 	lessons: Lesson[];
 	/** Per-module override. `null`/omitted = inherit from curriculum/global locking config. */
 	locked?: boolean | null;

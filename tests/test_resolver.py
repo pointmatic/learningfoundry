@@ -452,10 +452,11 @@ class TestVisualizationBlockResolution:
 
 
 class TestAssessmentResolution:
-    def test_pre_assessment_resolved(self, tmp_path: Path) -> None:
-        mock_quiz = MagicMock()
-        mock_quiz.compile_assessment.return_value = {"quizName": "pre"}
-        curriculum = CurriculumV1.model_validate({
+    """Story J.e — assessments[] replaces pre/post; resolver materializes
+    them in canonical placement order."""
+
+    def _build_curriculum(self, assessments: list[dict]) -> CurriculumV1:  # type: ignore[type-arg]
+        return CurriculumV1.model_validate({
             "version": "1.0.0",
             "curriculum": {
                 "title": "T",
@@ -463,64 +464,154 @@ class TestAssessmentResolution:
                     {
                         "id": "mod-01",
                         "title": "M",
-                        "pre_assessment": {
-                            "source": "quizazz",
-                            "ref": "assessments/pre.yml",
-                        },
+                        "assessments": assessments,
                         "lessons": [
                             {
                                 "id": "lesson-01",
-                                "title": "L",
+                                "title": "L1",
                                 "content_blocks": [],
-                            }
+                            },
+                            {
+                                "id": "lesson-02",
+                                "title": "L2",
+                                "content_blocks": [],
+                            },
                         ],
                     }
                 ],
             },
         })
+
+    def test_before_lessons_resolves_to_first_position(
+        self, tmp_path: Path
+    ) -> None:
+        mock_quiz = MagicMock()
+        mock_quiz.compile_assessment.return_value = {"quizName": "pre"}
+        curriculum = self._build_curriculum([{
+            "role": "pre",
+            "position": "before_lessons",
+            "source": "quizazz",
+            "ref": "assessments/pre.yml",
+        }])
         result = resolve_curriculum(
             curriculum, tmp_path,
             quiz_provider=mock_quiz,
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
-        assert result.modules[0].pre_assessment == {"quizName": "pre"}
+        assessments = result.modules[0].assessments
+        assert len(assessments) == 1
+        assert assessments[0].role == "pre"
+        assert assessments[0].position == "before_lessons"
+        assert assessments[0].content == {"quizName": "pre"}
+
+    def test_after_lessons_resolves_to_last_position(
+        self, tmp_path: Path
+    ) -> None:
+        mock_quiz = MagicMock()
+        mock_quiz.compile_assessment.return_value = {"quizName": "post"}
+        curriculum = self._build_curriculum([{
+            "role": "post",
+            "position": "after_lessons",
+            "source": "quizazz",
+            "ref": "assessments/post.yml",
+            "pass_threshold": 0.8,
+        }])
+        result = resolve_curriculum(
+            curriculum, tmp_path,
+            quiz_provider=mock_quiz,
+            exercise_provider=MagicMock(),
+            visualization_provider=MagicMock(),
+        )
+        assert result.modules[0].assessments[0].pass_threshold == 0.8
+
+    def test_resolved_order_interleaves_lesson_anchored_assessments(
+        self, tmp_path: Path
+    ) -> None:
+        # Author order intentionally NOT canonical; resolver must reorder
+        # to: before_lessons, before_lesson:lesson-01, after_lesson:lesson-01,
+        # before_lesson:lesson-02, after_lesson:lesson-02, after_lessons.
+        mock_quiz = MagicMock()
+        mock_quiz.compile_assessment.return_value = {"quizName": "stub"}
+        curriculum = self._build_curriculum([
+            {"role": "post", "position": "after_lessons",
+             "source": "quizazz", "ref": "x.yml"},
+            {"role": "practice-2-after", "position": {"after_lesson": "lesson-02"},
+             "source": "quizazz", "ref": "x.yml"},
+            {"role": "pre", "position": "before_lessons",
+             "source": "quizazz", "ref": "x.yml"},
+            {"role": "practice-1-before", "position": {"before_lesson": "lesson-01"},
+             "source": "quizazz", "ref": "x.yml"},
+            {"role": "practice-1-after", "position": {"after_lesson": "lesson-01"},
+             "source": "quizazz", "ref": "x.yml"},
+        ])
+        result = resolve_curriculum(
+            curriculum, tmp_path,
+            quiz_provider=mock_quiz,
+            exercise_provider=MagicMock(),
+            visualization_provider=MagicMock(),
+        )
+        roles = [a.role for a in result.modules[0].assessments]
+        assert roles == [
+            "pre",
+            "practice-1-before",
+            "practice-1-after",
+            "practice-2-after",
+            "post",
+        ]
+
+    def test_position_serialized_as_jsonable(self, tmp_path: Path) -> None:
+        mock_quiz = MagicMock()
+        mock_quiz.compile_assessment.return_value = {}
+        curriculum = self._build_curriculum([
+            {"role": "pre", "position": "before_lessons",
+             "source": "quizazz", "ref": "x.yml"},
+            {"role": "practice", "position": {"before_lesson": "lesson-02"},
+             "source": "quizazz", "ref": "x.yml"},
+            {"role": "post", "position": {"after_lesson": "lesson-02"},
+             "source": "quizazz", "ref": "x.yml"},
+        ])
+        result = resolve_curriculum(
+            curriculum, tmp_path,
+            quiz_provider=mock_quiz,
+            exercise_provider=MagicMock(),
+            visualization_provider=MagicMock(),
+        )
+        positions = [a.position for a in result.modules[0].assessments]
+        assert positions == [
+            "before_lessons",
+            {"before_lesson": "lesson-02"},
+            {"after_lesson": "lesson-02"},
+        ]
 
     def test_assessment_error_raises_content_resolution_error(
         self, tmp_path: Path
     ) -> None:
         mock_quiz = MagicMock()
         mock_quiz.compile_assessment.side_effect = RuntimeError("broken")
-        curriculum = CurriculumV1.model_validate({
-            "version": "1.0.0",
-            "curriculum": {
-                "title": "T",
-                "modules": [
-                    {
-                        "id": "mod-01",
-                        "title": "M",
-                        "pre_assessment": {
-                            "source": "quizazz",
-                            "ref": "assessments/pre.yml",
-                        },
-                        "lessons": [
-                            {
-                                "id": "lesson-01",
-                                "title": "L",
-                                "content_blocks": [],
-                            }
-                        ],
-                    }
-                ],
-            },
-        })
-        with pytest.raises(ContentResolutionError, match="pre_assessment"):
+        curriculum = self._build_curriculum([{
+            "role": "pre",
+            "position": "before_lessons",
+            "source": "quizazz",
+            "ref": "assessments/pre.yml",
+        }])
+        with pytest.raises(ContentResolutionError, match="role=`pre`"):
             resolve_curriculum(
                 curriculum, tmp_path,
                 quiz_provider=mock_quiz,
                 exercise_provider=MagicMock(),
                 visualization_provider=MagicMock(),
             )
+
+    def test_no_assessments_yields_empty_list(self, tmp_path: Path) -> None:
+        curriculum = self._build_curriculum([])
+        result = resolve_curriculum(
+            curriculum, tmp_path,
+            quiz_provider=MagicMock(),
+            exercise_provider=MagicMock(),
+            visualization_provider=MagicMock(),
+        )
+        assert result.modules[0].assessments == []
 
 
 class TestLockingResolution:

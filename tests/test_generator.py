@@ -34,8 +34,6 @@ def _make_resolved() -> ResolvedCurriculum:
                 title="Module One",
                 description="",
                 locked=None,
-                pre_assessment=None,
-                post_assessment=None,
                 lessons=[
                     ResolvedLesson(
                         id="lesson-01",
@@ -394,8 +392,6 @@ class TestPedagogicalMetaInCurriculumJson:
                     title="Module One",
                     description="",
                     locked=None,
-                    pre_assessment=None,
-                    post_assessment=None,
                     meta={
                         "theme": "Why convolutions exist",
                         "objectives": ["Explain weight sharing"],
@@ -457,6 +453,113 @@ class TestPedagogicalMetaInCurriculumJson:
         assert data["modules"][0]["lessons"][0]["meta"] is None
 
 
+class TestAssessmentsArrayInCurriculumJson:
+    """Story J.e — `module.assessments[]` lands in `curriculum.json` in
+    resolved order with role / position / source / ref / pass_threshold /
+    content; old `pre_assessment` / `post_assessment` fields are gone."""
+
+    def _make_with_assessments(self) -> ResolvedCurriculum:
+        from learningfoundry.resolver import ResolvedAssessment
+
+        return ResolvedCurriculum(
+            version="1.0.0",
+            title="T",
+            description="",
+            modules=[
+                ResolvedModule(
+                    id="mod-01",
+                    title="M",
+                    description="",
+                    locked=None,
+                    assessments=[
+                        ResolvedAssessment(
+                            role="pre",
+                            position="before_lessons",
+                            source="quizazz",
+                            ref="a/pre.yml",
+                            pass_threshold=None,
+                            content={"quizName": "pre"},
+                        ),
+                        ResolvedAssessment(
+                            role="practice",
+                            position={"before_lesson": "lesson-01"},
+                            source="quizazz",
+                            ref="a/practice.yml",
+                            pass_threshold=0.7,
+                            content={"quizName": "practice"},
+                        ),
+                        ResolvedAssessment(
+                            role="post",
+                            position="after_lessons",
+                            source="quizazz",
+                            ref="a/post.yml",
+                            pass_threshold=0.8,
+                            content={"quizName": "post"},
+                        ),
+                    ],
+                    lessons=[
+                        ResolvedLesson(id="lesson-01", title="L", content_blocks=[])
+                    ],
+                )
+            ],
+        )
+
+    def test_assessments_emitted_in_order(self, tmp_path: Path) -> None:
+        out = tmp_path / "app"
+        generate_app(
+            self._make_with_assessments(), out, template_dir=TEMPLATE_DIR
+        )
+        data = json.loads((out / "static" / "curriculum.json").read_text())
+        roles = [a["role"] for a in data["modules"][0]["assessments"]]
+        assert roles == ["pre", "practice", "post"]
+
+    def test_assessment_position_serialized_jsonable(
+        self, tmp_path: Path
+    ) -> None:
+        out = tmp_path / "app"
+        generate_app(
+            self._make_with_assessments(), out, template_dir=TEMPLATE_DIR
+        )
+        data = json.loads((out / "static" / "curriculum.json").read_text())
+        positions = [a["position"] for a in data["modules"][0]["assessments"]]
+        assert positions == [
+            "before_lessons",
+            {"before_lesson": "lesson-01"},
+            "after_lessons",
+        ]
+
+    def test_pass_threshold_passes_through(self, tmp_path: Path) -> None:
+        out = tmp_path / "app"
+        generate_app(
+            self._make_with_assessments(), out, template_dir=TEMPLATE_DIR
+        )
+        data = json.loads((out / "static" / "curriculum.json").read_text())
+        thresholds = [a["pass_threshold"] for a in data["modules"][0]["assessments"]]
+        assert thresholds == [None, 0.7, 0.8]
+
+    def test_content_passes_through(self, tmp_path: Path) -> None:
+        out = tmp_path / "app"
+        generate_app(
+            self._make_with_assessments(), out, template_dir=TEMPLATE_DIR
+        )
+        data = json.loads((out / "static" / "curriculum.json").read_text())
+        contents = [a["content"] for a in data["modules"][0]["assessments"]]
+        assert contents == [
+            {"quizName": "pre"},
+            {"quizName": "practice"},
+            {"quizName": "post"},
+        ]
+
+    def test_old_pre_post_fields_absent(self, tmp_path: Path) -> None:
+        out = tmp_path / "app"
+        generate_app(_make_resolved(), out, template_dir=TEMPLATE_DIR)
+        data = json.loads((out / "static" / "curriculum.json").read_text())
+        mod = data["modules"][0]
+        assert "pre_assessment" not in mod
+        assert "post_assessment" not in mod
+        assert mod["assessments"] == []
+
+
 class TestTotalDurationMinutes:
     """Story J.c — `curriculum.total_duration_minutes` is the sum of
     `lesson.meta.duration_minutes` across the curriculum, or `null` when
@@ -489,8 +592,6 @@ class TestTotalDurationMinutes:
                     title="M",
                     description="",
                     locked=None,
-                    pre_assessment=None,
-                    post_assessment=None,
                     lessons=lessons,
                 )
             ],
@@ -533,8 +634,6 @@ class TestTotalDurationMinutes:
                     title="M",
                     description="",
                     locked=None,
-                    pre_assessment=None,
-                    post_assessment=None,
                     lessons=[
                         ResolvedLesson(
                             id="lesson-01",

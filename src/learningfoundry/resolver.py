@@ -16,6 +16,9 @@ from learningfoundry.integrations.protocols import (
     VisualizationProvider,
 )
 from learningfoundry.schema_v1 import (
+    AfterLesson,
+    AssessmentDefinition,
+    BeforeLesson,
     CurriculumV1,
     ExerciseBlock,
     Lesson,
@@ -47,14 +50,33 @@ class ResolvedLesson:
 
 
 @dataclass
+class ResolvedAssessment:
+    """A single resolved assessment, ready for emission to ``curriculum.json``.
+
+    ``position`` is preserved as a JSON-friendly value (string for
+    ``"before_lessons"`` / ``"after_lessons"``; single-key mapping for
+    the lesson-anchored variants) so the SvelteKit frontend can interleave
+    each assessment relative to lessons at render time. The order of
+    ``ResolvedModule.assessments`` is the canonical iteration order
+    (Story J.e).
+    """
+
+    role: str
+    position: str | dict[str, str]
+    source: str
+    ref: str
+    pass_threshold: float | None
+    content: dict[str, Any]
+
+
+@dataclass
 class ResolvedModule:
     id: str
     title: str
     description: str
     locked: bool | None
-    pre_assessment: dict[str, Any] | None
-    post_assessment: dict[str, Any] | None
     meta: dict[str, Any] | None = None
+    assessments: list[ResolvedAssessment] = field(default_factory=list)
     lessons: list[ResolvedLesson] = field(default_factory=list)
 
 
@@ -152,23 +174,6 @@ def _resolve_module(
     visualization_provider: VisualizationProvider,
     assets_by_dest: dict[str, Asset],
 ) -> ResolvedModule:
-    pre = None
-    post = None
-    if module.pre_assessment:
-        pre = _resolve_assessment(
-            module.pre_assessment.ref,
-            base_dir,
-            quiz_provider,
-            location=f"module `{module.id}` pre_assessment",
-        )
-    if module.post_assessment:
-        post = _resolve_assessment(
-            module.post_assessment.ref,
-            base_dir,
-            quiz_provider,
-            location=f"module `{module.id}` post_assessment",
-        )
-
     resolved_lessons: list[ResolvedLesson] = []
     for lesson in module.lessons:
         resolved_lessons.append(
@@ -183,16 +188,95 @@ def _resolve_module(
             )
         )
 
+    resolved_assessments = _resolve_assessments(
+        module, base_dir, quiz_provider
+    )
+
     return ResolvedModule(
         id=module.id,
         title=module.title,
         description=module.description,
         locked=module.locked,
-        pre_assessment=pre,
-        post_assessment=post,
         meta=module.meta.model_dump() if module.meta is not None else None,
+        assessments=resolved_assessments,
         lessons=resolved_lessons,
     )
+
+
+def _resolve_assessments(
+    module: Module,
+    base_dir: Path,
+    quiz_provider: QuizProvider,
+) -> list[ResolvedAssessment]:
+    """Resolve every assessment defined on the module and emit them in
+    canonical placement order (Story J.e).
+
+    Order rule, materialized once here so downstream consumers don't
+    re-derive it:
+
+    1. All ``position == "before_lessons"`` assessments, in author order.
+    2. For each lesson in ``module.lessons`` (in author order):
+       a. ``BeforeLesson`` assessments anchored to that lesson, in author
+          order.
+       b. ``AfterLesson`` assessments anchored to that lesson, in author
+          order.
+    3. All ``position == "after_lessons"`` assessments, in author order.
+
+    Lesson-anchored refs whose target lesson does not exist were already
+    rejected by ``Module.validate_assessment_lesson_refs`` at parse time.
+    """
+    before_all: list[AssessmentDefinition] = []
+    after_all: list[AssessmentDefinition] = []
+    by_before_id: dict[str, list[AssessmentDefinition]] = {}
+    by_after_id: dict[str, list[AssessmentDefinition]] = {}
+
+    for assessment in module.assessments:
+        pos = assessment.position
+        if pos == "before_lessons":
+            before_all.append(assessment)
+        elif pos == "after_lessons":
+            after_all.append(assessment)
+        elif isinstance(pos, BeforeLesson):
+            by_before_id.setdefault(pos.before_lesson, []).append(assessment)
+        elif isinstance(pos, AfterLesson):
+            by_after_id.setdefault(pos.after_lesson, []).append(assessment)
+
+    ordered: list[AssessmentDefinition] = []
+    ordered.extend(before_all)
+    for lesson in module.lessons:
+        ordered.extend(by_before_id.get(lesson.id, []))
+        ordered.extend(by_after_id.get(lesson.id, []))
+    ordered.extend(after_all)
+
+    resolved: list[ResolvedAssessment] = []
+    for assessment in ordered:
+        location = (
+            f"module `{module.id}` assessment role=`{assessment.role}`"
+        )
+        content = _resolve_assessment(
+            assessment.ref, base_dir, quiz_provider, location
+        )
+        resolved.append(
+            ResolvedAssessment(
+                role=assessment.role,
+                position=_position_to_jsonable(assessment.position),
+                source=assessment.source,
+                ref=assessment.ref,
+                pass_threshold=assessment.pass_threshold,
+                content=content,
+            )
+        )
+    return resolved
+
+
+def _position_to_jsonable(
+    position: str | BeforeLesson | AfterLesson,
+) -> str | dict[str, str]:
+    if isinstance(position, BeforeLesson):
+        return {"before_lesson": position.before_lesson}
+    if isinstance(position, AfterLesson):
+        return {"after_lesson": position.after_lesson}
+    return position
 
 
 def _resolve_lesson(

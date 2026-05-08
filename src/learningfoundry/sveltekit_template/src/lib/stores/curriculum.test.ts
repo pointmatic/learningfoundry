@@ -22,8 +22,7 @@ const FIXTURE: Curriculum = {
 			id: 'mod-01',
 			title: 'Module One',
 			description: '',
-			pre_assessment: null,
-			post_assessment: null,
+			assessments: [],
 			lessons: [
 				{ id: 'lesson-01', title: 'L1', content_blocks: [] },
 				{ id: 'lesson-02', title: 'L2', content_blocks: [] }
@@ -33,8 +32,7 @@ const FIXTURE: Curriculum = {
 			id: 'mod-02',
 			title: 'Module Two',
 			description: '',
-			pre_assessment: null,
-			post_assessment: null,
+			assessments: [],
 			lessons: [
 				{ id: 'lesson-01', title: 'M2L1', content_blocks: [] },
 				{ id: 'lesson-02', title: 'M2L2', content_blocks: [] }

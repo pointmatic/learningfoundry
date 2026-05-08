@@ -73,8 +73,7 @@ function makeCurriculum(): Curriculum {
 				title: 'M1',
 				description: '',
 				locked: null,
-				pre_assessment: null,
-				post_assessment: null,
+				assessments: [],
 				lessons: [
 					{
 						id: 'lesson-01',
@@ -89,8 +88,7 @@ function makeCurriculum(): Curriculum {
 				title: 'M2',
 				description: '',
 				locked: null,
-				pre_assessment: null,
-				post_assessment: null,
+				assessments: [],
 				lessons: [
 					{
 						id: 'lesson-01',

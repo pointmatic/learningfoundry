@@ -11,8 +11,7 @@ function makeModule(id: string, lessonCount: number): Module {
 		id,
 		title: id,
 		description: '',
-		pre_assessment: null,
-		post_assessment: null,
+		assessments: [],
 		lessons: Array.from({ length: lessonCount }, (_, i) => ({
 			id: `lesson-${String(i + 1).padStart(2, '0')}`,
 			title: `L${i + 1}`,
@@ -341,8 +340,8 @@ describe('ProgressDashboard mount — locked module CTA (Story I.aa.3)', () => {
 			description: '',
 			locking: { sequential: true, lesson_sequential: false },
 			modules: [
-				{ ...m1, locked: null, pre_assessment: null, post_assessment: null },
-				{ ...m2, locked: null, pre_assessment: null, post_assessment: null }
+				{ ...m1, locked: null, assessments: [] },
+				{ ...m2, locked: null, assessments: [] }
 			]
 		};
 		const progress = {

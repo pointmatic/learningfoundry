@@ -189,8 +189,6 @@ class TestAllBlockTypesTogether:
                     title="M",
                     description="",
                     locked=None,
-                    pre_assessment=None,
-                    post_assessment=None,
                     lessons=[
                         ResolvedLesson(
                             id="lesson-01",
@@ -504,8 +502,7 @@ class TestOptionalFields:
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
-        assert result.modules[0].pre_assessment is None
-        assert result.modules[0].post_assessment is None
+        assert result.modules[0].assessments == []
 
     def test_resolved_curriculum_description_from_yaml(
         self, tmp_path: Path

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.68.0] - 2026-05-08
+
+### Removed (BREAKING)
+
+- **`Module.pre_assessment` / `Module.post_assessment`** are gone from the curriculum schema, the resolved-curriculum dataclass, the generated `curriculum.json`, and the SvelteKit `Module` TypeScript interface (Story J.e). No alias, no deprecation warning, no shim — pre-1.0 makes the clean break acceptable. Curriculum YAML authors **must** migrate to the new `assessments[]` array; an unmigrated `pre_assessment` / `post_assessment` field at module level now produces a `ValidationError` from strict-mode Pydantic.
+- ProgressDashboard's "Pre-assessment: X/Y" / "Post-assessment: X/Y" inline score rows are gone. The per-learner score data still lives in IndexedDB; a future story rebuilds the score-display UI atop the new shape.
+
+### Added
+
+- **`Module.assessments: list[AssessmentDefinition]`** — generalized array replacing the two-slot pre/post (Story J.e). Each `AssessmentDefinition` carries:
+  - `role`: open string (conventional values `pre`, `practice`, `post`, `checkpoint`).
+  - `position`: discriminated union — `"before_lessons"` / `"after_lessons"` / `{ before_lesson: <id> }` / `{ after_lesson: <id> }`.
+  - `source`, `ref`, optional `pass_threshold`.
+- **Parse-time lesson-id validation.** A `model_validator` on `Module` rejects assessments whose `before_lesson` / `after_lesson` ref names a lesson that does not exist in the module, with an error message naming the module id, the assessment role, and the unknown lesson id.
+- **Resolver materializes canonical assessment order.** `_resolve_assessments` walks the `assessments` array and emits a `ResolvedAssessment` list in placement order: `before_lessons` first, then for each lesson the `before_lesson` and `after_lesson` anchors, then `after_lessons`. Order is the canonical iteration order; each entry retains its original `position` (serialized as JSON-friendly string or single-key mapping) so the frontend can interleave at render time.
+- **TypeScript `AssessmentDefinition` and `AssessmentPosition` types** in [lib/types/index.ts](src/learningfoundry/sveltekit_template/src/lib/types/index.ts).
+
+### Notes
+
+- Frontend rendering of assessments at their resolved positions in the module flow lands in **Story J.f** (v0.69.0). Until then, `module.assessments[]` is plumbed through end-to-end but no UI surfaces it.
+- `pass_threshold` is recorded but not enforced in v1 — gating semantics is a future concern that may also touch the progress-DB schema.
+
 ## [0.67.1] - 2026-05-08
 
 ### Added

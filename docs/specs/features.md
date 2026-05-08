@@ -78,9 +78,16 @@ curriculum:
       title: "Introduction to Neural Networks"
       description: "..."
 
-      pre_assessment:
-        source: quizazz
-        ref: assessments/mod-01-pre.yml
+      assessments:
+        - role: pre
+          position: before_lessons
+          source: quizazz
+          ref: assessments/mod-01-pre.yml
+        - role: post
+          position: after_lessons
+          source: quizazz
+          ref: assessments/mod-01-post.yml
+          pass_threshold: 0.8
 
       lessons:
         - id: lesson-01
@@ -99,10 +106,6 @@ curriculum:
             - type: exercise
               source: nbfoundry
               ref: exercises/mod-01-exercise-01.yml
-
-      post_assessment:
-        source: quizazz
-        ref: assessments/mod-01-post.yml
 ```
 
 **Content block types (v1):**
@@ -210,6 +213,21 @@ Resolve all content references in the parsed curriculum to their actual content.
 - Image reference points at a non-existent file → `ContentResolutionError` with the markdown file path AND the lesson location ("module `mod-01` / lesson `lesson-01` / block[0]") in the error message.
 - Same image referenced from N lessons → Copied exactly once; all N markdown rewrites point at the same `/content/<hash12>/<basename>` URL.
 
+**Module assessments — generalized array (Phase J / Story J.e):**
+
+Each module declares assessments as a list of `AssessmentDefinition` entries — one entry per assessment — replacing the legacy two-slot `pre_assessment` / `post_assessment` fields (removed outright; pre-1.0 makes the breakage acceptable).
+
+- `role` is an open string. Conventional values: `pre`, `practice`, `post`, `checkpoint`. Used as a UI label and a tag for downstream consumers; the schema does not constrain the vocabulary.
+- `position` is a discriminated union:
+  - `before_lessons` — anchors the assessment at the start of the module flow.
+  - `after_lessons` — anchors at the end.
+  - `{ before_lesson: <lesson-id> }` — anchors immediately before the named lesson.
+  - `{ after_lesson: <lesson-id> }` — anchors immediately after.
+- `source` and `ref` follow the same provider-+-path convention as quiz content blocks.
+- `pass_threshold` is optional (`0.0`–`1.0`); recorded but not gating in v1.
+- The parser validates `before_lesson` / `after_lesson` refs against the module's `lessons` and rejects unknown ids at parse time.
+- The resolver materializes assessments into canonical placement order: `before_lessons` first, then for each lesson the `before_lesson` and `after_lesson` anchors, then `after_lessons`.
+
 **Pedagogical metadata (Phase J / Story J.a):**
 
 Both `Lesson` and `Module` accept an optional `meta` block carrying author-declared pedagogical context. The pipeline does not interpret these fields beyond schema validation — they are passed through verbatim into `curriculum.json` for downstream rendering and tooling.
@@ -309,7 +327,7 @@ When the sql.js WASM asset (`/sql-wasm.wasm`) cannot be fetched at runtime — a
 Consume quiz/assessment content produced by quizazz and render it in the SvelteKit frontend.
 
 **Behavior:**
-1. During content resolution, invoke quizazz to parse assessment YAML files referenced by `quiz` content blocks and `pre_assessment`/`post_assessment` module fields.
+1. During content resolution, invoke quizazz to parse assessment YAML files referenced by `quiz` content blocks and entries in the module's `assessments` array (Story J.e — replaces the legacy two-slot `pre_assessment`/`post_assessment` fields).
 2. quizazz returns a content-only artifact (questions, answer choices, correct answers, explanations).
 3. The SvelteKit frontend renders quizzes inline with immediate scoring and explanation display.
 4. Quiz scores are written to the in-browser SQLite database.

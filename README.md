@@ -191,14 +191,28 @@ curriculum:
       title: "Module One"         # required
       description: "..."          # optional
 
-      # Optional pre/post assessments (requires quizazz-builder)
-      pre_assessment:
-        source: quizazz
-        ref: assessments/mod-01-pre.yml
+      # Optional assessments (requires quizazz-builder).
+      # Each assessment carries an open-string `role` and a `position`
+      # (`before_lessons`, `after_lessons`, or `{ before_lesson: <id> }`
+      # / `{ after_lesson: <id> }`). The order in `assessments` after
+      # build is the canonical placement order.
+      assessments:
+        - role: pre
+          position: before_lessons
+          source: quizazz
+          ref: assessments/mod-01-pre.yml
 
-      post_assessment:
-        source: quizazz
-        ref: assessments/mod-01-post.yml
+        - role: practice
+          position: { before_lesson: lesson-04 }
+          source: quizazz
+          ref: assessments/mod-01-practice.yml
+          pass_threshold: 0.7
+
+        - role: post
+          position: after_lessons
+          source: quizazz
+          ref: assessments/mod-01-post.yml
+          pass_threshold: 0.8
 
       lessons:
         - id: lesson-01           # required, kebab-case; unique within module
