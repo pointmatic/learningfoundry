@@ -40,3 +40,6 @@ node_modules/
 
 # project-guide
 docs/project-guide/**/*.bak.*
+
+# Project
+/scripts/data/

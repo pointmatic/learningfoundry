@@ -5,9 +5,10 @@ This project uses `pyve` with **two separate environments**. Picking the wrong i
 - **Runtime code (the package itself):** `pyve run python ...` or `pyve run <entry-point> ...`.
 - **Tests:** `pyve test [pytest args]` — **not** `pyve run pytest`. Pytest is not installed in the main `.venv/`; it lives in the dev testenv at `.pyve/testenv/venv/`.
 - **Dev tools (ruff, mypy, pytest):** `pyve testenv run ruff check ...`, `pyve testenv run mypy ...`.
-- **Install dev tools:** `pyve testenv --install -r requirements-dev.txt`. **Do not** run `pip install -e ".[dev]"` into the main venv — that pollutes the runtime environment with test-only dependencies and breaks the two-env isolation.
+- **Initialize the testenv (one-time):** `pyve testenv init` creates `.pyve/testenv/venv/`. Required before `pyve testenv install` or `pyve testenv run` will work — those subcommands do not auto-create the env. See [pyve `testenv` subcommand reference](https://pointmatic.github.io/pyve/usage/#testenv-subcommand).
+- **Install dev tools:** `pyve testenv install -r requirements-dev.txt` (after `pyve testenv init`). **Do not** run `pip install -e ".[dev]"` into the main venv — that pollutes the runtime environment with test-only dependencies and breaks the two-env isolation.
 
-If `pytest` fails with "not found" that is the signal to use `pyve test`, not to `pip install pytest` into the wrong venv.
+If `pytest` fails with "not found" that is the signal to use `pyve test`, not to `pip install pytest` into the wrong venv. If `pyve testenv install` or `pyve testenv run` fails complaining the env doesn't exist, run `pyve testenv init` first.
 
 #### LLM-internal vs. developer-facing invocation
 
@@ -27,7 +28,7 @@ Always use `python`, never `python3`. The `python3` command bypasses `asdf` vers
 
 #### `requirements-dev.txt` story-writing rule
 
-Any story that introduces dev tooling (ruff, mypy, pytest, types-* stubs) **must** include a task to create or update `requirements-dev.txt` so that `pyve testenv --install -r requirements-dev.txt` reproduces the full dev environment in one step. This keeps the dev environment reproducible and prevents "it works on my machine" drift.
+Any story that introduces dev tooling (ruff, mypy, pytest, types-* stubs) **must** include a task to create or update `requirements-dev.txt` so that `pyve testenv init && pyve testenv install -r requirements-dev.txt` reproduces the full dev environment in two commands. This keeps the dev environment reproducible and prevents "it works on my machine" drift.
 
 #### Editable install and testenv dependency management
 
@@ -47,8 +48,9 @@ pythonpath = ["."]   # or ["src"] for src layout
 
 **Testenv editable install (required for CLI projects):**
 ```bash
+pyve testenv init                                # one-time, creates .pyve/testenv/venv/
 pyve testenv run pip install -e .
-pyve testenv --install -r requirements-dev.txt
+pyve testenv install -r requirements-dev.txt
 ```
 Use this when tests invoke CLI entry points (console scripts), because `pythonpath` only handles imports — it does not register entry points.
 

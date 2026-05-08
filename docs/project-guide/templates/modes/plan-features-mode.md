@@ -4,16 +4,19 @@ The high-level concept (why) should be captured in `concept.md`. The implementat
 
 ## Prerequisites
 
-Before starting, the developer must provide (or the LLM must ask for):
+The approved `docs/specs/concept.md` must exist before starting this mode. It is the primary source for almost every field below — read it first and treat it as authoritative.
 
-1. **License preference** -- e.g. Apache-2.0, MIT, MPL-2.0, GPL-3.0. If a `LICENSE` file already exists in the project root, that license prevails.
-2. **Target audience** -- CLI tool, library, web app, etc.
-3. **Constraints** -- no UI, no database, must run offline, etc. (if any)
-4. **A project idea** -- a description of the problem space and solution space along with a mapping of pain points to how the solution solves the pain. The `docs/specs/concept.md` file must exist -- read itfor context.
+These inputs may also be supplied directly by the developer, but in practice they are usually already implied by `concept.md` or by files in the repo:
+
+1. **License preference** -- e.g. Apache-2.0, MIT, MPL-2.0, GPL-3.0. If a `LICENSE` file already exists in the project root, that license prevails. If `concept.md` names a license, use that.
+2. **Target audience** -- CLI tool, library, web app, etc. Usually stated in `concept.md`.
+3. **Constraints** -- no UI, no database, must run offline, etc. (if any). Usually stated in `concept.md`.
 
 ## Steps
 
-1. Gather information from the developer if not already discovered in prerequisites (ask questions if needed):
+1. **Read what already exists before asking anything.** Open `docs/specs/concept.md` in full, plus any sibling documents it references (e.g. dependency specs, design notes) and any `LICENSE` file in the project root. Do this *before* presenting the developer with a list of prerequisites or questions — the goal is to enter step 2 already knowing most of the answers.
+
+2. Gather information, deriving as much as possible from the documents read in step 1. **Do not enumerate prerequisites or ask for items that `concept.md` already supplies** — silently fill them in. Ask the developer only about fields that are genuinely missing or ambiguous after reading, and ask in a single consolidated round rather than one at a time. Fields to populate:
    - project_name: The project name
    - programming_language: e.g., Python 3.11+, Node 22, Go 1.23
    - project_goal: One paragraph on what the project should accomplish
@@ -31,9 +34,9 @@ Before starting, the developer must provide (or the LLM must ask for):
    - performance_expectations: User-facing performance requirements (e.g., real-time processing, batch reports within 1 hour, response time under 200ms) (if applicable)
    - acceptance_criteria: Definition of done for the whole project
 
-2. Generate `docs/specs/features.md` using the artifact template at `templates/artifacts/features.md`
+3. Generate `docs/specs/features.md` using the artifact template at `docs/project-guide/templates/artifacts/features.md` (installed by `project-guide init`; refreshed by `project-guide update`)
 
-3. Present the complete document to the developer for approval. Iterate as needed.
+4. Present the complete document to the developer for approval. Iterate as needed.
 
 ## Formats
 

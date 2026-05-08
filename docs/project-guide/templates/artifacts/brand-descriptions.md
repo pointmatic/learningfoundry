@@ -1,6 +1,8 @@
 # brand-descriptions.md -- {{project_name}}
 
-Canonical source of truth for all descriptive language used across the project. All consumer files (README.md, docs/index.html, pyproject.toml, features.md) should draw from these definitions.
+Canonical source of truth for all descriptive language used across the `{{project_name}}` project (including naming, taglines, and marketing phrasing). All consumer files (README.md, docs/index.html, pyproject.toml, features.md) should draw from these definitions. 
+
+For project-specific must-know facts, see [`project-essentials.md`](project-essentials.md) (`plan_phase` appends new facts per phase). For the workflow steps tailored to the current mode (cycle steps, approval gates, conventions), see [`docs/project-guide/go.md`](../project-guide/go.md) — re-read it whenever the mode changes or after context compaction.
 
 ---
 

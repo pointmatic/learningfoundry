@@ -7,7 +7,7 @@ Update existing documentation files because of new features, improvements, or to
 The following documents may need updating (in order):
 
 1. `README.md` — project README at the repository root
-2. `{{ spec_artifacts_path }}/brand-descriptions.md` — artifact template: `templates/artifacts/brand-descriptions.md`
+2. `{{ spec_artifacts_path }}/brand-descriptions.md` — artifact template: `docs/project-guide/templates/artifacts/brand-descriptions.md` (installed by `project-guide init`; refreshed by `project-guide update`)
 3. `{{ web_root }}/index.html` — project landing page
 4. MkDocs configuration (`mkdocs.yml`) and documentation pages (`{{ web_root }}/*.md`)
 

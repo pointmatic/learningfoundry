@@ -24,6 +24,15 @@ What belongs here:
 - **Architecture quirks.** Source-of-truth vs generated/installed file
   locations (edit the source, not the copy); build outputs that get
   regenerated; files that look hand-edited but aren't.
+    - *project-guide consumers:* bundled artifact templates (`concept.md`,
+      `features.md`, `tech-spec.md`, `stories.md`, `project-essentials.md`,
+      `brand-descriptions.md`, `pyve-essentials.md`) live at
+      `docs/project-guide/templates/artifacts/` in every initialized
+      project — installed by `project-guide init`, refreshed by
+      `project-guide update`. Read directly from that path; never search
+      `site-packages`, the active venv, or environment-manager-specific
+      install locations (pip, poetry, uv, conda, mamba, micromamba, pyve,
+      pixi all stash site-packages differently).
 
 - **Domain conventions.** Money stored in cents, all timestamps UTC, IDs
   are strings not ints, and similar non-obvious rules.
@@ -34,12 +43,10 @@ What belongs here:
 - **Dogfooding / meta notes.** If the project uses itself, capture the
   rules that keep the dogfood loop safe.
 
-An empty file is acceptable — omit this file entirely, or leave the comment
-block above with no content below it. When empty, the rendered `go.md` for
-every mode will simply omit the "Project Essentials" section (unless pyve
-is installed, in which case the bundled `pyve-essentials.md` sibling
-artifact still renders under `## Project Essentials` as a `### Pyve
-Essentials` subsection — see below).
+This file is **always** created — the **File header conventions** section
+below is mandatory baseline content. Additional sections beyond file
+headers are optional and should be added only when the developer
+identifies real must-know facts.
 
 The `plan_tech_spec`, `refactor_plan`, and `plan_phase` modes prompt for new
 entries at natural points in the project lifecycle.
@@ -53,10 +60,13 @@ automatically on the next `project-guide mode` invocation. Do NOT copy or
 merge pyve-specific rules into this file; capture only project-specific
 deviations or facts not covered by the bundled artifact.
 
-- **File header conventions.** Every project should document the copyright
-  holder, license, and SPDX identifier so LLMs apply them consistently.
-  See the starter section below — fill in the placeholders during
-  `scaffold_project` or `plan_tech_spec` mode.
+- **File header conventions.** Mandatory baseline content. Every project
+  documents the copyright holder, license, and SPDX identifier so LLMs
+  apply them consistently. The LLM substitutes `<YEAR>`, `<OWNER>`, and
+  `<LICENSE>` from `concept.md` / `LICENSE` / `pyproject.toml` during
+  `scaffold_project` / `plan_tech_spec` / `plan_phase` create /
+  `refactor_plan` create, and removes the trailing TODO note in the same
+  pass — without asking the developer whether to include the headers.
 -->
 
 ### File header conventions

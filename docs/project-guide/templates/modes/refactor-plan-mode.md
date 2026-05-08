@@ -6,9 +6,11 @@ Rewrite or update existing planning documents because of new features, improveme
 
 The following documents may need updating (in order):
 
-1. `{{ spec_artifacts_path }}/concept.md` — artifact template: `templates/artifacts/concept.md`
-2. `{{ spec_artifacts_path }}/features.md` — artifact template: `templates/artifacts/features.md`
-3. `{{ spec_artifacts_path }}/tech-spec.md` — artifact template: `templates/artifacts/tech-spec.md`
+1. `{{ spec_artifacts_path }}/concept.md` — artifact template: `docs/project-guide/templates/artifacts/concept.md`
+2. `{{ spec_artifacts_path }}/features.md` — artifact template: `docs/project-guide/templates/artifacts/features.md`
+3. `{{ spec_artifacts_path }}/tech-spec.md` — artifact template: `docs/project-guide/templates/artifacts/tech-spec.md`
+
+The artifact templates above are installed by `project-guide init` and refreshed by `project-guide update` — read them directly from the path shown.
 
 Skip any document that does not exist. If a document already reflects the current state of the project, confirm with the developer and skip.
 
@@ -32,7 +34,7 @@ This protects against uncommitted work being overwritten.
 
 ### Step 3: Read and Extract
 
-Read the old document as the primary source of information. Read the corresponding artifact template at `templates/artifacts/<doc_name>.md` to understand the target structure and required sections.
+Read the old document as the primary source of information. Read the corresponding artifact template at `docs/project-guide/templates/artifacts/<doc_name>.md` to understand the target structure and required sections.
 
 Map the old document's content to the artifact template sections. Note what needs to change based on the developer's instructions from Step 1.
 
@@ -108,7 +110,7 @@ Ask the developer whether the refactor introduced any new must-know facts that f
 
 Depending on Step F.1's branch:
 
-- **Create path**: Generate a new `docs/specs/project-essentials.md` from the artifact template at `templates/artifacts/project-essentials.md`. For legacy projects, this is often the first time these rules have been written down — take the time to capture them properly. Present to the developer for approval and iterate as needed.
+- **Create path**: Generate a new `docs/specs/project-essentials.md` from the artifact template at `docs/project-guide/templates/artifacts/project-essentials.md` (installed by `project-guide init`; refreshed by `project-guide update`). The **File header conventions** section is mandatory baseline content — pre-fill `<YEAR>`, `<OWNER>`, and `<LICENSE>` from the project's `LICENSE` file and `pyproject.toml` (or equivalent manifest) and remove the trailing TODO note. Do **not** ask the developer whether to include the headers — the question is only ever about *additional* facts (gathered in Step F.2). For legacy projects, this is often the first time these rules have been written down — take the time to capture them properly. Present to the developer for approval and iterate as needed.
 - **Modify path**: Read the existing `docs/specs/project-essentials.md`, integrate the new facts from Step F.2, and write the updated file. Preserve existing content that is still accurate; update content that the refactor has changed; add new sections for new categories.
 
 In both paths, follow the artifact template's heading convention: **do NOT include a top-level `#` heading** (the rendered `go.md` wrapper provides `## Project Essentials`), and use `###` for subsection headings so they nest correctly.

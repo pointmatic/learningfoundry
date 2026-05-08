@@ -78,8 +78,9 @@ pyve run pip install -e .
 **Testenv** — install if your tests invoke CLI entry points (console scripts). `pythonpath` alone does not register entry points:
 
 ```bash
+pyve testenv init                                # one-time, creates .pyve/testenv/venv/
 pyve testenv run pip install -e .
-pyve testenv --install -r requirements-dev.txt
+pyve testenv install -r requirements-dev.txt
 ```
 
 **Preferred pattern for most pyve projects** — install editable in the main env only, then use `pythonpath` so the testenv picks up the source tree without a second install:
@@ -91,8 +92,9 @@ pythonpath = ["."]
 ```
 
 ```bash
-pyve run pip install -e .        # main env — for interactive use
-pyve testenv --install -r requirements-dev.txt   # testenv — dev tools only
+pyve run pip install -e .                       # main env — for interactive use
+pyve testenv init                               # testenv — one-time
+pyve testenv install -r requirements-dev.txt   # testenv — dev tools only
 ```
 
 This avoids maintaining two editable installs with potentially diverging dependency resolution.
@@ -122,7 +124,8 @@ If the package is missing from one env, install it there as shown above.
 
 | Mistake | Consequence | Fix |
 |---|---|---|
-| `pip install -e ".[dev]"` into main venv | Test-only deps pollute the runtime env | Use `pyve testenv --install -r requirements-dev.txt` instead |
+| `pip install -e ".[dev]"` into main venv | Test-only deps pollute the runtime env | Use `pyve testenv init` then `pyve testenv install -r requirements-dev.txt` |
+| `pyve testenv install` or `pyve testenv run` before `pyve testenv init` | Error: testenv does not exist | Run `pyve testenv init` once to create `.pyve/testenv/venv/` |
 | `pyve run pytest` instead of `pyve test` | pytest not found — it lives in testenv | Use `pyve test [args]` |
 | No editable install or `pythonpath`, but tests import the package | `ModuleNotFoundError` at test time | Add `pythonpath = ["."]` to pytest config or `pyve testenv run pip install -e .` |
 | Editable install in testenv but entry point not found | `FileNotFoundError` running the CLI | Also install editable in main env, or invoke via `python -m <module>` |

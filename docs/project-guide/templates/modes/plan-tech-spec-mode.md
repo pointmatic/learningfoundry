@@ -29,16 +29,19 @@ The approved `docs/specs/concept.md` and `docs/specs/features.md` must exist bef
    - performance_implementation: Concurrency model, connection pooling, batching strategy, resource limits (if applicable)
    - testing_strategy: Unit tests, integration tests, and what each covers
    - packaging_and_distribution: Package metadata, registry (PyPI/npm/crates.io), installation methods, console scripts, package data inclusion (if applicable)
+   - ci_cd_automation: One-line summary of CI/CD scope — linting/testing on push (GitHub Actions, etc.), coverage reporting (Codecov/Coveralls), automated registry publishing on tag (PyPI/npm/crates.io). "None" is a valid answer for projects that explicitly opt out. Lands as the **CI/CD Automation** section of `tech-spec.md`; `plan_stories` reads this single fact to decide whether to include a Phase G (CI/CD & Automation), so do not scatter CI/CD breadcrumbs across packaging/distribution and cross-cutting — capture them once, here.
 
-3. Generate `docs/specs/tech-spec.md` using the artifact template at `templates/artifacts/tech-spec.md`
+3. Generate `docs/specs/tech-spec.md` using the artifact template at `docs/project-guide/templates/artifacts/tech-spec.md` (installed by `project-guide init`; refreshed by `project-guide update`)
 
 4. Present the complete document to the developer for approval. Iterate as needed.
 
-5. **After tech-spec approval, capture project essentials.** Ask the developer whether there are any must-know facts that future LLMs would need to avoid blunders on this project — things that are **not** obvious from the tech-spec alone. Put these concrete worked examples in front of them to jog their memory (don't just name the categories — name the gotchas):
+5. **After tech-spec approval, capture project essentials.** The **File header conventions** section is mandatory baseline content — pre-fill `<YEAR>`, `<OWNER>`, and `<LICENSE>` from the project's `concept.md` / `LICENSE` / `pyproject.toml` (whichever is authoritative for this mode) and remove the trailing TODO note. Do **not** ask the developer whether to include the headers — the question is only ever about *additional* facts.
+
+   Then ask the developer whether there are any **additional** must-know facts that future LLMs would need to avoid blunders on this project — things that are **not** obvious from the tech-spec alone. Put these concrete worked examples in front of them to jog their memory (don't just name the categories — name the gotchas):
 
    - **Workflow rules — tool wrappers and environment conventions.** A common source of "random walks" by LLMs: multiple invocation forms all *work*, but only one is canonical. Capture which form to use so the LLM doesn't pick whatever happens to succeed first.
      - *Python invocation*: wrapper command (e.g., `pyve run python ...`, `poetry run python ...`, `hatch run python ...`, `uv run python ...`) vs `python -m ...` vs `.venv/bin/python ...`. All may execute, but only one matches the project's setup.
-     - *Dev tool installation*: dedicated dev/test environment (e.g., `pyve testenv --install`, `poetry install --with dev`, `uv sync --extra dev`) vs `pip install -e ".[dev]"` into the main venv. Different isolation guarantees — the latter pollutes the runtime venv.
+     - *Dev tool installation*: dedicated dev/test environment (e.g., `pyve testenv install`, `poetry install --with dev`, `uv sync --extra dev`) vs `pip install -e ".[dev]"` into the main venv. Different isolation guarantees — the latter pollutes the runtime venv.
      - *Test invocation*: project-specific runner (e.g., `pyve test`, `poetry run pytest`, `make test`) vs bare `pytest`. Bare `pytest` may fail because the tool isn't in the active venv — that's a signal to use the wrapper, not to `pip install pytest`.
      - **Principle:** legitimate alternatives exist, but they should be intentional choices, not a random walk to whatever works.
    - **Architecture quirks** — source-of-truth vs generated/installed file locations (edit the source, not the copy); build outputs that get regenerated; files that look hand-edited but aren't.
@@ -46,9 +49,9 @@ The approved `docs/specs/concept.md` and `docs/specs/features.md` must exist bef
    - **Hidden coupling** — files that mirror each other, auto-generated code, regenerated outputs that look hand-edited.
    - **Dogfooding / meta notes** — if the project uses itself, capture the rules that keep the dogfood loop safe.
 
-   If the developer says there are none, skip to step 7 — do not create an empty `project-essentials.md`. An empty file is acceptable when maintaining an existing one, but a new project should only get this file if there's actual content to put in it.
+   Even if the developer has no additional facts, still create `project-essentials.md` with the file header conventions section pre-filled.
 
-6. If the developer provides any facts, generate `docs/specs/project-essentials.md` using the artifact template at `templates/artifacts/project-essentials.md`. Follow the template's heading convention: **do NOT include a top-level `#` heading** (the rendered `go.md` wrapper provides `## Project Essentials`), and use `###` for subsection headings so they nest correctly. Present the document to the developer for approval and iterate as needed.
+6. Generate `docs/specs/project-essentials.md` using the artifact template at `docs/project-guide/templates/artifacts/project-essentials.md` (installed by `project-guide init`; refreshed by `project-guide update`). The **File header conventions** section is mandatory; substitute `<YEAR>`, `<OWNER>`, and `<LICENSE>` with concrete values and remove the trailing TODO note. Append any additional facts the developer provided in step 5. Follow the template's heading convention: **do NOT include a top-level `#` heading** (the rendered `go.md` wrapper provides `## Project Essentials`), and use `###` for subsection headings so they nest correctly. Present the document to the developer for approval and iterate as needed.
 
 7. Done — proceed to the next mode.
 
