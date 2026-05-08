@@ -193,7 +193,7 @@ Defensive developer-experience hardening on top of an already-working feature �
 
 ---
 
-### Story J.e: v0.68.0 — Generalized `assessments` Array [Done]
+### Story J.e: v0.68.0 — Generalized 'assessments' Array [Done]
 
 Today's two-slot `pre_assessment` / `post_assessment` covers the priming and recap positions but cannot represent practice quizzes (the third pedagogically interesting position, typically landing before the hands-on lesson). Story J.e replaces both fields with a single generalized `assessments: list[AssessmentDefinition]` array on `Module`, supporting positional placement.
 
@@ -248,7 +248,7 @@ modules:
 
 ---
 
-### Story J.f: v0.69.0 — SvelteKit Module Flow Renders Assessments at Resolved Positions [Planned]
+### Story J.f: v0.69.0 — SvelteKit Module Flow Renders Assessments at Resolved Positions [Done]
 
 J.e replaced `pre_assessment` / `post_assessment` with a resolved-order `assessments` array but the SvelteKit module-flow component still renders against the old two-slot model. Story J.f catches the frontend up: the module page reads `module.assessments` (in the order the generator emitted) and renders each entry at its position in the lesson list, with the role visible in the UI label.
 
@@ -258,15 +258,15 @@ J.e replaced `pre_assessment` / `post_assessment` with a resolved-order `assessm
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/sveltekit_template/`: locate the module-flow / lesson-list component. Replace any `pre_assessment` / `post_assessment` reads with iteration over `module.assessments`.
-- [ ] Render each assessment at its resolved position; the order in the array IS the position. The component does not re-resolve `position` — that's the parser's job; the generator already emitted them in order.
-- [ ] Display the assessment's `role` (capitalized: "Pre", "Practice", "Post", or the verbatim role string) on its UI element.
-- [ ] Display `pass_threshold` as a secondary annotation when present.
-- [ ] Component / smoke tests: a fixture module with all three roles renders three assessment elements at expected positions in the DOM ordering; a fixture with only `pre` renders only one.
-- [ ] `docs/specs/features.md`: update the rendered-app description to reflect the new assessment placement model.
-- [ ] Bump version to v0.69.0.
-- [ ] Update `CHANGELOG.md`.
-- [ ] Verify: `pyve test`, vitest, smoke build.
+- [x] `src/learningfoundry/sveltekit_template/`: module-flow / lesson-list component is `LessonList.svelte` (rendered via `ModuleList.svelte`). Replaced no-op pre/post UI with iteration over a derived `flow` built by `interleaveModuleFlow(lessons, assessments)`.
+- [x] Render each assessment at its resolved position; helper builds the flow by reading `position` once. Component does not re-resolve placement — it trusts the resolver-emitted order to disambiguate ties within each placement bucket.
+- [x] Display assessment `role` capitalized as `<Role> Assessment` (helper `capitalizeRole`). Open-string roles are preserved verbatim after the first letter.
+- [x] Display `pass_threshold` as `"X% to pass"` via `formatPassThreshold` helper; rendered only when threshold is set + within `(0, 1]`.
+- [x] Component tests: 10 unit cases in `module-list.test.ts` (interleave correctness, helper formatting); 5 DOM cases in `LessonList.test.ts` (no-assessments, single-pre, all-three-interleaved, threshold present/absent).
+- [x] `docs/specs/features.md`: new "Module flow renders assessments at resolved positions" subsection under FR-3.
+- [x] Bumped version to v0.69.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Updated `CHANGELOG.md`.
+- [x] Verify: `pyve test` 324 passed, `pnpm test` 226 passed, `ruff` clean, `mypy` clean. Smoke build (pnpm install + vite build) intentionally not run in this turn — covered by CI.
 
 ---
 

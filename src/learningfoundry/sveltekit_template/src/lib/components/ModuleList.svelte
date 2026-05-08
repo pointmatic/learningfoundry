@@ -107,6 +107,7 @@
 						<LessonList
 							moduleId={mod.id}
 							lessons={mod.lessons}
+							assessments={mod.assessments}
 							progress={progress[mod.id]?.lessons}
 							optionalLessons={optional}
 							lockedLessons={lockedLessons}

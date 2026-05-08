@@ -228,6 +228,17 @@ Each module declares assessments as a list of `AssessmentDefinition` entries —
 - The parser validates `before_lesson` / `after_lesson` refs against the module's `lessons` and rejects unknown ids at parse time.
 - The resolver materializes assessments into canonical placement order: `before_lessons` first, then for each lesson the `before_lesson` and `after_lesson` anchors, then `after_lessons`.
 
+**Module flow renders assessments at resolved positions (Phase J / Story J.f):**
+
+The expanded module in the sidebar interleaves assessment rows with lesson rows according to each assessment's `position`. The resolver-emitted ordering is honoured, so authors see the same sequence in the UI that they declared in YAML once normalized:
+
+- `before_lessons` entries → above every lesson in the module.
+- `{ before_lesson: <id> }` entries → directly above the named lesson row.
+- `{ after_lesson: <id> }` entries → directly below the named lesson row.
+- `after_lessons` entries → below every lesson.
+
+Each assessment row shows the role label (capitalized, e.g. `Pre Assessment` / `Practice Assessment` / `Post Assessment`) and, when `pass_threshold` is set, a secondary annotation `"X% to pass"`. Rows are non-interactive in v1 — gating, per-role styling beyond the label, mid-lesson placement, and assessment-specific routes are deferred.
+
 **Pedagogical metadata (Phase J / Story J.a):**
 
 Both `Lesson` and `Module` accept an optional `meta` block carrying author-declared pedagogical context. The pipeline does not interpret these fields beyond schema validation — they are passed through verbatim into `curriculum.json` for downstream rendering and tooling.

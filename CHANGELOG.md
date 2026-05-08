@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.69.0] - 2026-05-08
+
+### Added
+
+- **Sidebar module flow renders assessments at their resolved positions** (Story J.f). [LessonList.svelte](src/learningfoundry/sveltekit_template/src/lib/components/LessonList.svelte) now interleaves assessment rows with lesson rows according to each assessment's `position`: `before_lessons` at the top, `{ before_lesson: <id> }` / `{ after_lesson: <id> }` around the named lesson, `after_lessons` at the bottom. Order in `module.assessments` is the canonical iteration order — the resolver emitted it that way and the component does not re-resolve placement.
+- **Role label + pass-threshold annotation on each assessment row.** Role rendered capitalized (`pre` → `Pre Assessment`); `pass_threshold` rendered as a secondary `"70% to pass"` annotation when set. Rows are non-interactive — gating semantics is a future concern.
+- **`interleaveModuleFlow`, `capitalizeRole`, `formatPassThreshold`** helpers in [module-list.helpers.ts](src/learningfoundry/sveltekit_template/src/lib/components/module-list.helpers.ts) plus 10 new unit tests in `module-list.test.ts` and 5 new DOM tests in `LessonList.test.ts`.
+- [ModuleList.svelte](src/learningfoundry/sveltekit_template/src/lib/components/ModuleList.svelte) now passes `mod.assessments` to `LessonList`.
+
+### Notes
+
+- Defensive belt: a lesson-anchored assessment whose target lesson does not exist is silently dropped at render time. The parser already rejects unknown refs at build time (`Module.validate_assessment_lesson_refs`); this guard ensures the component does not crash if one slips through.
+- Mid-lesson assessment placement, gating ("must pass post to advance"), per-role styling beyond label text, and assessment-specific routes remain out of scope.
+
 ## [0.68.0] - 2026-05-08
 
 ### Removed (BREAKING)

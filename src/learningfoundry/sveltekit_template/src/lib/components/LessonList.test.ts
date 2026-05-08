@@ -9,7 +9,12 @@
 // `goto` wiring on real button clicks.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
-import type { Lesson, LessonProgress, LessonStatus } from '$lib/types/index.js';
+import type {
+	AssessmentDefinition,
+	Lesson,
+	LessonProgress,
+	LessonStatus
+} from '$lib/types/index.js';
 
 const { gotoMock } = vi.hoisted(() => ({ gotoMock: vi.fn() }));
 
@@ -169,6 +174,127 @@ describe('LessonList mount — role chip (Story J.b)', () => {
 
 		const chip = container.querySelector('[data-testid="lesson-role-chip"]');
 		expect(chip).toBeNull();
+	});
+});
+
+describe('LessonList mount — assessment rows (Story J.f)', () => {
+	let LessonList: typeof import('./LessonList.svelte').default;
+
+	beforeEach(async () => {
+		gotoMock.mockReset();
+		LessonList = (await import('./LessonList.svelte')).default;
+	});
+
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	function makeAssessment(
+		role: string,
+		position: AssessmentDefinition['position'],
+		pass_threshold: number | null = null
+	): AssessmentDefinition {
+		return {
+			role,
+			position,
+			source: 'quizazz',
+			ref: `a/${role}.yml`,
+			pass_threshold,
+			content: { quizName: role, tree: [], questions: [] }
+		};
+	}
+
+	it('module with no assessments renders only lesson rows', () => {
+		const lessons: Lesson[] = [makeLesson('lesson-01')];
+		const { container } = render(LessonList, {
+			props: {
+				moduleId: 'mod-01',
+				lessons,
+				progress: {},
+				optionalLessons: new Set(),
+				lockedLessons: new Set()
+			}
+		});
+		expect(container.querySelectorAll('[data-testid="assessment-row"]')).toHaveLength(0);
+	});
+
+	it('renders one assessment row when only `pre` is present', () => {
+		const { container } = render(LessonList, {
+			props: {
+				moduleId: 'mod-01',
+				lessons: [makeLesson('lesson-01')],
+				assessments: [makeAssessment('pre', 'before_lessons')],
+				progress: {},
+				optionalLessons: new Set(),
+				lockedLessons: new Set()
+			}
+		});
+		const rows = container.querySelectorAll('[data-testid="assessment-row"]');
+		expect(rows).toHaveLength(1);
+		expect(rows[0].getAttribute('data-role')).toBe('pre');
+		expect(rows[0].textContent).toContain('Pre Assessment');
+	});
+
+	it('renders three assessment rows interleaved with lessons in DOM order', () => {
+		const { container } = render(LessonList, {
+			props: {
+				moduleId: 'mod-01',
+				lessons: [makeLesson('lesson-01'), makeLesson('lesson-02')],
+				assessments: [
+					makeAssessment('pre', 'before_lessons'),
+					makeAssessment('practice', { before_lesson: 'lesson-02' }),
+					makeAssessment('post', 'after_lessons', 0.8)
+				],
+				progress: {},
+				optionalLessons: new Set(),
+				lockedLessons: new Set()
+			}
+		});
+		const items = Array.from(container.querySelectorAll('ul > li')).map((li) => {
+			const role = li.getAttribute('data-role');
+			if (role) return `assess:${role}`;
+			const titleEl = li.querySelector('button span:nth-child(2)');
+			return `lesson:${titleEl?.textContent?.trim()}`;
+		});
+		expect(items).toEqual([
+			'assess:pre',
+			'lesson:lesson-01',
+			'assess:practice',
+			'lesson:lesson-02',
+			'assess:post'
+		]);
+	});
+
+	it('shows "X% to pass" annotation when pass_threshold is set', () => {
+		const { container } = render(LessonList, {
+			props: {
+				moduleId: 'mod-01',
+				lessons: [makeLesson('lesson-01')],
+				assessments: [makeAssessment('post', 'after_lessons', 0.7)],
+				progress: {},
+				optionalLessons: new Set(),
+				lockedLessons: new Set()
+			}
+		});
+		const threshold = container.querySelector('[data-testid="assessment-threshold"]');
+		expect(threshold).not.toBeNull();
+		expect(threshold?.textContent?.trim()).toBe('70% to pass');
+	});
+
+	it('omits "X% to pass" annotation when pass_threshold is null', () => {
+		const { container } = render(LessonList, {
+			props: {
+				moduleId: 'mod-01',
+				lessons: [makeLesson('lesson-01')],
+				assessments: [makeAssessment('pre', 'before_lessons', null)],
+				progress: {},
+				optionalLessons: new Set(),
+				lockedLessons: new Set()
+			}
+		});
+		expect(
+			container.querySelector('[data-testid="assessment-threshold"]')
+		).toBeNull();
 	});
 });
 
