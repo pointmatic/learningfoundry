@@ -138,7 +138,7 @@ Aggregate is computed at generation time, written into `curriculum.json` as `tot
 
 ---
 
-### Story J.d: v0.67.0 — Tutorial Scaffold via Markdown Container Directives [Planned]
+### Story J.d.1: v0.67.0 — Tutorial Scaffold Directives — Plugin + Rendering + CSS [Done]
 
 The worked → faded → independent practice pattern is high-leverage in technical curricula but currently survives only as a prose convention. Story J.d recognizes it in markdown using container directives (already common in MkDocs / MDX / mdsvex / remark toolchains):
 
@@ -157,25 +157,39 @@ Given 28×28 input, design a Conv2d that outputs 14×14. State your kernel, stri
 :::
 ```
 
-The SvelteKit markdown renderer registers a container-directive plugin that maps these three directive names to wrapper elements with distinct CSS treatment: `worked-example` = filled card; `faded-example` = outlined card with reduced contrast; `independent-practice` = challenge prompt. No new content-block type; directives nest inside any `text` block's markdown.
+J.d.1 wires a compatible container-directive plugin into the SvelteKit markdown renderer and styles the three directive names: `worked-example` = filled card; `faded-example` = outlined card with reduced contrast; `independent-practice` = challenge prompt. No new content-block type; directives nest inside any `text` block's markdown.
 
-The parser adds a best-effort lint pass that flags malformed or unbalanced directive blocks at curriculum-validation time, naming the lesson and approximate location.
+J.d.1 ships the user-visible feature for authors who write valid markdown. The Python-side lint that turns malformed `:::` blocks into a loud build-time error lands separately in **J.d.2** so the rendering work has a tight blast radius.
 
-**Out of scope:** interactivity (progressive reveal, hint toggles, checkmark affordances) — static styling only this story; new directive names beyond the three above (revisit if real curricula need more).
+**Out of scope (this story and J.d.2):** interactivity (progressive reveal, hint toggles, checkmark affordances) — static styling only; new directive names beyond the three above (revisit if real curricula need more).
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/sveltekit_template/`: identify the current markdown toolchain (mdsvex / remark / markdown-it) and pick a compatible container-directive plugin. Wire it into the markdown renderer config.
-- [ ] CSS for the three directive types in the existing component stylesheet.
+- [x] `src/learningfoundry/sveltekit_template/`: markdown toolchain is `marked`; added a custom `marked` extension at `lib/utils/markdown-directives.ts` (no new dependency) and registered it in `markdown.ts`.
+- [x] CSS for the three directive types added to `src/app.css` as plain CSS classes (`.lf-directive`, `.lf-directive-worked-example`, `.lf-directive-faded-example`, `.lf-directive-independent-practice`).
+- [x] Component / smoke test: `markdown.test.ts` exercises all three wrappers + nested markdown + back-to-back blocks + unknown-name pass-through + fenced-code-block isolation. Fixture `content/mod-01/lesson-01.md` carries all three directives; `test_tutorial_directives_survive_in_markdown_source` and `test_directive_styles_in_bundled_css` pin the source + CSS through the production build.
+- [x] `docs/specs/features.md`: new "Tutorial scaffold directives" subsection under FR-3.
+- [x] `README.md`: author-facing example of all three directives + Table-of-Contents entry.
+- [x] Bump version to v0.67.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Update `CHANGELOG.md` with a v0.67.0 Added entry; J.d.2 follow-up flagged.
+- [x] Verify: `pyve test`, vitest, smoke build.
+
+---
+
+### Story J.d.2: v0.67.1 — Tutorial Scaffold Directives — Python Lint Pass [Planned]
+
+J.d.1 makes the three directives render. J.d.2 closes the gap on malformed `:::` blocks by adding a best-effort lint pass at curriculum-validation time so authors get a clear build-time error naming the lesson and approximate location, rather than discovering the problem at render time (where the markdown plugin's recovery behaviour is the only signal).
+
+Defensive developer-experience hardening on top of an already-working feature — landed as a patch bump.
+
+**Tasks:**
+
 - [ ] `src/learningfoundry/parser.py` (or a new `directives.py` if cleaner): best-effort lint that scans every `text` content block's markdown for `::: worked-example`, `::: faded-example`, `::: independent-practice` opens and matching `:::` closes. Flag malformed/unbalanced blocks with lesson location.
 - [ ] `tests/test_parser.py`: balanced directive parses cleanly; unbalanced raises with lesson location; unknown directive name passes through (lint is for the three known names only).
-- [ ] Component / smoke test: a fixture lesson containing each directive renders with the expected wrapper element + CSS class.
-- [ ] `docs/specs/features.md`: new "Tutorial scaffold directives" subsection with the three directive names and their semantic.
-- [ ] `docs/specs/tech-spec.md`: extend the markdown rendering / parser sections with the directive plugin choice and the lint pass.
-- [ ] `README.md`: author-facing example of all three directives.
-- [ ] Bump version to v0.67.0.
-- [ ] Update `CHANGELOG.md`.
-- [ ] Verify: `pyve test`, vitest, smoke build.
+- [ ] `docs/specs/tech-spec.md`: extend the markdown rendering / parser sections with the directive plugin choice (from J.d.1) and the lint pass (this story).
+- [ ] Bump version to v0.67.1 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [ ] Update `CHANGELOG.md` with a v0.67.1 Added entry.
+- [ ] Verify: `pyve test`, `ruff`, `mypy`.
 
 ---
 

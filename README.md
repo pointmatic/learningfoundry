@@ -19,6 +19,7 @@ A curriculum engine that turns a YAML curriculum definition into a deployable Sv
 - [Video blocks](#video-blocks)
 - [Lesson titles and markdown headings](#lesson-titles-and-markdown-headings)
 - [Images and assets](#images-and-assets)
+- [Tutorial scaffold directives](#tutorial-scaffold-directives)
 - [Content locking](#content-locking)
 - [Configuration File](#configuration-file)
 - [Development Setup](#development-setup)
@@ -358,6 +359,36 @@ Here is a smaller inline diagram:
 - A missing image fails the build with the lesson location and the expected on-disk path in the error message.
 
 For production deployment to a CDN, just run `cd dist && pnpm build` — the `static/content/` tree gets bundled into the static export under `build/content/`, so deploying `build/` to any static host (Cloudflare Pages, Netlify, S3+CloudFront, …) serves the images at the same URLs the markdown references.
+
+---
+
+## Tutorial scaffold directives
+
+Lesson markdown supports three named **container directives** that surface the worked-example → faded-example → independent-practice progression with distinct styling. Each directive opens with `::: <name>` on its own line and closes with `:::` on its own line; the body is itself markdown:
+
+```markdown
+::: worked-example
+Compute the output shape for a 32×32 input, 3×3 kernel, stride 1, padding 0.
+
+We apply $(W - K + 2P) / S + 1 = 30$. Output: **30×30**.
+:::
+
+::: faded-example
+For a 64×64 input, 5×5 kernel, stride 1, padding 2 — what's the output shape?
+:::
+
+::: independent-practice
+Given a 28×28 input, design a `Conv2d` that outputs 14×14. State your kernel, stride, and padding.
+:::
+```
+
+**How it renders:**
+
+- `::: worked-example` — filled gray card. Use it for fully worked solutions.
+- `::: faded-example` — outlined dim card. Use it for similar problems with reduced scaffolding.
+- `::: independent-practice` — amber-highlighted challenge prompt. Use it for problems the learner solves on their own.
+
+Inner markdown (headings, lists, math, emphasis) renders normally inside each directive. Unknown directive names pass through untouched at render time. Static styling only — no progressive-reveal interactivity in v1.
 
 ---
 

@@ -3,3 +3,30 @@
 @import 'tailwindcss';
 @import 'katex/dist/katex.min.css';
 @plugin '@tailwindcss/typography';
+
+/* Tutorial-scaffold container directives (Story J.d.1).
+   Three named directives — `worked-example`, `faded-example`,
+   `independent-practice` — surface as visually distinct wrapper cards
+   inside any `text` content block's rendered markdown. Static styling
+   only; interactivity (progressive reveal, hint toggles) is deferred. */
+.lf-directive {
+	border-radius: 0.5rem;
+	padding: 1rem 1.25rem;
+	margin: 1.25rem 0;
+}
+
+.lf-directive-worked-example {
+	background-color: #f3f4f6; /* gray-100 */
+	border: 1px solid #e5e7eb; /* gray-200 */
+}
+
+.lf-directive-faded-example {
+	background-color: transparent;
+	border: 1px dashed #d1d5db; /* gray-300 */
+	color: #6b7280; /* gray-500 */
+}
+
+.lf-directive-independent-practice {
+	background-color: #fffbeb; /* amber-50 */
+	border-left: 4px solid #f59e0b; /* amber-500 */
+}

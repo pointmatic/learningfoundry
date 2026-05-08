@@ -134,6 +134,19 @@ class TestSvelteKitSmokeBuild:
             "is not imported."
         )
 
+    def test_directive_styles_in_bundled_css(self, compiled_app: Path) -> None:
+        """Story J.d.1 — the three `.lf-directive-*` styles in `app.css`
+        ship in the bundled CSS so the marked-extension wrappers render
+        with the worked-example / faded-example / independent-practice
+        treatments. Pure CSS (no Tailwind utility classes), so a missing
+        bundle artifact is a regression in the build pipeline, not in
+        Tailwind's content-detection."""
+        css_files = list((compiled_app / "build").rglob("*.css"))
+        combined = "\n".join(f.read_text(encoding="utf-8") for f in css_files)
+        assert ".lf-directive-worked-example" in combined
+        assert ".lf-directive-faded-example" in combined
+        assert ".lf-directive-independent-practice" in combined
+
     def test_typography_prose_styles_in_bundled_css(
         self, compiled_app: Path
     ) -> None:
@@ -242,6 +255,33 @@ class TestSvelteKitSmokeBuild:
         assert lesson["meta"]["duration_minutes"] == 15
         # Story J.c — aggregate matches the fixture's only contributor.
         assert data["total_duration_minutes"] == 15
+
+    def test_tutorial_directives_survive_in_markdown_source(
+        self, compiled_app: Path
+    ) -> None:
+        """Story J.d.1 — `::: worked-example` / `::: faded-example` /
+        `::: independent-practice` blocks in lesson markdown survive the
+        parse → resolve → generate → vite-build pipeline as raw source
+        in `curriculum.json`. The marked extension that wraps each
+        directive in an `lf-directive-*` div runs at *render* time in the
+        learner's browser; the SvelteKit app is `ssr=false`, so the
+        wrappers are not in the prerendered HTML and the actual rendering
+        is covered by `markdown.test.ts` (vitest). This smoke
+        assertion pins the source-passthrough end-to-end so a regression
+        in the asset / resolver pipelines that strips directive blocks
+        trips the slow path."""
+        data = json.loads(
+            (compiled_app / "build" / "curriculum.json").read_text()
+        )
+        text_block = next(
+            b
+            for b in data["modules"][0]["lessons"][0]["content_blocks"]
+            if b["type"] == "text"
+        )
+        markdown = text_block["content"]["markdown"]
+        assert "::: worked-example" in markdown
+        assert "::: faded-example" in markdown
+        assert "::: independent-practice" in markdown
 
     def test_co_located_image_reaches_build_output(
         self, compiled_app: Path

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.67.0] - 2026-05-08
+
+### Added
+
+- **Tutorial scaffold container directives in lesson markdown** (Story J.d.1). Three named container directives — `::: worked-example`, `::: faded-example`, `::: independent-practice` — recognised by a custom `marked` extension at [markdown-directives.ts](src/learningfoundry/sveltekit_template/src/lib/utils/markdown-directives.ts). Each directive opens with `::: <name>` on its own line and closes with `:::` on its own line; inner content is itself markdown so headings, lists, math, and emphasis nest naturally.
+- **CSS for the three directive treatments** in [app.css](src/learningfoundry/sveltekit_template/src/app.css): `lf-directive-worked-example` = filled gray card; `lf-directive-faded-example` = outlined dim card; `lf-directive-independent-practice` = amber-highlighted challenge prompt. Pure CSS so the styles ship in the bundled output regardless of Tailwind content-detection.
+- README "Tutorial scaffold directives" section with author-facing examples; features.md FR-3 subsection documenting the rendering contract.
+
+### Notes
+
+- Unknown directive names (e.g. `::: tip`) pass through untouched at render time. The Python-side lint that flags malformed or unknown directive blocks at build time lands in **Story J.d.2** (v0.67.1).
+- Static styling only — interactivity (progressive reveal, hint toggles, checkmark affordances) is out of scope.
+
 ## [0.66.0] - 2026-05-08
 
 ### Added

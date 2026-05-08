@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { marked } from 'marked';
 import markedKatex from 'marked-katex-extension';
+import { containerDirectives } from './markdown-directives.js';
 
 // Register the KaTeX extension once at module load. Supports both inline
 // `$...$` and display `$$...$$` math, rendered to HTML at parse time using
 // the KaTeX engine. Stylesheet is imported in `src/app.css`.
 marked.use(markedKatex({ throwOnError: false }));
+// Tutorial-scaffold container directives (Story J.d.1).
+marked.use(containerDirectives());
 
 // `marked-katex-extension`'s upstream block regex
 // (`/^(\${1,2})\n(...)\n\1(?:\n|$)/`) requires the `$$` delimiter lines to

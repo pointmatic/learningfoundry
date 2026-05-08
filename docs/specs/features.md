@@ -249,6 +249,16 @@ The schema-level `meta` blocks added by Story J.a (`lesson.meta`, `module.meta`)
 
 Generation sums `lesson.meta.duration_minutes` across every lesson and emits the result as `curriculum.total_duration_minutes` (top level of `curriculum.json`). Lessons without `meta` or without `duration_minutes` are skipped; when no lesson contributes, the field is `null` and the index page renders nothing. When non-null, the index renders the estimate above the dashboard as `≈ Xh Ym` (or `≈ Xm` under an hour). Per-module aggregation, learner-elapsed-time, and adaptive estimates are out of scope.
 
+**Tutorial scaffold directives (Phase J / Story J.d.1):**
+
+Lesson markdown supports three named container directives that surface the worked-example → faded-example → independent-practice progression as visually distinct cards. Each directive opens with `::: <name>` on its own line and closes with `:::` on its own line; the body is itself markdown.
+
+- `::: worked-example` — filled gray card. The author shows a fully worked solution.
+- `::: faded-example` — outlined dim card. The author poses a similar problem with reduced scaffolding.
+- `::: independent-practice` — amber-highlighted challenge prompt. The learner solves on their own.
+
+Unknown directive names pass through untouched at render time; the Python-side lint that flags malformed or misspelled directive blocks at build time lands in Story J.d.2. Interactivity (progressive reveal, hint toggles, checkmark affordances) is out of scope — static styling only.
+
 ### FR-4: In-Browser Progress Tracking
 
 Track learner progress entirely client-side using sql.js/WASM (SQLite in the browser).

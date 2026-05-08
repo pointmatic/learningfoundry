@@ -81,3 +81,80 @@ describe('renderMarkdown', () => {
 		expect(html).toContain('class="katex"');
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Story J.d.1 — tutorial-scaffold container directives. The marked extension
+// in `markdown-directives.ts` recognises three named directives and wraps
+// each in a `<div class="lf-directive lf-directive-<name>">` so the CSS in
+// `app.css` can style the worked → faded → independent-practice progression.
+// ---------------------------------------------------------------------------
+
+describe('renderMarkdown — container directives (Story J.d.1)', () => {
+	it('wraps `::: worked-example` in lf-directive-worked-example', () => {
+		const html = renderMarkdown(
+			'::: worked-example\nCompute output shape: 30×30.\n:::'
+		);
+		expect(html).toContain('class="lf-directive lf-directive-worked-example"');
+		expect(html).toContain('data-directive="worked-example"');
+		expect(html).toContain('Compute output shape');
+	});
+
+	it('wraps `::: faded-example` in lf-directive-faded-example', () => {
+		const html = renderMarkdown(
+			'::: faded-example\nWhat is the output shape for 64×64?\n:::'
+		);
+		expect(html).toContain('class="lf-directive lf-directive-faded-example"');
+		expect(html).toContain('data-directive="faded-example"');
+	});
+
+	it('wraps `::: independent-practice` in lf-directive-independent-practice', () => {
+		const html = renderMarkdown(
+			'::: independent-practice\nDesign a Conv2d that outputs 14×14.\n:::'
+		);
+		expect(html).toContain(
+			'class="lf-directive lf-directive-independent-practice"'
+		);
+		expect(html).toContain('data-directive="independent-practice"');
+	});
+
+	it('renders inner markdown — headings, lists, and emphasis pass through', () => {
+		const md =
+			'::: worked-example\n' +
+			'### Step 1\n\n' +
+			'- compute *width*\n' +
+			'- compute *height*\n' +
+			':::';
+		const html = renderMarkdown(md);
+		expect(html).toContain('lf-directive-worked-example');
+		expect(html).toContain('<h3');
+		expect(html).toContain('<ul');
+		expect(html).toContain('<em>width</em>');
+	});
+
+	it('renders three back-to-back directives as three sibling wrappers', () => {
+		const md =
+			'::: worked-example\nA\n:::\n\n' +
+			'::: faded-example\nB\n:::\n\n' +
+			'::: independent-practice\nC\n:::';
+		const html = renderMarkdown(md);
+		expect(html).toContain('lf-directive-worked-example');
+		expect(html).toContain('lf-directive-faded-example');
+		expect(html).toContain('lf-directive-independent-practice');
+	});
+
+	it('does not match unknown directive names — they pass through', () => {
+		const html = renderMarkdown('::: tip\nA helpful note.\n:::');
+		expect(html).not.toContain('lf-directive');
+		// The literal `:::` survives in the rendered HTML somewhere — exact
+		// recovery shape is up to marked's default block lexer; we only
+		// guarantee the wrapper isn't created.
+	});
+
+	it('does not match `:::` inside a fenced code block', () => {
+		const md = '```\n::: worked-example\nfake\n:::\n```';
+		const html = renderMarkdown(md);
+		expect(html).not.toContain('lf-directive');
+		// The `:::` literals must survive inside the rendered <code>.
+		expect(html).toContain(':::');
+	});
+});
