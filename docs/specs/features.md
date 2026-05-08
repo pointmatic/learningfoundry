@@ -236,6 +236,15 @@ Generate a complete, build-ready SvelteKit project from the resolved curriculum.
 - Module with zero lessons → Error: "Module `mod-01` must contain at least one lesson."
 - Very large curriculum (50+ modules) → No hard limit; build may be slow but must complete correctly.
 
+**Pedagogical metadata surfaces (Phase J / Story J.b):**
+
+The schema-level `meta` blocks added by Story J.a (`lesson.meta`, `module.meta`) surface in the generated app at two leverage points; both render only when their backing field is present.
+
+- **Sidebar role chip.** When `lesson.meta.role` is set, the sidebar lesson row renders a small uppercase chip (e.g. `OPENER`, `PRACTICE`) at the right edge of the row, distinct in styling from the progress glyph and locked-row indicators.
+- **Lesson tagline.** When `lesson.meta.hook.tagline` is set, the lesson body renders the tagline as a quiet italic line directly above the lesson title — a teaser that reads as a superscript to `<h1>{lesson.title}</h1>`.
+
+`hook.image_prompt`, module-level `meta.theme` rendering on the module index, and aggregate time estimates from `meta.duration_minutes` are deferred to later Phase J stories.
+
 ### FR-4: In-Browser Progress Tracking
 
 Track learner progress entirely client-side using sql.js/WASM (SQLite in the browser).

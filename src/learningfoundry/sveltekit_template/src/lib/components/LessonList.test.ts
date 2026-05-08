@@ -101,6 +101,77 @@ describe('LessonList mount — status icons render the correct glyph per status'
 	});
 });
 
+describe('LessonList mount — role chip (Story J.b)', () => {
+	let LessonList: typeof import('./LessonList.svelte').default;
+
+	beforeEach(async () => {
+		gotoMock.mockReset();
+		LessonList = (await import('./LessonList.svelte')).default;
+	});
+
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('renders role chip with role text when lesson.meta.role is set', () => {
+		const lessons: Lesson[] = [
+			{
+				id: 'lesson-01',
+				title: 'L1',
+				content_blocks: [],
+				meta: { role: 'opener' }
+			}
+		];
+		const { container } = render(LessonList, {
+			props: {
+				moduleId: 'mod-01',
+				lessons,
+				progress: {},
+				optionalLessons: new Set(),
+				lockedLessons: new Set()
+			}
+		});
+
+		const chip = container.querySelector('[data-testid="lesson-role-chip"]');
+		expect(chip).not.toBeNull();
+		expect(chip?.textContent?.trim()).toBe('opener');
+	});
+
+	it('omits role chip when lesson.meta is undefined', () => {
+		const lessons: Lesson[] = [makeLesson('lesson-01')];
+		const { container } = render(LessonList, {
+			props: {
+				moduleId: 'mod-01',
+				lessons,
+				progress: {},
+				optionalLessons: new Set(),
+				lockedLessons: new Set()
+			}
+		});
+
+		const chip = container.querySelector('[data-testid="lesson-role-chip"]');
+		expect(chip).toBeNull();
+	});
+
+	it('omits role chip when lesson.meta is set but role is unset', () => {
+		const lessons: Lesson[] = [
+			{ id: 'lesson-01', title: 'L1', content_blocks: [], meta: {} }
+		];
+		const { container } = render(LessonList, {
+			props: {
+				moduleId: 'mod-01',
+				lessons,
+				progress: {},
+				optionalLessons: new Set(),
+				lockedLessons: new Set()
+			}
+		});
+
+		const chip = container.querySelector('[data-testid="lesson-role-chip"]');
+		expect(chip).toBeNull();
+	});
+});
+
 describe('LessonList mount — locked rows', () => {
 	let LessonList: typeof import('./LessonList.svelte').default;
 

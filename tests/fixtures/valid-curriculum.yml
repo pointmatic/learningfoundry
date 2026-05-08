@@ -13,6 +13,10 @@ curriculum:
       title: "Module One"
       description: "First module."
       locked: false
+      meta:
+        theme: "Why convolutions exist"
+        objectives:
+          - "Explain why FC nets fail on images"
       pre_assessment:
         source: quizazz
         ref: assessments/mod-01-pre.yml
@@ -23,6 +27,11 @@ curriculum:
         - id: lesson-01
           title: "Lesson One"
           unlock_module_on_complete: true
+          meta:
+            role: opener
+            hook:
+              tagline: "What if your first layer of vision was just a flashlight on the world?"
+            duration_minutes: 15
           content_blocks:
             - type: text
               ref: content/mod-01/lesson-01.md

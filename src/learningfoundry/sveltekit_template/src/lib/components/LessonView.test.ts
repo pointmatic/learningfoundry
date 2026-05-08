@@ -310,6 +310,84 @@ describe('LessonView lifecycle ordering on mount (Story I.p, re-instated under S
 // FR-P15 transition matrix (Story I.t)
 // ---------------------------------------------------------------------------
 
+describe('LessonView hook tagline (Story J.b)', () => {
+	beforeEach(() => {
+		markLessonOpenedMock.mockReset().mockResolvedValue(undefined);
+		markLessonInProgressMock.mockReset().mockResolvedValue(undefined);
+		markLessonCompleteMock.mockReset().mockResolvedValue(undefined);
+		getLessonProgressMock.mockReset().mockResolvedValue(null);
+		invalidateProgressMock.mockReset().mockResolvedValue(undefined);
+		class FakeObserver {
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+			takeRecords() {
+				return [];
+			}
+		}
+		vi.stubGlobal(
+			'IntersectionObserver',
+			FakeObserver as unknown as typeof IntersectionObserver
+		);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.clearAllMocks();
+	});
+
+	it('renders tagline above the title when lesson.meta.hook.tagline is set', async () => {
+		const { render } = await import('@testing-library/svelte');
+		const LessonView = (await import('./LessonView.svelte')).default;
+
+		const lesson = {
+			id: 'lesson-01',
+			title: 'L1',
+			content_blocks: [],
+			meta: { hook: { tagline: 'A flashlight on the world.' } }
+		};
+
+		const { container } = render(LessonView, {
+			props: { lesson: lesson as unknown as never, moduleId: 'mod-01' }
+		});
+
+		const tagline = container.querySelector('[data-testid="lesson-tagline"]');
+		expect(tagline).not.toBeNull();
+		expect(tagline?.textContent?.trim()).toBe('A flashlight on the world.');
+	});
+
+	it('omits tagline when meta is unset', async () => {
+		const { render } = await import('@testing-library/svelte');
+		const LessonView = (await import('./LessonView.svelte')).default;
+
+		const lesson = { id: 'lesson-01', title: 'L1', content_blocks: [] };
+
+		const { container } = render(LessonView, {
+			props: { lesson: lesson as unknown as never, moduleId: 'mod-01' }
+		});
+
+		expect(container.querySelector('[data-testid="lesson-tagline"]')).toBeNull();
+	});
+
+	it('omits tagline when meta is set but hook.tagline is unset', async () => {
+		const { render } = await import('@testing-library/svelte');
+		const LessonView = (await import('./LessonView.svelte')).default;
+
+		const lesson = {
+			id: 'lesson-01',
+			title: 'L1',
+			content_blocks: [],
+			meta: { role: 'opener' }
+		};
+
+		const { container } = render(LessonView, {
+			props: { lesson: lesson as unknown as never, moduleId: 'mod-01' }
+		});
+
+		expect(container.querySelector('[data-testid="lesson-tagline"]')).toBeNull();
+	});
+});
+
 describe('LessonView FR-P15 lifecycle transitions (Story I.t)', () => {
 	let observers: CapturedIO[];
 

@@ -63,6 +63,14 @@
 					>{statusIcon(lesson.id)}</span
 				>
 				<span class="truncate">{lesson.title}</span>
+				{#if lesson.meta?.role}
+					<span
+						class="ml-auto shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-600"
+						data-testid="lesson-role-chip"
+					>
+						{lesson.meta.role}
+					</span>
+				{/if}
 			</button>
 		</li>
 	{/each}

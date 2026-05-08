@@ -219,6 +219,28 @@ class TestSvelteKitSmokeBuild:
         )
         assert quiz_block["content"]["pass_threshold"] == 0.5
 
+    def test_pedagogical_meta_survives_build(self, compiled_app: Path) -> None:
+        """Story J.b — `lesson.meta.role`, `lesson.meta.hook.tagline`, and
+        `module.meta` survive the parse → resolve → generate → vite-build
+        pipeline into the production `build/curriculum.json`. The
+        SvelteKit app is a client-side SPA (`+layout.ts: ssr=false`), so
+        the actual DOM rendering of the chip + tagline is covered by the
+        vitest component suite (`LessonList.test.ts` /
+        `LessonView.test.ts`). This smoke assertion pins the data
+        contract end-to-end so a regression in resolver / generator
+        meta-passthrough trips the slow path too."""
+        data = json.loads(
+            (compiled_app / "build" / "curriculum.json").read_text()
+        )
+        mod = data["modules"][0]
+        assert mod["meta"]["theme"] == "Why convolutions exist"
+        lesson = mod["lessons"][0]
+        assert lesson["meta"]["role"] == "opener"
+        assert lesson["meta"]["hook"]["tagline"].startswith(
+            "What if your first layer of vision"
+        )
+        assert lesson["meta"]["duration_minutes"] == 15
+
     def test_co_located_image_reaches_build_output(
         self, compiled_app: Path
     ) -> None:

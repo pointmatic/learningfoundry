@@ -120,6 +120,14 @@
 
 <article class="mx-auto max-w-3xl space-y-8 py-6">
 	<header>
+		{#if lesson.meta?.hook?.tagline}
+			<p
+				class="mb-1 text-sm italic text-gray-500"
+				data-testid="lesson-tagline"
+			>
+				{lesson.meta.hook.tagline}
+			</p>
+		{/if}
 		<h1 class="text-2xl font-bold text-gray-900">{lesson.title}</h1>
 	</header>
 

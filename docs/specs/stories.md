@@ -93,7 +93,7 @@ modules:
 
 ---
 
-### Story J.b: v0.65.0 — Lesson Role Chip and Hook Tagline Rendering [Planned]
+### Story J.b: v0.65.0 — Lesson Role Chip and Hook Tagline Rendering [Done]
 
 J.a stored `meta` but rendered nothing. Story J.b adds the two highest-leverage frontend slices so meta isn't write-only:
 - A small chip in the lesson sidebar / breadcrumb shows `meta.role` when present.
@@ -105,15 +105,15 @@ Both render only when their respective fields are present — no defaults, no pl
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/sveltekit_template/`: identify the lesson-sidebar / breadcrumb component and add a role chip rendering when `lesson.meta?.role` is set. Component name TBD by current template structure.
-- [ ] `src/learningfoundry/sveltekit_template/`: identify the lesson-body shell and add tagline rendering above the first content block when `lesson.meta?.hook?.tagline` is set.
-- [ ] CSS for the chip (small, neutral, distinct from progress/lock indicators) and tagline (italic, muted, single line).
-- [ ] Component tests under the existing vitest setup: chip renders with role text, hides without; tagline renders with text, hides without.
-- [ ] Smoke test extension (`tests/test_smoke_sveltekit.py` or its TS sibling): build a fixture curriculum with role + tagline, assert the rendered HTML contains them.
-- [ ] `docs/specs/features.md`: add to the SvelteKit-output section a one-paragraph note on how `meta.role` and `meta.hook.tagline` surface in the UI.
-- [ ] Bump version to v0.65.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] Update `CHANGELOG.md`.
-- [ ] Verify: `pyve test`, vitest, smoke build.
+- [x] `src/learningfoundry/sveltekit_template/`: identify the lesson-sidebar / breadcrumb component and add a role chip rendering when `lesson.meta?.role` is set. (Sidebar = `LessonList.svelte`.)
+- [x] `src/learningfoundry/sveltekit_template/`: identify the lesson-body shell and add tagline rendering above the first content block when `lesson.meta?.hook?.tagline` is set. (Body shell = `LessonView.svelte`; tagline lives above the `<h1>` lesson title.)
+- [x] CSS for the chip (small, neutral, distinct from progress/lock indicators) and tagline (italic, muted, single line).
+- [x] Component tests under the existing vitest setup: chip renders with role text, hides without; tagline renders with text, hides without.
+- [x] Smoke test extension: fixture `valid-curriculum.yml` carries role + tagline + module meta; `test_pedagogical_meta_survives_build` pins the data-contract end-to-end on the production `build/curriculum.json`. (DOM rendering covered by vitest; SvelteKit app is `ssr=false`, so the prerendered HTML can't carry the values pre-hydration.)
+- [x] `docs/specs/features.md`: add to the SvelteKit-output section a one-paragraph note on how `meta.role` and `meta.hook.tagline` surface in the UI.
+- [x] Bump version to v0.65.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Update `CHANGELOG.md`.
+- [x] Verify: `pyve test`, vitest, smoke build.
 
 ---
 

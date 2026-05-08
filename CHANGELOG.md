@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.65.0] - 2026-05-08
+
+### Added
+
+- **Lesson role chip in the sidebar** (Story J.b). When `lesson.meta.role` is set, [LessonList.svelte](src/learningfoundry/sveltekit_template/src/lib/components/LessonList.svelte) renders a small uppercase chip (e.g. `OPENER`, `PRACTICE`) at the right edge of the lesson row, distinct in styling from the progress glyph and the locked-row indicator. Hidden when `meta.role` is absent.
+- **Lesson hook tagline above the title** (Story J.b). When `lesson.meta.hook.tagline` is set, [LessonView.svelte](src/learningfoundry/sveltekit_template/src/lib/components/LessonView.svelte) renders the tagline as a quiet italic line directly above the `<h1>` lesson title. Hidden when absent.
+- Test fixture [valid-curriculum.yml](tests/fixtures/valid-curriculum.yml) now exercises lesson and module `meta` end-to-end; smoke test pins the meta-passthrough data contract on the production `build/curriculum.json`.
+
+### Notes
+
+- `hook.image_prompt` is intentionally not rendered — no consumer exists pre image-generation pipeline.
+- Module-level `meta.theme` rendering on the module index and `meta.duration_minutes` aggregation land in subsequent Phase J stories.
+
 ## [0.64.0] - 2026-05-08
 
 ### Added
