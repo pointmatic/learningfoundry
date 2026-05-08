@@ -3,6 +3,9 @@
 	import { curriculum, modules } from '$lib/stores/curriculum.js';
 	import { progressStore } from '$lib/stores/progress.js';
 	import ProgressDashboard from '$lib/components/ProgressDashboard.svelte';
+	import { formatDurationEstimate } from '$lib/utils/duration.js';
+
+	const totalDuration = $derived(formatDurationEstimate($curriculum?.total_duration_minutes));
 </script>
 
 <svelte:head>
@@ -13,7 +16,14 @@
 	<div class="mx-auto max-w-3xl py-8">
 		<h1 class="mb-2 text-3xl font-bold text-gray-900">{$curriculum.title}</h1>
 		{#if $curriculum.description}
-			<p class="mb-8 text-gray-500">{$curriculum.description}</p>
+			<p class="mb-2 text-gray-500">{$curriculum.description}</p>
+		{/if}
+		{#if totalDuration}
+			<p class="mb-8 text-sm text-gray-500" data-testid="curriculum-total-duration">
+				{totalDuration}
+			</p>
+		{:else}
+			<div class="mb-8"></div>
 		{/if}
 		<ProgressDashboard modules={$modules} progress={$progressStore} curriculum={$curriculum} />
 	</div>

@@ -457,6 +457,99 @@ class TestPedagogicalMetaInCurriculumJson:
         assert data["modules"][0]["lessons"][0]["meta"] is None
 
 
+class TestTotalDurationMinutes:
+    """Story J.c — `curriculum.total_duration_minutes` is the sum of
+    `lesson.meta.duration_minutes` across the curriculum, or `null` when
+    no lesson contributes."""
+
+    def _make(
+        self, *durations: int | None
+    ) -> ResolvedCurriculum:
+        """Build a curriculum with one module and one lesson per duration.
+
+        ``None`` produces a lesson with no `meta`; an int produces a
+        lesson whose `meta.duration_minutes` is set to that value.
+        """
+        lessons: list[ResolvedLesson] = []
+        for i, d in enumerate(durations):
+            meta: dict[str, object] | None
+            meta = {"duration_minutes": d} if d is not None else None
+            lessons.append(
+                ResolvedLesson(
+                    id=f"lesson-{i:02d}", title=f"L{i}", meta=meta, content_blocks=[]
+                )
+            )
+        return ResolvedCurriculum(
+            version="1.0.0",
+            title="T",
+            description="",
+            modules=[
+                ResolvedModule(
+                    id="mod-01",
+                    title="M",
+                    description="",
+                    locked=None,
+                    pre_assessment=None,
+                    post_assessment=None,
+                    lessons=lessons,
+                )
+            ],
+        )
+
+    def _read_total(self, out: Path) -> int | None:
+        data = json.loads((out / "static" / "curriculum.json").read_text())
+        return data["total_duration_minutes"]  # type: ignore[no-any-return]
+
+    def test_aggregate_sums_all_contributors(self, tmp_path: Path) -> None:
+        out = tmp_path / "app"
+        generate_app(self._make(15, 30, 45), out, template_dir=TEMPLATE_DIR)
+        assert self._read_total(out) == 90
+
+    def test_aggregate_skips_lessons_without_meta(self, tmp_path: Path) -> None:
+        out = tmp_path / "app"
+        generate_app(self._make(15, None, 30), out, template_dir=TEMPLATE_DIR)
+        assert self._read_total(out) == 45
+
+    def test_aggregate_is_null_when_no_lesson_contributes(
+        self, tmp_path: Path
+    ) -> None:
+        out = tmp_path / "app"
+        generate_app(self._make(None, None), out, template_dir=TEMPLATE_DIR)
+        assert self._read_total(out) is None
+
+    def test_aggregate_is_null_when_meta_present_but_no_duration(
+        self, tmp_path: Path
+    ) -> None:
+        # `meta` set but `duration_minutes` absent should not poison the
+        # aggregate (no contributors → null, not zero).
+        out = tmp_path / "app"
+        resolved = ResolvedCurriculum(
+            version="1.0.0",
+            title="T",
+            description="",
+            modules=[
+                ResolvedModule(
+                    id="mod-01",
+                    title="M",
+                    description="",
+                    locked=None,
+                    pre_assessment=None,
+                    post_assessment=None,
+                    lessons=[
+                        ResolvedLesson(
+                            id="lesson-01",
+                            title="L",
+                            meta={"role": "opener"},
+                            content_blocks=[],
+                        )
+                    ],
+                )
+            ],
+        )
+        generate_app(resolved, out, template_dir=TEMPLATE_DIR)
+        assert self._read_total(out) is None
+
+
 class TestStaticContentPreserved:
     """`static/content/` must be in `_PRESERVED_PATHS` so previously-copied
     assets survive a `learningfoundry build` re-run."""

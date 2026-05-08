@@ -117,7 +117,7 @@ Both render only when their respective fields are present — no defaults, no pl
 
 ---
 
-### Story J.c: v0.66.0 — Curriculum-Wide Aggregate Time Estimate [Planned]
+### Story J.c: v0.66.0 — Curriculum-Wide Aggregate Time Estimate [Done]
 
 Cheap follow-on to J.a/b that converts `lesson.meta.duration_minutes` (singular per-lesson author estimates) into a curriculum-wide signal: the dashboard / index page shows total estimated duration when at least one lesson has the field set.
 
@@ -127,14 +127,14 @@ Aggregate is computed at generation time, written into `curriculum.json` as `tot
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/generator.py`: compute `sum(lesson.meta.duration_minutes for lesson in all_lessons if lesson.meta and lesson.meta.duration_minutes)`; emit `total_duration_minutes` at the curriculum top level. `null` when the sum has no contributors.
-- [ ] `src/learningfoundry/sveltekit_template/`: dashboard / curriculum-index component reads `curriculum.total_duration_minutes` and renders "≈ Xh Ym" (or "≈ Xm" under an hour) when non-null.
-- [ ] `tests/test_generator.py`: aggregate computed correctly with mixed (some-set, some-null) lessons; absent when no lesson contributes.
-- [ ] Component / smoke test: estimate renders when present, hides when null.
-- [ ] `docs/specs/features.md`: note the aggregate behaviour under FR-2 / FR-Frontend (whichever fits).
-- [ ] Bump version to v0.66.0.
-- [ ] Update `CHANGELOG.md`.
-- [ ] Verify: `pyve test`, vitest, smoke build.
+- [x] `src/learningfoundry/generator.py`: compute `sum(lesson.meta.duration_minutes for lesson in all_lessons if lesson.meta and lesson.meta.duration_minutes)`; emit `total_duration_minutes` at the curriculum top level. `null` when the sum has no contributors.
+- [x] `src/learningfoundry/sveltekit_template/`: index page (`+page.svelte`) reads `curriculum.total_duration_minutes` and renders "≈ Xh Ym" (or "≈ Xm" under an hour, "≈ Xh" for whole hours) when non-null. Format helper lives at `lib/utils/duration.ts` so the rendering branch is one-line.
+- [x] `tests/test_generator.py`: aggregate computed correctly with mixed (some-set, some-null) lessons; absent when no lesson contributes; absent when `meta` is set but `duration_minutes` is unset.
+- [x] Component / smoke test: helper covered by `lib/utils/duration.test.ts` (every format branch + null/zero/negative); smoke test pins `total_duration_minutes == 15` against the production build.
+- [x] `docs/specs/features.md`: note the aggregate behaviour under FR-3.
+- [x] Bump version to v0.66.0.
+- [x] Update `CHANGELOG.md`.
+- [x] Verify: `pyve test`, vitest, smoke build.
 
 ---
 

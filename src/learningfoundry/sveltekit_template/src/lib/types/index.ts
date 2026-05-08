@@ -141,6 +141,8 @@ export interface Curriculum {
 	description: string;
 	modules: Module[];
 	locking?: LockingConfig;
+	/** Sum of `lesson.meta.duration_minutes` across the curriculum (Story J.c). `null` when no lesson contributes. */
+	total_duration_minutes?: number | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -243,7 +243,11 @@ The schema-level `meta` blocks added by Story J.a (`lesson.meta`, `module.meta`)
 - **Sidebar role chip.** When `lesson.meta.role` is set, the sidebar lesson row renders a small uppercase chip (e.g. `OPENER`, `PRACTICE`) at the right edge of the row, distinct in styling from the progress glyph and locked-row indicators.
 - **Lesson tagline.** When `lesson.meta.hook.tagline` is set, the lesson body renders the tagline as a quiet italic line directly above the lesson title — a teaser that reads as a superscript to `<h1>{lesson.title}</h1>`.
 
-`hook.image_prompt`, module-level `meta.theme` rendering on the module index, and aggregate time estimates from `meta.duration_minutes` are deferred to later Phase J stories.
+`hook.image_prompt` and module-level `meta.theme` rendering on the module index are deferred to later Phase J stories.
+
+**Curriculum-wide time estimate (Phase J / Story J.c):**
+
+Generation sums `lesson.meta.duration_minutes` across every lesson and emits the result as `curriculum.total_duration_minutes` (top level of `curriculum.json`). Lessons without `meta` or without `duration_minutes` are skipped; when no lesson contributes, the field is `null` and the index page renders nothing. When non-null, the index renders the estimate above the dashboard as `≈ Xh Ym` (or `≈ Xm` under an hour). Per-module aggregation, learner-elapsed-time, and adaptive estimates are out of scope.
 
 ### FR-4: In-Browser Progress Tracking
 

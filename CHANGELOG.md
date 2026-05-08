@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.66.0] - 2026-05-08
+
+### Added
+
+- **Curriculum-wide aggregate time estimate** (Story J.c). [generator.py](src/learningfoundry/generator.py) sums every lesson's `meta.duration_minutes` and emits the result as `curriculum.total_duration_minutes` at the top level of `curriculum.json`. Lessons without `meta` or without `duration_minutes` are skipped; when no lesson contributes, the field is `null`.
+- **Index page renders the estimate above the dashboard** when non-null, formatted as `≈ Xh Ym` (or `≈ Xm` under an hour, `≈ Xh` for whole-hour totals). Hidden entirely when `total_duration_minutes` is `null`. New helper [duration.ts](src/learningfoundry/sveltekit_template/src/lib/utils/duration.ts) (`formatDurationEstimate`) owns the formatting; [+page.svelte](src/learningfoundry/sveltekit_template/src/routes/+page.svelte) renders it.
+- TypeScript `Curriculum` interface gained `total_duration_minutes?: number | null` ([lib/types/index.ts](src/learningfoundry/sveltekit_template/src/lib/types/index.ts)).
+
+### Notes
+
+- Per-module aggregation, learner-elapsed-time display, and adaptive estimates from past learner pace remain out of scope (Phase J / J.c).
+
 ## [0.65.0] - 2026-05-08
 
 ### Added

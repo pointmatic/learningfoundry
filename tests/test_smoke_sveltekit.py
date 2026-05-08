@@ -240,6 +240,8 @@ class TestSvelteKitSmokeBuild:
             "What if your first layer of vision"
         )
         assert lesson["meta"]["duration_minutes"] == 15
+        # Story J.c — aggregate matches the fixture's only contributor.
+        assert data["total_duration_minutes"] == 15
 
     def test_co_located_image_reaches_build_output(
         self, compiled_app: Path

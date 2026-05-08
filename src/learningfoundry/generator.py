@@ -187,6 +187,26 @@ def check_dep_state(output_dir: Path) -> DepState:
     return DepState.UNCHANGED
 
 
+def _compute_total_duration_minutes(resolved: ResolvedCurriculum) -> int | None:
+    """Sum ``lesson.meta.duration_minutes`` across the curriculum.
+
+    Returns ``None`` when no lesson contributes a duration so the frontend
+    can hide the estimate entirely instead of rendering a misleading
+    ``≈ 0m``. Story J.c.
+    """
+    total = 0
+    contributed = False
+    for module in resolved.modules:
+        for lesson in module.lessons:
+            if not lesson.meta:
+                continue
+            minutes = lesson.meta.get("duration_minutes")
+            if isinstance(minutes, int) and minutes > 0:
+                total += minutes
+                contributed = True
+    return total if contributed else None
+
+
 def _write_curriculum_json(resolved: ResolvedCurriculum, output_dir: Path) -> None:
     """Serialize ResolvedCurriculum to output_dir/static/curriculum.json.
 
@@ -201,6 +221,7 @@ def _write_curriculum_json(resolved: ResolvedCurriculum, output_dir: Path) -> No
     try:
         data = dataclasses.asdict(resolved)
         data.pop("assets", None)
+        data["total_duration_minutes"] = _compute_total_duration_minutes(resolved)
         curriculum_json.write_text(
             json.dumps(data, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
