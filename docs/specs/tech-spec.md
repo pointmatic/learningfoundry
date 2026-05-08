@@ -461,7 +461,8 @@ def resolve_curriculum(
     """
     Resolve all content references in the parsed curriculum.
 
-    - text blocks: read markdown file from base_dir / ref, then call
+    - text blocks: read markdown file from base_dir / ref, lint
+      tutorial-scaffold directives (see `directives.py`), then call
       asset_resolver.resolve_markdown_assets() to detect image references,
       hash them, and rewrite the markdown to absolute /content/<hash>/
       URLs. Image asset records aggregate onto ResolvedCurriculum.assets
@@ -477,6 +478,35 @@ def resolve_curriculum(
     """
     ...
 ```
+
+### `directives.py` — Tutorial-Scaffold Directive Lint (Phase J / Story J.d.2)
+
+Story J.d.1 added a `marked` extension in `sveltekit_template/src/lib/utils/markdown-directives.ts` that recognises three named container directives in lesson markdown — `::: worked-example`, `::: faded-example`, `::: independent-practice` — and wraps each in a styled card at *render* time. The plugin's regex requires a matching `:::` close on its own line; an unclosed known directive silently fails to match and the whole block plus trailing prose renders oddly.
+
+`directives.py` (Story J.d.2) closes the gap with a Python-side lint pass invoked from `resolver._resolve_text` after the markdown source is read but before image-asset resolution:
+
+```python
+KNOWN_DIRECTIVES: tuple[str, ...] = (
+    "worked-example", "faded-example", "independent-practice",
+)
+
+def lint_directives(markdown: str, location: str) -> None:
+    """Raise ContentResolutionError on unbalanced known-directive blocks.
+
+    - Only the three known directive names are tracked. Unknown names
+      (`::: tip`) pass through untouched — same render-time semantics.
+    - Lines inside fenced code blocks (``` or ~~~) are skipped so prose
+      that demonstrates the directive syntax is not mistaken for an
+      actual directive.
+    - A bare `:::` close with nothing on the known-directive stack is
+      passed through silently (likely belongs to an unknown-name block).
+    - An open without a matching close raises with the lesson location
+      and the 1-based opening line number.
+    """
+    ...
+```
+
+The TS-side `KNOWN_DIRECTIVES` list and the Python-side constant are coupled by convention — adding a new directive name to one without the other produces either silent render-time failure (TS missing) or build-time false positives (Python missing).
 
 ### `asset_resolver.py` — Markdown Image Asset Resolution
 

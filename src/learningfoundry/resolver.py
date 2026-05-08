@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from learningfoundry.asset_resolver import Asset, resolve_markdown_assets
+from learningfoundry.directives import lint_directives
 from learningfoundry.exceptions import ContentResolutionError
 from learningfoundry.integrations.protocols import (
     ExerciseProvider,
@@ -289,6 +290,12 @@ def _resolve_text(
 
     if not text.strip():
         logger.warning("%s: markdown file `%s` is empty.", location, content_path)
+
+    # Lint tutorial-scaffold directives (Story J.d.2). Catches an
+    # unbalanced `::: worked-example` / `::: faded-example` /
+    # `::: independent-practice` block here so authors get a build-time
+    # error rather than a silent render-time anomaly.
+    lint_directives(text, location)
 
     # Scan for image refs, copy-relative on disk, rewrite to absolute
     # `/content/<hash>/<basename>` URLs that work at any SvelteKit route.

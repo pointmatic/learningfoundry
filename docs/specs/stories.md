@@ -176,7 +176,7 @@ J.d.1 ships the user-visible feature for authors who write valid markdown. The P
 
 ---
 
-### Story J.d.2: v0.67.1 — Tutorial Scaffold Directives — Python Lint Pass [Planned]
+### Story J.d.2: v0.67.1 — Tutorial Scaffold Directives — Python Lint Pass [Done]
 
 J.d.1 makes the three directives render. J.d.2 closes the gap on malformed `:::` blocks by adding a best-effort lint pass at curriculum-validation time so authors get a clear build-time error naming the lesson and approximate location, rather than discovering the problem at render time (where the markdown plugin's recovery behaviour is the only signal).
 
@@ -184,12 +184,12 @@ Defensive developer-experience hardening on top of an already-working feature �
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/parser.py` (or a new `directives.py` if cleaner): best-effort lint that scans every `text` content block's markdown for `::: worked-example`, `::: faded-example`, `::: independent-practice` opens and matching `:::` closes. Flag malformed/unbalanced blocks with lesson location.
-- [ ] `tests/test_parser.py`: balanced directive parses cleanly; unbalanced raises with lesson location; unknown directive name passes through (lint is for the three known names only).
-- [ ] `docs/specs/tech-spec.md`: extend the markdown rendering / parser sections with the directive plugin choice (from J.d.1) and the lint pass (this story).
-- [ ] Bump version to v0.67.1 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] Update `CHANGELOG.md` with a v0.67.1 Added entry.
-- [ ] Verify: `pyve test`, `ruff`, `mypy`.
+- [x] New `src/learningfoundry/directives.py` (cleaner than co-locating in `parser.py` since the lint runs at content-resolution time, not YAML-parse time): `lint_directives(markdown, location)` scans for the three known directive opens with matching `:::` closes; hooked into `resolver._resolve_text` after the markdown is read.
+- [x] New `tests/test_directives.py`: balanced (single, all three names, back-to-back, blank-lines-inside) parses cleanly; unbalanced (open with no close, two opens with one close) raises with lesson location + line number; unknown directive names (`::: tip`) pass through; fenced code blocks (``` and ~~~) ignore directive-shaped lines.
+- [x] `docs/specs/tech-spec.md`: new `directives.py` subsection documenting the lint contract, the resolver hook point, and the TS↔Python `KNOWN_DIRECTIVES` coupling. The resolver subsection's text-block bullet now mentions the lint step.
+- [x] Bump version to v0.67.1 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Update `CHANGELOG.md` with a v0.67.1 Added entry.
+- [x] Verify: `pyve test`, `ruff`, `mypy`.
 
 ---
 

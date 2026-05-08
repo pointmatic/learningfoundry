@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.67.1] - 2026-05-08
+
+### Added
+
+- **Build-time lint for unbalanced tutorial-scaffold directives** (Story J.d.2). New [directives.py](src/learningfoundry/directives.py) (`lint_directives`) scans every `text` content block's markdown for `::: worked-example` / `::: faded-example` / `::: independent-practice` opens with no matching `:::` close on its own line, and raises `ContentResolutionError` with the lesson location and the 1-based opening line number. Hooked into [resolver.py](src/learningfoundry/resolver.py) `_resolve_text` after the markdown is read but before image-asset resolution, so authors get a build-time error rather than discovering the problem as a render-time anomaly.
+- Lint is conservative by design: only the three known directive names are tracked; unknown names (`::: tip`) pass through untouched, and lines inside fenced code blocks (``` or `~~~`) are skipped so prose that demonstrates the directive syntax isn't mistaken for an actual directive.
+- tech-spec.md gained a `directives.py` subsection documenting the lint contract and the TS↔Python coupling on the `KNOWN_DIRECTIVES` list.
+
 ## [0.67.0] - 2026-05-08
 
 ### Added
