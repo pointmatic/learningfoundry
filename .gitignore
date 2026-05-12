@@ -39,7 +39,11 @@ node_modules/
 *.tsbuildinfo
 
 # project-guide
-docs/project-guide/**/*.bak.*
+/docs/project-guide/.metadata.yml
+/docs/project-guide/README.md
+/docs/project-guide/developer/
+/docs/project-guide/templates/
+/docs/project-guide/**/*.bak.*
 
 # Project
 /scripts/data/
