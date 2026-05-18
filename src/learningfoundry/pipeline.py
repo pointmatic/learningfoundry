@@ -5,6 +5,7 @@
 import logging
 import shutil
 import subprocess
+import tomllib
 from collections.abc import Callable
 from pathlib import Path
 
@@ -15,16 +16,76 @@ from learningfoundry.integrations.protocols import (
 )
 from learningfoundry.parser import parse_curriculum
 from learningfoundry.resolver import ResolvedCurriculum, resolve_curriculum
+from learningfoundry.schema_extensions import (
+    build_extended_curriculum_v1,
+    load_schema_extensions,
+)
+from learningfoundry.schema_v1 import CurriculumV1
 
 logger = logging.getLogger("learningfoundry.pipeline")
 
 GeneratorFn = Callable[[ResolvedCurriculum, Path], None]
+
+SCHEMA_EXTENSIONS_FILENAME = "learningfoundry-schema-extensions.yml"
+
+
+def resolve_schema_extensions_path(
+    cli_path: Path | None,
+    curriculum_path: Path,
+) -> Path | None:
+    """Resolve the schema-extensions file path using the documented
+    precedence: CLI flag > ``pyproject.toml`` setting > auto-discovery
+    next to the curriculum > none.
+
+    Returns ``None`` when no source provides a path — callers should
+    treat this as "use base meta models unchanged".
+    """
+    if cli_path is not None:
+        return cli_path
+
+    curriculum_dir = curriculum_path.parent
+    pyproject = curriculum_dir / "pyproject.toml"
+    if pyproject.is_file():
+        try:
+            with pyproject.open("rb") as f:
+                data = tomllib.load(f)
+        except (OSError, tomllib.TOMLDecodeError):
+            data = {}
+        ext_setting = (
+            data.get("tool", {}).get("learningfoundry", {}).get("schema_extensions")
+        )
+        if isinstance(ext_setting, str) and ext_setting:
+            return (curriculum_dir / ext_setting).resolve()
+
+    auto = curriculum_dir / SCHEMA_EXTENSIONS_FILENAME
+    if auto.is_file():
+        return auto
+
+    return None
+
+
+def _build_extended_model_cls(
+    schema_extensions_path: Path | None,
+    curriculum_path: Path,
+) -> type[CurriculumV1] | None:
+    """Resolve + load the schema-extensions file (if any) and synthesize
+    the extended ``CurriculumV1`` subclass. Returns ``None`` when no
+    extensions are in effect — caller should use the base dispatch."""
+    ext_path = resolve_schema_extensions_path(
+        schema_extensions_path, curriculum_path
+    )
+    if ext_path is None:
+        return None
+    logger.info("Loading schema extensions from: %s", ext_path)
+    extensions = load_schema_extensions(ext_path)
+    return build_extended_curriculum_v1(extensions)
 
 
 def run_build(
     curriculum_path: Path,
     output_dir: Path,
     base_dir: Path | None = None,
+    schema_extensions_path: Path | None = None,
     quiz_provider: QuizProvider | None = None,
     exercise_provider: ExerciseProvider | None = None,
     visualization_provider: VisualizationProvider | None = None,
@@ -57,8 +118,12 @@ def run_build(
     """
     resolved_base = base_dir or curriculum_path.parent
 
+    extended_model_cls = _build_extended_model_cls(
+        schema_extensions_path, curriculum_path
+    )
+
     logger.info("Parsing curriculum: %s", curriculum_path)
-    curriculum = parse_curriculum(curriculum_path)
+    curriculum = parse_curriculum(curriculum_path, model_cls=extended_model_cls)
 
     logger.info("Resolving content references (base_dir=%s)", resolved_base)
     resolved = resolve_curriculum(
@@ -84,6 +149,7 @@ def run_build(
 def run_validate(
     curriculum_path: Path,
     base_dir: Path | None = None,
+    schema_extensions_path: Path | None = None,
     quiz_provider: QuizProvider | None = None,
     exercise_provider: ExerciseProvider | None = None,
     visualization_provider: VisualizationProvider | None = None,
@@ -105,8 +171,11 @@ def run_validate(
     errors: list[str] = []
 
     try:
+        extended_model_cls = _build_extended_model_cls(
+            schema_extensions_path, curriculum_path
+        )
         logger.info("Validating curriculum: %s", curriculum_path)
-        curriculum = parse_curriculum(curriculum_path)
+        curriculum = parse_curriculum(curriculum_path, model_cls=extended_model_cls)
         resolve_curriculum(
             curriculum,
             resolved_base,
@@ -127,6 +196,7 @@ def run_preview(
     output_dir: Path,
     port: int = 5173,
     base_dir: Path | None = None,
+    schema_extensions_path: Path | None = None,
     quiz_provider: QuizProvider | None = None,
     exercise_provider: ExerciseProvider | None = None,
     visualization_provider: VisualizationProvider | None = None,
@@ -160,6 +230,7 @@ def run_preview(
         curriculum_path,
         output_dir,
         base_dir=base_dir,
+        schema_extensions_path=schema_extensions_path,
         quiz_provider=quiz_provider,
         exercise_provider=exercise_provider,
         visualization_provider=visualization_provider,

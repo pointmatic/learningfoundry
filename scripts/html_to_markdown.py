@@ -117,7 +117,10 @@ def extract_images(
     try:
         from bs4 import BeautifulSoup
     except ImportError:
-        sys.exit("BeautifulSoup is required for --extract-images: `pyve run pip install beautifulsoup4`")
+        sys.exit(
+            "BeautifulSoup is required for --extract-images: "
+            "`pyve run pip install beautifulsoup4`"
+        )
 
     soup = BeautifulSoup(html, "html.parser")
     written: dict[str, bytes] = {}
@@ -200,13 +203,19 @@ def main() -> None:
     parser.add_argument(
         "--extract-images",
         action="store_true",
-        help="(MHTML only) Write embedded images to <outfile-stem>_assets/ and reference by relative path.",
+        help=(
+            "(MHTML only) Write embedded images to <outfile-stem>_assets/ "
+            "and reference by relative path."
+        ),
     )
     parser.add_argument(
         "--min-image-size",
         type=int,
         default=5000,
-        help="Skip images smaller than this many bytes (default 5000, catches most UI icons). Use 0 to keep everything.",
+        help=(
+            "Skip images smaller than this many bytes (default 5000, "
+            "catches most UI icons). Use 0 to keep everything."
+        ),
     )
     args = parser.parse_args()
 
@@ -222,9 +231,15 @@ def main() -> None:
     n_images = 0
     if args.extract_images and resources:
         assets_dir = outfile.with_name(outfile.stem + "_assets")
-        html, n_images = extract_images(html, resources, assets_dir, args.min_image_size)
+        html, n_images = extract_images(
+            html, resources, assets_dir, args.min_image_size
+        )
     elif args.extract_images and not resources:
-        print("warning: --extract-images requires an MHTML input with embedded images; skipping.", file=sys.stderr)
+        print(
+            "warning: --extract-images requires an MHTML input with "
+            "embedded images; skipping.",
+            file=sys.stderr,
+        )
 
     md = to_markdown(html, source_url, with_images=args.extract_images)
     outfile.write_text(md, encoding="utf-8")

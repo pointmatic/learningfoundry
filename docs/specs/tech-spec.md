@@ -378,6 +378,13 @@ class ModuleMeta(BaseModel):
     experiential_summary: str | None = None
     target_audience: str | None = None
 
+class CurriculumMeta(BaseModel):
+    """Pedagogical metadata on a curriculum as a whole. ``extra='allow'``
+    (Phase J / J.h)."""
+    target_audience: str | None = None
+    objectives: list[str] = []
+    prerequisites: list[str] = []
+
 class Lesson(BaseModel):
     id: str
     title: str
@@ -419,6 +426,7 @@ class CurriculumDef(BaseModel):
     title: str
     description: str = ""
     locking: LockingConfig = LockingConfig()
+    meta: CurriculumMeta | None = None  # Phase J / J.h pedagogical metadata; passed through verbatim
     modules: list[Module]
 
     @model_validator(mode="after")
@@ -510,6 +518,51 @@ def resolve_curriculum(
     """
     ...
 ```
+
+### `schema_extensions.py` — Project-Specific Meta Schema Extensions (Phase J / Story J.h)
+
+The three `meta` Pydantic models (`CurriculumMeta`, `ModuleMeta`, `LessonMeta`) ride on `extra="allow"` so authors can attach custom fields without forcing a learningfoundry schema change. That permissive posture silently swallows phantom fields — LLM-driven authoring routinely invents `prequisites` or `cover` typos that pass validation, end up missing from `curriculum.json`, and break downstream consumers in subtle ways. `schema_extensions.py` is the opt-in tightening: when a project drops `learningfoundry-schema-extensions.yml` next to its `curriculum.yml`, learningfoundry synthesizes strict subclasses of the three meta models with the project's declared fields appended and `extra` flipped from `allow` to `forbid`.
+
+**File contract (`SchemaExtensions` model):**
+
+```yaml
+version: "1"
+curriculum_meta:
+  extra: forbid                                  # default when section present
+  fields:
+    pedagogical_approach: { type: str, required: false }
+module_meta:
+  fields:
+    curriculum_thread: { type: str, required: false }
+lesson_meta:
+  fields:
+    covers:        { type: list[str], default: [] }
+    difficulty:    { type: enum, values: [intro, intermediate, advanced] }
+    prerequisites: { type: list[str], default: [] }
+```
+
+Five supported `FieldDef` variants (`str`, `int`, `bool`, `list[str]`, `enum`) form a Pydantic discriminated union on `type:`. Each field accepts `required: bool` (default `true`) and `default:` (presence makes the field optional — a default implies the field is not required). Enum `values:` must be non-empty; enum `default:` (when given) must be one of the declared values.
+
+The file itself is parsed through `SchemaExtensions` which inherits `extra="forbid"` — typos in the *extensions* file (e.g. `defalt:` instead of `default:`, `lesso_meta:` instead of `lesson_meta:`) fail at load time, so the file cannot silently degrade the validation contract it is supposed to tighten.
+
+**`create_model` integration:**
+
+`build_extended_meta_models(extensions)` returns `(curriculum_meta_cls, module_meta_cls, lesson_meta_cls)` — each either the base class (when no section is declared) or a synthesized subclass. Pydantic v2's `create_model` cannot accept both `__base__` and `__config__`, so each extended subclass is built in two steps: a `type()` invocation creates an intermediate subclass with the new `ConfigDict(extra=...)`, then `create_model(__base__=intermediate, **fields)` layers the declared fields on top. Enum fields use `Literal[tuple(values)]` rather than a synthesized `Enum` class — Pydantic's Literal error message names the field and lists allowed values, satisfying the story's error contract without extra wiring.
+
+`build_extended_curriculum_v1(extensions)` chains the extension through the nested hierarchy: `Lesson → Module → CurriculumDef → CurriculumV1`. Each layer is rebuilt via `create_model` only when the meta type at that layer (or the list-of-extended-children at the layer above) actually changes — when no extensions are declared, the function returns `CurriculumV1` unchanged.
+
+**Parser swap-in:**
+
+`parse_curriculum(yaml_path, model_cls=...)` accepts an optional override of the dispatched Pydantic class. The version-dispatch check still runs (for its error-reporting side effect, so an unsupported `version:` still fails loudly even when the caller pre-built the model), but the override takes precedence for actual validation.
+
+**File-path resolution order** (highest precedence first, implemented in `pipeline.resolve_schema_extensions_path`):
+
+1. `--schema-extensions PATH` CLI flag on `build`, `validate`, `preview` (threaded into `run_build` / `run_validate` / `run_preview` as `schema_extensions_path`).
+2. `[tool.learningfoundry] schema_extensions = "<relative-path>"` in a `pyproject.toml` next to the curriculum (read via `tomllib`).
+3. Auto-discovery: `learningfoundry-schema-extensions.yml` next to the curriculum.
+4. None — no extensions loaded; base `extra="allow"` behaviour preserved.
+
+A malformed `pyproject.toml` is swallowed and resolution falls through to auto-discovery — a broken project metadata file should not prevent curriculum builds.
 
 ### `directives.py` — Tutorial-Scaffold Directive Lint (Phase J / Story J.d.2)
 

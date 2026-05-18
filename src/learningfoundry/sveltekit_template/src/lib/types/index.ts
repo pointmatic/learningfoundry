@@ -109,6 +109,14 @@ export interface ModuleMeta {
 	[key: string]: unknown;
 }
 
+/** Pedagogical metadata on a curriculum — mirrors `learningfoundry.schema_v1.CurriculumMeta` (Story J.h). */
+export interface CurriculumMeta {
+	target_audience?: string | null;
+	objectives?: string[];
+	prerequisites?: string[];
+	[key: string]: unknown;
+}
+
 export interface Lesson {
 	id: string;
 	title: string;
@@ -170,6 +178,7 @@ export interface Curriculum {
 	locking?: LockingConfig;
 	/** Sum of `lesson.meta.duration_minutes` across the curriculum (Story J.c). `null` when no lesson contributes. */
 	total_duration_minutes?: number | null;
+	meta?: CurriculumMeta | null;
 }
 
 // ---------------------------------------------------------------------------

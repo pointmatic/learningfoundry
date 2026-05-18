@@ -19,17 +19,29 @@ logger = logging.getLogger("learningfoundry.parser")
 _SUPPORTED_MAJOR_VERSIONS = {1: CurriculumV1}
 
 
-def parse_curriculum(yaml_path: Path) -> CurriculumV1:
+def parse_curriculum(
+    yaml_path: Path,
+    model_cls: type[CurriculumV1] | None = None,
+) -> CurriculumV1:
     """Parse and validate a curriculum YAML file.
 
     1. Load raw YAML via PyYAML.
     2. Extract top-level ``version`` field.
-    3. Dispatch to the correct schema/parser based on major version.
+    3. Dispatch to the correct schema/parser based on major version
+       (unless ``model_cls`` is supplied — used by the schema-extensions
+       pipeline to inject an extended hierarchy without losing version
+       dispatch semantics for the caller).
     4. Validate via Pydantic model.
     5. Return typed, validated curriculum object.
 
     Args:
         yaml_path: Path to the curriculum YAML file.
+        model_cls: Optional override for the Pydantic model used for
+            validation. When ``None``, the major version of the YAML
+            file selects the appropriate class from
+            ``_SUPPORTED_MAJOR_VERSIONS``. When supplied, this class is
+            used directly (must still be a ``CurriculumV1`` subclass for
+            the version-string sanity check to remain meaningful).
 
     Returns:
         Validated ``CurriculumV1`` instance.
@@ -66,7 +78,14 @@ def parse_curriculum(yaml_path: Path) -> CurriculumV1:
             "`version` field (semver, e.g. \"1.0.0\")."
         )
 
-    model_cls = _dispatch_parser(str(version_str), yaml_path)
+    if model_cls is None:
+        model_cls = _dispatch_parser(str(version_str), yaml_path)
+    else:
+        # When an override is supplied we still run the version-dispatch
+        # check for its error-reporting side effect — a YAML file with
+        # an unsupported version should still fail loudly even if the
+        # caller pre-built the model class.
+        _dispatch_parser(str(version_str), yaml_path)
 
     try:
         curriculum = model_cls.model_validate(data)

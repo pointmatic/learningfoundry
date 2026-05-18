@@ -459,7 +459,73 @@ Given a 28×28 input, design a `Conv2d` that outputs 14×14. State your kernel, 
 **Module `meta`** carries:
 - `theme`, `big_problem`, `objectives`, `experiential_summary`, `target_audience`. Rendering of these is deferred; today they pass through to `curriculum.json` for downstream tooling.
 
-Both meta models accept extra fields (`extra="allow"`) so authors can attach genre-specific data without schema churn.
+**Curriculum `meta`** (Story J.h) carries:
+- `target_audience`, `objectives`, `prerequisites`. Curriculum-wide pedagogical context — passed through to `curriculum.json` for downstream tooling, no rendering in v1.
+
+### Custom `meta` fields
+
+Both `LessonMeta` and `ModuleMeta` (and the `hook` sub-block) accept undeclared fields — authors can attach genre-specific data alongside the declared ones without a schema change:
+
+```yaml
+lessons:
+  - id: lesson-01
+    title: "What is a convolution?"
+    meta:
+      # Declared fields — type-checked:
+      role: opener
+      introduces: [receptive_field]
+      duration_minutes: 15
+
+      # Author-defined extras — accepted as-is:
+      covers: ["pe:hubel-wiesel", "hi:receptive-field-discovery"]
+      difficulty: intermediate
+      prerequisites: [lesson-00]
+      author_notes: "Revisit after the kernel-size deep-dive lands."
+    content_blocks:
+      - type: text
+        ref: content/mod-01/lesson-01.md
+```
+
+The escape hatch is scoped to `meta` (and `hook`) only. `Lesson`, `Module`, and the top-level `curriculum:` reject unknown fields, so a misplaced `difficulty:` at the lesson level (sibling of `meta`, not nested inside it) still fails the build — the strictness that catches typos like a mis-nested `sequential: true` is preserved everywhere outside the `meta` blocks.
+
+Declared fields keep their normal type checks; only undeclared keys ride through unvalidated. Extras pass through unchanged into the generated `curriculum.json`, so downstream tooling (custom Svelte components, analytics dashboards, external reports) can read them without any further pipeline wiring.
+
+### Strict project-specific extensions
+
+The permissive `extra="allow"` posture above is too loose for LLM-driven authoring — an LLM that writes `prequisites` instead of `prerequisites` will pass validation, lose the data in `curriculum.json`, and break downstream consumers silently. The schema-extensions mechanism is an opt-in tightening: a project drops `learningfoundry-schema-extensions.yml` next to its `curriculum.yml`, declares the additional fields it cares about, and learningfoundry flips the `meta` blocks from "allow anything" to "reject anything not on the list."
+
+Minimal example — `learningfoundry-schema-extensions.yml`:
+
+```yaml
+version: "1"
+lesson_meta:
+  fields:
+    covers:        { type: list[str], default: [] }
+    difficulty:    { type: enum, values: [intro, intermediate, advanced] }
+    prerequisites: { type: list[str], default: [] }
+```
+
+With this file in place:
+
+```yaml
+# curriculum.yml lesson — typo `prequisites` instead of `prerequisites`
+meta:
+  difficulty: intermediate
+  prequisites: [lesson-00]   # ❌ now a build error
+```
+
+`learningfoundry validate` exits non-zero with a message naming the offending field (the Pydantic `ValidationError` puts `prequisites` directly in the output). Without the extensions file, the same typo silently passes — the original `extra="allow"` posture is preserved.
+
+**Supported field types:** `str`, `int`, `bool`, `list[str]`, `enum` (with `values:` list). Each field accepts `required: bool` (default `true`) and `default:` (presence makes the field optional). Per-model `extra: allow` overrides the default `extra: forbid` if you want one meta layer tight and another loose during a staged rollout.
+
+**File-path resolution order** (highest precedence first):
+
+1. `--schema-extensions PATH` CLI flag on `build`, `validate`, `preview`.
+2. `[tool.learningfoundry] schema_extensions = "..."` in `pyproject.toml` next to the curriculum.
+3. Auto-discovery: `learningfoundry-schema-extensions.yml` next to the curriculum.
+4. None — base `extra="allow"` behaviour, no enforcement.
+
+The extensions file is itself strict-validated, so a typo there (e.g. `defalt:` instead of `default:`) fails at load time naming the field, not silently degrading the contract the file is supposed to tighten. The mechanism applies to all three meta layers (`curriculum_meta`, `module_meta`, `lesson_meta`) independently — declaring one does not require declaring the others.
 
 ### Tutorial scaffold directives
 

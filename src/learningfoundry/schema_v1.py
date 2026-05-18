@@ -179,6 +179,22 @@ class ModuleMeta(StrictModel):
     target_audience: str | None = None
 
 
+class CurriculumMeta(StrictModel):
+    """Pedagogical metadata for a curriculum as a whole (Story J.h).
+
+    All fields are optional; the meta block as a whole is optional on
+    ``CurriculumDef``. ``extra='allow'`` so authors can attach their own
+    fields, and the schema-extensions mechanism (Story J.h) can tighten
+    that escape hatch into strict whitelist validation per project.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    target_audience: str | None = None
+    objectives: list[str] = Field(default_factory=list)
+    prerequisites: list[str] = Field(default_factory=list)
+
+
 class Lesson(StrictModel):
     id: str
     title: str
@@ -243,6 +259,7 @@ class CurriculumDef(StrictModel):
     title: str
     description: str = ""
     locking: LockingConfig = Field(default_factory=LockingConfig)
+    meta: CurriculumMeta | None = None
     modules: list[Module]
 
     @model_validator(mode="after")

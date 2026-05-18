@@ -13,6 +13,7 @@ from learningfoundry.schema_v1 import (
     AssessmentDefinition,
     BeforeLesson,
     CurriculumDef,
+    CurriculumMeta,
     CurriculumV1,
     ExerciseBlock,
     Hook,
@@ -550,6 +551,63 @@ class TestPedagogicalMeta:
             "lessons": [{"id": "lesson-01", "title": "L", "content_blocks": []}],
         })
         assert mod.meta is None
+
+    def test_curriculum_meta_all_fields_optional(self) -> None:
+        m = CurriculumMeta.model_validate({})
+        assert m.target_audience is None
+        assert m.objectives == []
+        assert m.prerequisites == []
+
+    def test_curriculum_meta_full(self) -> None:
+        m = CurriculumMeta.model_validate({
+            "target_audience": "Working software engineers new to ML",
+            "objectives": ["Explain backprop", "Build a conv net"],
+            "prerequisites": ["Python 3", "high-school algebra"],
+        })
+        assert m.target_audience == "Working software engineers new to ML"
+        assert m.objectives == ["Explain backprop", "Build a conv net"]
+        assert m.prerequisites == ["Python 3", "high-school algebra"]
+
+    def test_curriculum_meta_allows_extra_fields(self) -> None:
+        m = CurriculumMeta.model_validate({
+            "target_audience": "x",
+            "pedagogical_approach": "spiral",
+        })
+        assert m.model_dump()["pedagogical_approach"] == "spiral"
+
+    def test_curriculum_meta_rejects_wrong_type(self) -> None:
+        with pytest.raises(ValidationError):
+            CurriculumMeta.model_validate({"objectives": "not-a-list"})
+        with pytest.raises(ValidationError):
+            CurriculumMeta.model_validate({"prerequisites": 42})
+
+    def test_curriculum_meta_attaches_to_curriculum(self) -> None:
+        cur = CurriculumDef.model_validate({
+            "title": "T",
+            "meta": {
+                "target_audience": "Engineers",
+                "objectives": ["Explain backprop"],
+            },
+            "modules": [{
+                "id": "mod-01", "title": "M",
+                "lessons": [{"id": "lesson-01", "title": "L",
+                             "content_blocks": []}],
+            }],
+        })
+        assert cur.meta is not None
+        assert cur.meta.target_audience == "Engineers"
+        assert cur.meta.objectives == ["Explain backprop"]
+
+    def test_curriculum_meta_absent_is_none(self) -> None:
+        cur = CurriculumDef.model_validate({
+            "title": "T",
+            "modules": [{
+                "id": "mod-01", "title": "M",
+                "lessons": [{"id": "lesson-01", "title": "L",
+                             "content_blocks": []}],
+            }],
+        })
+        assert cur.meta is None
 
 
 class TestAssessmentDefinition:

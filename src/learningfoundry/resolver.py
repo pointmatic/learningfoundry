@@ -86,6 +86,7 @@ class ResolvedCurriculum:
     title: str
     description: str
     locking: dict[str, Any] = field(default_factory=dict)
+    meta: dict[str, Any] | None = None
     modules: list[ResolvedModule] = field(default_factory=list)
     # Image assets referenced from any text block's markdown, deduped by
     # content hash. Carried out-of-band — the generator copies these into
@@ -161,6 +162,11 @@ def resolve_curriculum(
         title=curriculum.curriculum.title,
         description=curriculum.curriculum.description,
         locking=locking_dict,
+        meta=(
+            curriculum.curriculum.meta.model_dump()
+            if curriculum.curriculum.meta is not None
+            else None
+        ),
         modules=resolved_modules,
         assets=list(assets_by_dest.values()),
     )

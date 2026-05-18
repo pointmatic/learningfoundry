@@ -38,3 +38,8 @@ class IntegrationError(LearningFoundryError):
 
 class GenerationError(LearningFoundryError):
     """SvelteKit project generation failed."""
+
+
+class SchemaExtensionError(LearningFoundryError):
+    """Project schema-extensions file is missing, malformed, or declares an
+    unsupported field type / shape (Story J.h)."""

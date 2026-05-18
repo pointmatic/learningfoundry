@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.69.1] - 2026-05-18
+
+### Added
+
+- **`CurriculumMeta`** — new optional `meta:` block on the top-level `curriculum:` mapping (Story J.h). Mirrors the existing `LessonMeta` / `ModuleMeta` shape with three declared fields (`target_audience`, `objectives`, `prerequisites`) plus `extra="allow"` so authors can attach curriculum-wide pedagogical context without forcing a schema change. Threaded through the resolver into `curriculum.json`; mirrored in the SvelteKit `Curriculum` TypeScript interface. Rendering is deferred to a later phase, matching the J.a precedent for `ModuleMeta`.
+- **Project-specific schema extensions** — opt-in mechanism for tightening the three `meta` blocks' `extra="allow"` posture into strict whitelist-reject validation (Story J.h). When `learningfoundry-schema-extensions.yml` is present next to `curriculum.yml`, learningfoundry synthesizes strict subclasses of `CurriculumMeta` / `ModuleMeta` / `LessonMeta` with project-declared fields appended and `extra` flipped to `forbid`. Motivated by LLM-driven authoring workflows where phantom fields (typos like `prequisites` instead of `prerequisites`) silently pass `extra="allow"` and get lost in the resolved JSON.
+- **`--schema-extensions PATH`** CLI flag on `build`, `validate`, and `preview`. Resolution order: CLI flag > `[tool.learningfoundry] schema_extensions = "..."` in `pyproject.toml` next to the curriculum > auto-discovery of `learningfoundry-schema-extensions.yml` next to the curriculum > none (base behaviour preserved).
+- **Supported extension field types:** `str`, `int`, `bool`, `list[str]`, `enum` (with `values:` list). Per-field `required: bool` (default `true`) and `default:` (optional — presence makes the field optional regardless of `required`).
+- **`SchemaExtensionError`** — new typed exception for missing / malformed / invalid extension files. Mapped to exit code 4 (`EXIT_CONFIG`) in the CLI.
+- **New module:** [`src/learningfoundry/schema_extensions.py`](src/learningfoundry/schema_extensions.py) with `SchemaExtensions`, `MetaExtensions`, five discriminated `FieldDef` variants, `build_extended_meta_models`, `build_extended_curriculum_v1`, `load_schema_extensions`.
+- **Tests:** [`tests/test_schema_extensions.py`](tests/test_schema_extensions.py) — 45 cases covering base behaviour preservation, strict whitelist rejection, every supported field type, required/default rules, per-model `extra` override, `CurriculumMeta` extension propagation, end-to-end through `parse_curriculum` and `run_validate`, file-path resolution precedence, CLI invocation via Click `CliRunner`, and strict validation of the extension file itself. Plus 6 new `CurriculumMeta` cases in `test_schema_v1.py` and 2 round-trip cases in `test_resolver.py`.
+- **Docs:** new "Strict project-specific extensions" subsection in [README.md](README.md) and `CurriculumMeta` entry in the meta reference; new "Project-specific `meta` schema extensions" subsection in [docs/specs/features.md](docs/specs/features.md); new `schema_extensions.py` subsection plus `CurriculumMeta` in the schema overview in [docs/specs/tech-spec.md](docs/specs/tech-spec.md).
+
+### Notes
+
+- Backward compatible: when no extensions file is found, today's `extra="allow"` behaviour is preserved bit-for-bit. No existing curriculum needs to change.
+- The mechanism is scoped to `meta` blocks (`CurriculumMeta`, `ModuleMeta`, `LessonMeta`) — `Lesson`, `Module`, `CurriculumDef` themselves stay unconditionally strict. `Hook` extensions are deferred (small surface, no asks).
+- A Python-module schema hook (`schema_module = "..."`) is recorded as a possible follow-up if a curriculum ever needs cross-field validators.
+
 ## [0.69.0] - 2026-05-08
 
 ### Added

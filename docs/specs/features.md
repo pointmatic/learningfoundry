@@ -249,8 +249,38 @@ Both `Lesson` and `Module` accept an optional `meta` block carrying author-decla
 
 - `lesson.meta` (`LessonMeta`): `role` (e.g. `opener`, `concept`, `tutorial`, `practice`, `hands_on`, `bonus`), `hook` (a `{tagline, image_prompt?}` object), `introduces` / `reinforces` (lists of learning-item IDs the lesson covers), `duration_minutes`.
 - `module.meta` (`ModuleMeta`): `theme`, `big_problem`, `objectives`, `experiential_summary`, `target_audience`.
-- Both meta blocks (and the nested `Hook`) use Pydantic `extra="allow"`, so authors can attach genre-specific fields without schema churn.
+- `curriculum.meta` (`CurriculumMeta`, Phase J / Story J.h): `target_audience`, `objectives`, `prerequisites`. Curriculum-wide pedagogical context — passed through to `curriculum.json` for downstream rendering / tooling. Rendering is deferred to a later phase, matching the J.a precedent for `ModuleMeta`.
+- All three meta blocks (and the nested `Hook`) use Pydantic `extra="allow"`, so authors can attach genre-specific fields without schema churn.
 - Frontend rendering of `meta` lands in subsequent Phase J stories (J.b–J.c). Story J.a is schema + JSON pass-through only.
+
+**Project-specific `meta` schema extensions (Phase J / Story J.h):**
+
+`extra="allow"` on the three meta models is permissive by design — authors should be able to attach project-specific fields without forcing a learningfoundry schema change. The trade-off is that an LLM-driven authoring workflow can silently introduce *phantom* fields (typos like `prequisites` instead of `prerequisites`) that pass validation, end up in `curriculum.json`, and break downstream consumers in subtle ways.
+
+The schema-extensions mechanism is an opt-in tightening:
+
+- A project drops `learningfoundry-schema-extensions.yml` next to its `curriculum.yml`. When present, learningfoundry synthesizes strict subclasses of `CurriculumMeta` / `ModuleMeta` / `LessonMeta` with the project-declared fields appended and `extra` flipped from `allow` to `forbid` (default; opt-out per model via `extra: allow`).
+- File-path resolution order: `--schema-extensions PATH` CLI flag > `[tool.learningfoundry] schema_extensions` in `pyproject.toml` next to the curriculum > auto-discovery of `learningfoundry-schema-extensions.yml` next to the curriculum > none (base `extra="allow"` preserved).
+- Supported field types: `str`, `int`, `bool`, `list[str]`, `enum` (with `values:` list). Per-field `required: bool` (default `true`) and `default:` (optional — presence makes the field optional regardless of `required`).
+- Worked example:
+
+```yaml
+version: "1"
+curriculum_meta:
+  fields:
+    pedagogical_approach: { type: str, required: false }
+module_meta:
+  fields:
+    curriculum_thread: { type: str, required: false }
+lesson_meta:
+  fields:
+    covers:        { type: list[str], default: [] }
+    difficulty:    { type: enum, values: [intro, intermediate, advanced] }
+    prerequisites: { type: list[str], default: [] }
+```
+
+- Error contract: an unknown field on a `meta` block raises Pydantic `ValidationError` naming the field (so `prequisites: [...]` against the example above fails with `prequisites` in the message); a malformed extension file raises `SchemaExtensionError` citing the file path; the extensions file itself is strict-validated (typos like `defalt:` instead of `default:` fail at load time).
+- When the file is absent, today's `extra="allow"` behaviour is preserved bit-for-bit — backward compatible with every existing curriculum.
 
 ### FR-3: SvelteKit Application Generation
 

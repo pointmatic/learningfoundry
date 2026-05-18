@@ -292,6 +292,60 @@ No version bump in the title — this story is doc + integration-test only and s
 
 ---
 
+### Story J.h: v0.69.1 — `CurriculumMeta` + Project-Specific `meta` Schema Extensions [Done]
+
+Two combined additions, motivated by post-J authoring experience on LLM-driven curricula:
+
+1. **New `CurriculumMeta` model** parallel to `LessonMeta` / `ModuleMeta`. Today `CurriculumDef` ([schema_v1.py:242](../../src/learningfoundry/schema_v1.py#L242)) has no `meta` field at all — curriculum-wide pedagogical context (target audience, objectives, prerequisites) has nowhere to live except prose in `description`. J.h adds an optional `meta: CurriculumMeta | None` field on `CurriculumDef`, with the same `extra="allow"` posture as the other meta models.
+
+2. **Project-specific schema extensions** for all three meta models. `LessonMeta` and `ModuleMeta` ride on `extra="allow"` ([schema_v1.py:157,173](../../src/learningfoundry/schema_v1.py#L157)) — and the new `CurriculumMeta` will too — so authors can attach custom fields (`covers`, `difficulty`, `prerequisites`, …) without a learningfoundry schema change. The trade-off is that `extra="allow"` silently swallows *phantom* fields: an LLM that writes `prequisites` instead of `prerequisites`, or `cover` instead of `covers`, hits no error. Build succeeds, the field is lost in the resolved `curriculum.json`, and the bug surfaces (or doesn't) downstream. J.h adds an optional schema-extensions file that, when present, replaces `extra="allow"` with strict whitelist-reject validation over a project-declared set of additional fields per meta model. Without the file, today's behaviour is preserved exactly — opt-in, no migration for any existing curriculum.
+
+**Declared fields for `CurriculumMeta`** (initial minimal set; extensions cover the rest): `target_audience: str | None`, `objectives: list[str]`, `prerequisites: list[str]`. Mirrors the opinionated-small-set + escape-hatch pattern of `ModuleMeta` ([schema_v1.py:166-179](../../src/learningfoundry/schema_v1.py#L166-L179)). Rendering of these is deferred to a later phase; today they pass through to `curriculum.json` for downstream tooling, exactly as `ModuleMeta` did when J.a landed.
+
+**Extension file contract:** `learningfoundry-schema-extensions.yml` next to `curriculum.yml` (path overridable via `--schema-extensions PATH` and `[tool.learningfoundry] schema_extensions` in `pyproject.toml`). Declares additional fields for the three `extra="allow"` meta models. Illustrative shape:
+
+```yaml
+version: "1"
+curriculum_meta:
+  extra: forbid                                            # default when file present
+  fields:
+    pedagogical_approach: { type: str, required: false }
+    estimated_total_minutes: { type: int, required: false }
+module_meta:
+  fields:
+    curriculum_thread: { type: str, required: false }
+lesson_meta:
+  fields:
+    covers:        { type: list[str], default: [] }
+    difficulty:    { type: enum, values: [intro, intermediate, advanced] }
+    prerequisites: { type: list[str], default: [] }
+```
+
+At parse time, `pydantic.create_model` synthesizes `_ExtendedCurriculumMeta` / `_ExtendedModuleMeta` / `_ExtendedLessonMeta` subclasses with the declared fields appended and `model_config = ConfigDict(extra="forbid")`. The parser swaps these in via the existing `CurriculumDef.meta` / `Module.meta` / `Lesson.meta` field types.
+
+**Decision:** the declarative-file path (`create_model`) is chosen over a Python-subclass hook because the motivating use case is LLM-driven authoring — keeping the entire author surface in YAML lets the LLM extend the schema without switching modes. A Python-hook escape (`schema_module = "..."`) is recorded as a possible follow-up if a curriculum needs cross-field validators.
+
+**Out of scope:** Python-module schema hook (deferred); extending the mechanism to `Hook` (small surface, defer until asked); extending to non-`extra="allow"` models (`Lesson`, `Module`, `CurriculumDef` itself stay strict unconditionally — only their `.meta` sub-blocks are extensible); declarative cross-field validators ("`difficulty: advanced` requires non-empty `prerequisites`"); SvelteKit rendering of `CurriculumMeta` fields (data pass-through only); SvelteKit-side type generation for extended fields (consumers read them as untyped JSON for now).
+
+**Tasks:**
+
+- [x] `src/learningfoundry/schema_v1.py`: new `CurriculumMeta(StrictModel)` with `model_config = ConfigDict(extra="allow")` and declared fields `target_audience: str | None = None`, `objectives: list[str] = Field(default_factory=list)`, `prerequisites: list[str] = Field(default_factory=list)`. Add `meta: CurriculumMeta | None = None` to `CurriculumDef`.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts`: mirror `CurriculumMeta` as a TS interface (optional `target_audience?: string`, `objectives?: string[]`, `prerequisites?: string[]`, plus `[key: string]: unknown` for extras) and add `meta?: CurriculumMeta` to the curriculum-level type. (Matches the hidden-coupling rule from project-essentials.)
+- [x] New `src/learningfoundry/schema_extensions.py`: `SchemaExtensions` Pydantic model (strict-validated, so typos in the *extension* file also fail loudly) describing the file contract; `build_extended_meta_models(extensions: SchemaExtensions) -> tuple[type[CurriculumMeta], type[ModuleMeta], type[LessonMeta]]` using `pydantic.create_model`. Supported `type:` values: `str`, `int`, `bool`, `list[str]`, `enum` (requires `values:`). Per-field `required: bool` (default `true`) and `default:` (optional).
+- [x] Wire into `parser.py` / `pipeline.py`: auto-discover `learningfoundry-schema-extensions.yml` next to the curriculum; honour `--schema-extensions PATH` if set. When found, build the extended models and dispatch parsing through them so `CurriculumDef.meta` / `Module.meta` / `Lesson.meta` validate against the extended subclasses. When absent, the base meta models are used unchanged.
+- [x] CLI: new `--schema-extensions PATH` flag on `build`, `validate`, `preview`. Resolution order: CLI > `pyproject.toml [tool.learningfoundry] schema_extensions` > auto-discovery > none.
+- [x] Error contract: unknown field at any `meta` level → Pydantic `ValidationError` naming the field (existing behaviour, now triggered by the synthesized `extra="forbid"`); malformed extension file → typed `SchemaExtensionError` citing the file path; unknown `type:` in extension file → typed error naming the field and listing supported types.
+- [x] Tests `tests/test_schema_v1.py` additions (~4 cases): `CurriculumMeta` accepts the three declared fields with right types; `CurriculumMeta` rejects wrong types; `CurriculumDef.meta` is optional (omission validates); `extra="allow"` round-trip works on `CurriculumMeta`.
+- [x] Tests `tests/test_schema_extensions.py` (~12 cases): no file present → today's `extra="allow"` behaviour intact for all three meta models (regression guard); file present declaring `lesson_meta.covers` → valid lesson with `covers` accepted, lesson with `covres` typo rejected with field name in error; `difficulty: enum` → valid value accepted, out-of-vocab rejected with allowed-values list in error; `required: true` without `default:` → omission rejected; per-model `extra: allow` override restores today's behaviour for that model only; extensions applied independently to `curriculum_meta` / `module_meta` / `lesson_meta` (typo in curriculum_meta rejected without affecting lesson_meta validation); malformed extension file rejected at load time; `--schema-extensions` CLI flag honoured; `pyproject.toml` resolution path honoured.
+- [x] `docs/specs/features.md`: new "`CurriculumMeta`" subsection (mirrors the Module/Lesson meta subsections) and new "Project-specific `meta` schema extensions" subsection under FR-3 with the worked YAML example and the typo-rejection failure mode.
+- [x] `README.md`: add `CurriculumMeta` documentation under "Pedagogical authoring → meta reference" (parallel to the existing Lesson/Module entries); extend the "Custom `meta` fields" subsection with a follow-on "Strict project-specific extensions" sub-subsection showing the extension file + the error message produced on a typo.
+- [x] `docs/specs/tech-spec.md`: `CurriculumMeta` added to schema overview; new `schema_extensions.py` subsection documenting the file contract, the `create_model` integration point, the parser swap-in mechanism, and the file-path resolution order.
+- [x] Bump version to v0.69.1 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Update `CHANGELOG.md`.
+- [x] Verify: `pyve test`, vitest, `ruff`, `mypy`.
+
+---
+
 ## Future
 
 <!--

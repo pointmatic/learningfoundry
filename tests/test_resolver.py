@@ -112,6 +112,48 @@ class TestResolvedTypes:
         assert result.version == "1.0.0"
         assert result.title == "Test"
 
+    def test_curriculum_meta_round_trips(self, tmp_path: Path) -> None:
+        """Story J.h — curriculum-level `meta` flows through the resolver
+        into the JSON-serialised payload, including the `extra="allow"`
+        round-trip for author-defined extras."""
+        c = CurriculumV1.model_validate({
+            "version": "1.0.0",
+            "curriculum": {
+                "title": "Test",
+                "meta": {
+                    "target_audience": "engineers",
+                    "objectives": ["Explain backprop"],
+                    "prerequisites": ["Python 3"],
+                    "pedagogical_approach": "spiral",  # extra
+                },
+                "modules": [{
+                    "id": "mod-01", "title": "M",
+                    "lessons": [{"id": "lesson-01", "title": "L",
+                                 "content_blocks": []}],
+                }],
+            },
+        })
+        result = resolve_curriculum(
+            c, tmp_path,
+            quiz_provider=MagicMock(),
+            exercise_provider=MagicMock(),
+            visualization_provider=MagicMock(),
+        )
+        assert result.meta is not None
+        assert result.meta["target_audience"] == "engineers"
+        assert result.meta["objectives"] == ["Explain backprop"]
+        assert result.meta["pedagogical_approach"] == "spiral"
+
+    def test_curriculum_meta_absent_is_none(self, tmp_path: Path) -> None:
+        c = _make_curriculum()
+        result = resolve_curriculum(
+            c, tmp_path,
+            quiz_provider=MagicMock(),
+            exercise_provider=MagicMock(),
+            visualization_provider=MagicMock(),
+        )
+        assert result.meta is None
+
     def test_module_description_round_trips(self, tmp_path: Path) -> None:
         """Module `description` from YAML is preserved on ResolvedModule for
         the frontend dashboard. Emitted in curriculum.json for each module."""

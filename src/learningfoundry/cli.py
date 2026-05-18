@@ -13,6 +13,7 @@ from learningfoundry.exceptions import (
     CurriculumValidationError,
     CurriculumVersionError,
     GenerationError,
+    SchemaExtensionError,
 )
 from learningfoundry.logging_config import setup_logging as _setup_logging
 
@@ -58,6 +59,19 @@ _log_level_option = click.option(
     help="Logging verbosity.",
 )
 
+_schema_extensions_option = click.option(
+    "--schema-extensions",
+    "schema_extensions_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help=(
+        "Path to a project-specific schema-extensions YAML file. "
+        "Resolution order: this flag > [tool.learningfoundry] "
+        "schema_extensions in pyproject.toml > auto-discovery of "
+        "`learningfoundry-schema-extensions.yml` next to the curriculum > none."
+    ),
+)
+
 
 # ---------------------------------------------------------------------------
 # build
@@ -66,6 +80,7 @@ _log_level_option = click.option(
 @main.command()
 @_config_option
 @_log_level_option
+@_schema_extensions_option
 @click.option(
     "--output",
     "-o",
@@ -85,6 +100,7 @@ _log_level_option = click.option(
 def build(
     config_path: Path,
     log_level: str,
+    schema_extensions_path: Path | None,
     output_dir: Path,
     base_dir: Path | None,
 ) -> None:
@@ -94,7 +110,12 @@ def build(
     from learningfoundry.pipeline import run_build
 
     try:
-        run_build(config_path, output_dir, base_dir=base_dir)
+        run_build(
+            config_path,
+            output_dir,
+            base_dir=base_dir,
+            schema_extensions_path=schema_extensions_path,
+        )
     except (CurriculumValidationError, CurriculumVersionError) as exc:
         click.echo(f"Validation error: {exc}", err=True)
         sys.exit(EXIT_VALIDATION)
@@ -104,6 +125,9 @@ def build(
     except GenerationError as exc:
         click.echo(f"Generation error: {exc}", err=True)
         sys.exit(EXIT_GENERATION)
+    except SchemaExtensionError as exc:
+        click.echo(f"Schema-extensions error: {exc}", err=True)
+        sys.exit(EXIT_CONFIG)
     except ConfigError as exc:
         click.echo(f"Config error: {exc}", err=True)
         sys.exit(EXIT_CONFIG)
@@ -133,6 +157,7 @@ def build(
 @main.command()
 @_config_option
 @_log_level_option
+@_schema_extensions_option
 @click.option(
     "--base-dir",
     "base_dir",
@@ -143,6 +168,7 @@ def build(
 def validate(
     config_path: Path,
     log_level: str,
+    schema_extensions_path: Path | None,
     base_dir: Path | None,
 ) -> None:
     """Validate a curriculum YAML without generating output."""
@@ -151,7 +177,14 @@ def validate(
     from learningfoundry.pipeline import run_validate
 
     try:
-        is_valid, errors = run_validate(config_path, base_dir=base_dir)
+        is_valid, errors = run_validate(
+            config_path,
+            base_dir=base_dir,
+            schema_extensions_path=schema_extensions_path,
+        )
+    except SchemaExtensionError as exc:
+        click.echo(f"Schema-extensions error: {exc}", err=True)
+        sys.exit(EXIT_CONFIG)
     except ConfigError as exc:
         click.echo(f"Config error: {exc}", err=True)
         sys.exit(EXIT_CONFIG)
@@ -172,6 +205,7 @@ def validate(
 @main.command()
 @_config_option
 @_log_level_option
+@_schema_extensions_option
 @click.option(
     "--output",
     "-o",
@@ -199,6 +233,7 @@ def validate(
 def preview(
     config_path: Path,
     log_level: str,
+    schema_extensions_path: Path | None,
     output_dir: Path,
     base_dir: Path | None,
     port: int,
@@ -216,6 +251,7 @@ def preview(
             output_dir,
             port=port,
             base_dir=base_dir,
+            schema_extensions_path=schema_extensions_path,
         )
     except (CurriculumValidationError, CurriculumVersionError) as exc:
         click.echo(f"Validation error: {exc}", err=True)
@@ -226,6 +262,9 @@ def preview(
     except GenerationError as exc:
         click.echo(f"Generation error: {exc}", err=True)
         sys.exit(EXIT_GENERATION)
+    except SchemaExtensionError as exc:
+        click.echo(f"Schema-extensions error: {exc}", err=True)
+        sys.exit(EXIT_CONFIG)
     except ConfigError as exc:
         click.echo(f"Config error: {exc}", err=True)
         sys.exit(EXIT_CONFIG)
