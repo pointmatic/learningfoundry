@@ -464,29 +464,50 @@ Given a 28×28 input, design a `Conv2d` that outputs 14×14. State your kernel, 
 
 ### Custom `meta` fields
 
-Both `LessonMeta` and `ModuleMeta` (and the `hook` sub-block) accept undeclared fields — authors can attach genre-specific data alongside the declared ones without a schema change:
+All three meta models — `CurriculumMeta`, `ModuleMeta`, `LessonMeta` (and the `hook` sub-block) — accept undeclared fields. Authors can attach genre-specific data alongside the declared ones at any layer without a schema change:
 
 ```yaml
-lessons:
-  - id: lesson-01
-    title: "What is a convolution?"
-    meta:
-      # Declared fields — type-checked:
-      role: opener
-      introduces: [receptive_field]
-      duration_minutes: 15
+version: "1.0.0"
+curriculum:
+  title: "Convolutional Neural Networks"
+  meta:
+    # Declared fields — type-checked:
+    target_audience: "Working software engineers new to ML"
+    objectives: ["Explain backprop", "Build a conv net"]
 
-      # Author-defined extras — accepted as-is:
-      covers: ["pe:hubel-wiesel", "hi:receptive-field-discovery"]
-      difficulty: intermediate
-      prerequisites: [lesson-00]
-      author_notes: "Revisit after the kernel-size deep-dive lands."
-    content_blocks:
-      - type: text
-        ref: content/mod-01/lesson-01.md
+    # Author-defined extras — accepted as-is:
+    pedagogical_approach: "spiral"
+    estimated_total_minutes: 480
+
+  modules:
+    - id: mod-01
+      title: "Why convolutions exist"
+      meta:
+        # Declared + extras compose the same way at module level:
+        theme: "Why convolutions exist"
+        objectives: ["Explain weight sharing"]
+        curriculum_thread: "vision"          # author-defined extra
+
+      lessons:
+        - id: lesson-01
+          title: "What is a convolution?"
+          meta:
+            # Declared fields — type-checked:
+            role: opener
+            introduces: [receptive_field]
+            duration_minutes: 15
+
+            # Author-defined extras — accepted as-is:
+            covers: ["pe:hubel-wiesel", "hi:receptive-field-discovery"]
+            difficulty: intermediate
+            prerequisites: [lesson-00]
+            author_notes: "Revisit after the kernel-size deep-dive lands."
+          content_blocks:
+            - type: text
+              ref: content/mod-01/lesson-01.md
 ```
 
-The escape hatch is scoped to `meta` (and `hook`) only. `Lesson`, `Module`, and the top-level `curriculum:` reject unknown fields, so a misplaced `difficulty:` at the lesson level (sibling of `meta`, not nested inside it) still fails the build — the strictness that catches typos like a mis-nested `sequential: true` is preserved everywhere outside the `meta` blocks.
+The escape hatch is scoped to `meta` (and `hook`) only. `CurriculumDef`, `Module`, `Lesson`, and the top-level `curriculum:` mapping itself reject unknown fields — so a misplaced `difficulty:` at the *lesson* level (sibling of `meta`, not nested inside it) still fails the build. Same for a stray `pedagogical_approach:` at the *curriculum* level outside the `meta:` block. The strictness that catches typos like a mis-nested `sequential: true` is preserved everywhere outside the `meta` blocks at all three layers.
 
 Declared fields keep their normal type checks; only undeclared keys ride through unvalidated. Extras pass through unchanged into the generated `curriculum.json`, so downstream tooling (custom Svelte components, analytics dashboards, external reports) can read them without any further pipeline wiring.
 

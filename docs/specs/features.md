@@ -243,9 +243,9 @@ The expanded module in the sidebar interleaves assessment rows with lesson rows 
 
 Each assessment row shows the role label (capitalized, e.g. `Pre Assessment` / `Practice Assessment` / `Post Assessment`) and, when `pass_threshold` is set, a secondary annotation `"X% to pass"`. Rows are non-interactive in v1 — gating, per-role styling beyond the label, mid-lesson placement, and assessment-specific routes are deferred.
 
-**Pedagogical metadata (Phase J / Story J.a):**
+**Pedagogical metadata (Phase J / Stories J.a, J.h):**
 
-Both `Lesson` and `Module` accept an optional `meta` block carrying author-declared pedagogical context. The pipeline does not interpret these fields beyond schema validation — they are passed through verbatim into `curriculum.json` for downstream rendering and tooling.
+`CurriculumDef`, `Module`, and `Lesson` each accept an optional `meta` block carrying author-declared pedagogical context. The pipeline does not interpret these fields beyond schema validation — they are passed through verbatim into `curriculum.json` for downstream rendering and tooling. `LessonMeta` and `ModuleMeta` landed in Story J.a; `CurriculumMeta` followed in Story J.h alongside the schema-extensions mechanism described below.
 
 - `lesson.meta` (`LessonMeta`): `role` (e.g. `opener`, `concept`, `tutorial`, `practice`, `hands_on`, `bonus`), `hook` (a `{tagline, image_prompt?}` object), `introduces` / `reinforces` (lists of learning-item IDs the lesson covers), `duration_minutes`.
 - `module.meta` (`ModuleMeta`): `theme`, `big_problem`, `objectives`, `experiential_summary`, `target_audience`.
