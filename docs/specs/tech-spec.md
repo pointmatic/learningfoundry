@@ -1324,7 +1324,7 @@ dev = [
     "mypy",
 ]
 quizazz = [
-    "quizazz-builder>=0.1",
+    "quizazz>=0.1",
 ]
 nbfoundry = [
     "nbfoundry>=0.1",

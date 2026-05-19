@@ -397,7 +397,7 @@ No production-facing impact (static adapter output doesn't need node types at ru
 
 ---
 
-### Story J.k: `dependency-spec.md` + `pyproject.toml` Extras Name Correction
+### Story J.k: `dependency-spec.md` + `pyproject.toml` Extras Name Correction [Done]
 
 Bringing [docs/specs/quizazz/dependency-spec.md](quizazz/dependency-spec.md) and learningfoundry's quizazz extras declaration in line with quizazz's actual shipped surface. Several pre-existing inaccuracies plus updates flowing from the J.i rename.
 
@@ -425,19 +425,60 @@ No production-facing impact — unversioned per the Phase-bundled-release rule. 
 
 **Tasks:**
 
-- [ ] `docs/specs/quizazz/dependency-spec.md`: fix `quizazz-builder` → `quizazz` throughout (BR-1 import path, Package Distribution table, Versioning section, Testing Contract table).
-- [ ] `docs/specs/quizazz/dependency-spec.md` RR-1: update event-handler syntax example from `on:complete={...}` to `oncomplete={handler}`; note the legacy `CustomEvent('complete')` dispatch form is also supported.
-- [ ] `docs/specs/quizazz/dependency-spec.md`: add a "Host Setup" subsection under Runtime Requirements covering (a) `import '@pointmatic/quizazz/styles.css'`, (b) `export const ssr = false;` on routes mounting `<QuizBlock>`, (c) Vite-based build requirement for the `?url` WASM import.
-- [ ] `docs/specs/quizazz/dependency-spec.md` BR-1: document the path-escape constraint — `yaml_path` resolves under `base_dir` strictly; out-of-tree paths raise `ValidationError`.
-- [ ] `docs/specs/quizazz/dependency-spec.md`: rename `quiz_scores` → `assessment_scores` (RR-2 + Data Flow); rename `type: quiz` → `type: assessment` (Data Flow).
-- [ ] `docs/specs/quizazz/dependency-spec.md`: new subsection under RR-1 (or in Data Flow) pinning the manifest wire-format relabel — `QuizazzProvider` (learningfoundry adapter) translates quizazz's `quizName` to `assessmentName` before serialization; downstream `AssessmentManifest` TS type never sees `quizName`.
-- [ ] `docs/specs/tech-spec.md` (learningfoundry): fix `[project.optional-dependencies].quizazz` extras line from `quizazz-builder>=0.1` → `quizazz>=<version>` (line ~1324).
+- [x] `docs/specs/quizazz/dependency-spec.md`: `quizazz-builder` → `quizazz` (BR-1 constraint, Package Distribution table, Versioning, Testing Contract).
+- [x] `docs/specs/quizazz/dependency-spec.md` RR-1: event-handler syntax updated to `oncomplete={handler}`; legacy `CustomEvent('complete')` dispatch documented as also supported.
+- [x] `docs/specs/quizazz/dependency-spec.md`: added new RR-4 "Host Setup" covering styles import, per-route `ssr = false`, Vite-based build.
+- [x] `docs/specs/quizazz/dependency-spec.md` BR-1: path-escape constraint added — out-of-tree `yaml_path` raises `quizazz.ValidationError`.
+- [x] `docs/specs/quizazz/dependency-spec.md`: `quiz_scores` → `assessment_scores` (RR-2 + Data Flow + Testing Contract); `type: quiz` → `type: assessment` (Data Flow).
+- [x] `docs/specs/quizazz/dependency-spec.md`: added new RR-1a "Manifest Wire-Format Relabel" pinning the `QuizazzProvider` `quizName` → `assessmentName` translation; Data Flow updated to call out the relabel step; BR-1 behavior cross-references RR-1a; Testing Contract gains a row pinning the relabel as a learningfoundry-owned test.
+- [x] `docs/specs/quizazz/dependency-spec.md` RR-1 heading: "Embeddable Quiz Component" → "Embeddable Assessment Component" (component name `<QuizBlock>` preserved on the vendor surface).
+- [x] `docs/specs/tech-spec.md` (learningfoundry): `[project.optional-dependencies].quizazz` extras line `quizazz-builder>=0.1` → `quizazz>=0.1` (line 1327).
+- [x] No version bump (unversioned per Phase-bundled-release rule).
+- [x] No `CHANGELOG.md` entry (docs-only).
+
+**Discovered during implementation, not fixed (out of declared scope):** 7 additional `quizazz_builder` references in `docs/specs/tech-spec.md` outside the extras line — line 52 (dependency table row, same bug class as the extras-line fix); lines 114, 691, 693, 694, 701, 702, 1278 (internal-module path references like `quizazz_builder.validator.validate_file()` describing quizazz's submodule structure). These warrant their own follow-up story since they need to be verified against quizazz's actual submodule layout — the answer isn't a blind `quizazz_builder` → `quizazz` rename if quizazz internally exposes those paths differently.
+
+---
+
+### Story J.l: update remaining `quizazz_builder` references in `tech-spec.md`
+
+J.k fixed the `[project.optional-dependencies].quizazz` extras line in `tech-spec.md` and the full surface of `quizazz-builder` / `quizazz_builder` references in `dependency-spec.md`. While verifying the J.k work, `grep` surfaced **7 additional `quizazz_builder` references in `tech-spec.md` that J.k did not touch** because the story scoped its `tech-spec.md` edit to a single line. They split into two distinct rename buckets:
+
+**Bucket A — package-name bug (same class as the J.k extras-line fix):**
+- [tech-spec.md:52](../../docs/specs/tech-spec.md#L52) — Python dependency table row: `| `quizazz-builder` | `>=0.1` | ...` This is the same "wrong PyPI name" bug J.k fixed at line 1327; the table just lists the dep a second time and was missed.
+
+**Bucket B — stale internal-module path references (over-prescriptive, not a simple rename):**
+- [tech-spec.md:114](../../docs/specs/tech-spec.md#L114) — file-tree comment: `# quizazz integration (delegates to quizazz_builder)`
+- [tech-spec.md:691](../../docs/specs/tech-spec.md#L691) — `QuizazzProvider` class docstring: "AssessmentProvider implementation backed by quizazz_builder."
+- [tech-spec.md:693-694](../../docs/specs/tech-spec.md#L693-L694) — docstring: "Delegates to `quizazz_builder.validator.validate_file()` and `quizazz_builder.compiler.compile_quiz()`..."
+- [tech-spec.md:701-702](../../docs/specs/tech-spec.md#L701-L702) — `compile_assessment` docstring step list: "Call `quizazz_builder.validator.validate_file(resolved_path)`. Call `quizazz_builder.compiler.compile_quiz()` with validated output."
+- [tech-spec.md:1278](../../docs/specs/tech-spec.md#L1278) — test contract row: "QuizazzProvider delegates correctly to quizazz_builder (mocked)"
+
+**Finding from the live code** (verified via [src/learningfoundry/integrations/quizazz.py:36](../../src/learningfoundry/integrations/quizazz.py#L36)): the actual `QuizazzProvider` does `from quizazz import compile_assessment` and calls that single top-level function — it does **not** import from `quizazz.validator` or `quizazz.compiler` submodules. The Bucket B references in `tech-spec.md` describe an internal multi-step pipeline (`validate_file` then `compile_quiz`) that doesn't match the actual adapter. So Bucket B is not a `quizazz_builder` → `quizazz` rename — it's a **simplification**: collapse the prescribed multi-call delegation to the single `compile_assessment(...)` call the adapter actually makes. Quizazz owns its internal validation-then-compile order; `tech-spec.md` should describe what learningfoundry calls, not what quizazz does internally.
+
+Bucket B also contains adjacent J.i terminology leftovers in the same docstrings (`compile_quiz` is quizazz's older internal name and predates the J.i rename — quizazz now exposes `compile_assessment` at the top level per its current `tech-spec.md`). Folding both layers of staleness into one pass avoids touching the same lines twice.
+
+Doc-only on the learningfoundry side. No production-facing impact. Unversioned per the Phase-bundled-release rule.
+
+**Out of scope:**
+- Code-side rename of the `QuizProvider` mention in [integrations/quizazz.py:11](../../src/learningfoundry/integrations/quizazz.py#L11) docstring (`"""QuizProvider implementation backed by the quizazz package."""`) — that's a code-rename concern that belongs with the broader code-side J.i follow-up, not this doc-fix story.
+- Any change to quizazz itself (its actual API is correct; the doc is wrong).
+- Mass `quizazz_builder` audit across other `docs/` files outside `tech-spec.md` — `grep` after this story lands will catch any further strays as a separate cleanup if they exist.
+
+**Tasks:**
+
+- [ ] `docs/specs/tech-spec.md:52` (Bucket A): fix dependency table row `| `quizazz-builder` | `>=0.1` | ...` → `| `quizazz` | `>=0.1` | ...`. Mirror the version range and description format already used at line 1327.
+- [ ] `docs/specs/tech-spec.md:114` (Bucket B): update file-tree comment `# quizazz integration (delegates to quizazz_builder)` → `# quizazz integration (delegates to quizazz.compile_assessment)`.
+- [ ] `docs/specs/tech-spec.md:691,693-694` (Bucket B): rewrite `QuizazzProvider` class docstring to describe the actual delegation — single call to `quizazz.compile_assessment(yaml_path, base_dir)`. Drop the `validator.validate_file()` / `compiler.compile_quiz()` two-step description.
+- [ ] `docs/specs/tech-spec.md:701-702` (Bucket B): rewrite `compile_assessment` method-docstring step list to reflect the actual call sequence (try-import `compile_assessment` from `quizazz`; call it; wrap any exception in `IntegrationError`). Mirror the live [integrations/quizazz.py:35-50](../../src/learningfoundry/integrations/quizazz.py#L35-L50) shape.
+- [ ] `docs/specs/tech-spec.md:1278` (Bucket B): update test-contract row to `"QuizazzProvider delegates correctly to quizazz.compile_assessment (mocked); error wrapping"`.
+- [ ] Verify: `grep -n "quizazz_builder\|quizazz-builder" docs/specs/` returns no matches; `pyve test` passes; `ruff` + `mypy` clean (no code touched, so this is a sanity guard, not a substantive check).
 - [ ] No version bump (unversioned per Phase-bundled-release rule).
 - [ ] No `CHANGELOG.md` entry (docs-only).
 
 ---
 
-### Story J.l: `lucide-svelte` 1.0 Migration
+### Story J.m: `lucide-svelte` 1.0 Migration
 
 `lucide-svelte@0.468.0` is marked **deprecated** on npm — the 0.x line is end-of-life and will not receive bug or security fixes. The supported line is 1.x (currently 1.0.1). This is the only deprecated package in the template's dependency graph; every other "newer version available" notice from `pnpm install` is a normal patch/minor diff within the existing caret ranges.
 
@@ -451,7 +492,7 @@ No production-facing impact on the runtime API of the template (these are icons 
 
 **Out of scope:**
 - Visual redesign of any control that uses these icons.
-- Bulk migration of other "newer available" packages (covered by J.m).
+- Bulk migration of other "newer available" packages (covered by J.n).
 
 **Tasks:**
 
@@ -464,11 +505,11 @@ No production-facing impact on the runtime API of the template (these are icons 
 
 ---
 
-### Story J.m: Dependabot Wiring for Template + Workspace Dependencies
+### Story J.n: Dependabot Wiring for Template + Workspace Dependencies
 
 Today the project relies on developer-initiated `pnpm update` / `pip install -U` to pull in security and patch updates. There's no automated signal when a CVE drops against a dependency in `src/learningfoundry/sveltekit_template/package.json` or `pyproject.toml`, and the "newer available" notes from `pnpm install` are the only feedback loop — which mixes security-relevant updates with routine patch noise.
 
-Story J.m wires up GitHub Dependabot via `.github/dependabot.yml` to open weekly PRs for both the Python and SvelteKit-template dependency graphs, with security advisories flowing as a separate, higher-priority signal.
+Story J.n wires up GitHub Dependabot via `.github/dependabot.yml` to open weekly PRs for both the Python and SvelteKit-template dependency graphs, with security advisories flowing as a separate, higher-priority signal.
 
 **Why Dependabot (not Renovate or a cadence script):**
 - Native to GitHub; no third-party app install required.
