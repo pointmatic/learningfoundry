@@ -10,8 +10,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 from learningfoundry.integrations.protocols import (
+    AssessmentProvider,
     ExerciseProvider,
-    QuizProvider,
     VisualizationProvider,
 )
 from learningfoundry.parser import parse_curriculum
@@ -86,7 +86,7 @@ def run_build(
     output_dir: Path,
     base_dir: Path | None = None,
     schema_extensions_path: Path | None = None,
-    quiz_provider: QuizProvider | None = None,
+    assessment_provider: AssessmentProvider | None = None,
     exercise_provider: ExerciseProvider | None = None,
     visualization_provider: VisualizationProvider | None = None,
     generator: GeneratorFn | None = None,
@@ -98,7 +98,7 @@ def run_build(
         output_dir: Destination directory for the generated SvelteKit project.
         base_dir: Root for resolving content refs. Defaults to the directory
             containing ``curriculum_path``.
-        quiz_provider: Override for quiz resolution. Defaults to
+        assessment_provider: Override for assessment resolution. Defaults to
             ``QuizazzProvider``.
         exercise_provider: Override for exercise resolution. Defaults to
             ``NbfoundryStub``.
@@ -129,7 +129,7 @@ def run_build(
     resolved = resolve_curriculum(
         curriculum,
         resolved_base,
-        quiz_provider=quiz_provider,
+        assessment_provider=assessment_provider,
         exercise_provider=exercise_provider,
         visualization_provider=visualization_provider,
     )
@@ -150,7 +150,7 @@ def run_validate(
     curriculum_path: Path,
     base_dir: Path | None = None,
     schema_extensions_path: Path | None = None,
-    quiz_provider: QuizProvider | None = None,
+    assessment_provider: AssessmentProvider | None = None,
     exercise_provider: ExerciseProvider | None = None,
     visualization_provider: VisualizationProvider | None = None,
 ) -> tuple[bool, list[str]]:
@@ -159,7 +159,7 @@ def run_validate(
     Args:
         curriculum_path: Path to the curriculum YAML file.
         base_dir: Root for resolving content refs.
-        quiz_provider: Override for quiz resolution.
+        assessment_provider: Override for assessment resolution.
         exercise_provider: Override for exercise resolution.
         visualization_provider: Override for visualization resolution.
 
@@ -179,7 +179,7 @@ def run_validate(
         resolve_curriculum(
             curriculum,
             resolved_base,
-            quiz_provider=quiz_provider,
+            assessment_provider=assessment_provider,
             exercise_provider=exercise_provider,
             visualization_provider=visualization_provider,
         )
@@ -197,7 +197,7 @@ def run_preview(
     port: int = 5173,
     base_dir: Path | None = None,
     schema_extensions_path: Path | None = None,
-    quiz_provider: QuizProvider | None = None,
+    assessment_provider: AssessmentProvider | None = None,
     exercise_provider: ExerciseProvider | None = None,
     visualization_provider: VisualizationProvider | None = None,
     generator: GeneratorFn | None = None,
@@ -215,7 +215,7 @@ def run_preview(
         output_dir: Destination directory for the generated SvelteKit project.
         port: Dev server port. Defaults to 5173.
         base_dir: Root for resolving content refs.
-        quiz_provider: Override for quiz resolution.
+        assessment_provider: Override for assessment resolution.
         exercise_provider: Override for exercise resolution.
         visualization_provider: Override for visualization resolution.
         generator: Override for the SvelteKit generator callable.
@@ -231,7 +231,7 @@ def run_preview(
         output_dir,
         base_dir=base_dir,
         schema_extensions_path=schema_extensions_path,
-        quiz_provider=quiz_provider,
+        assessment_provider=assessment_provider,
         exercise_provider=exercise_provider,
         visualization_provider=visualization_provider,
         generator=generator,

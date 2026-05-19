@@ -73,7 +73,7 @@ class TestResolvedTypes:
         c = _make_curriculum()
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -83,7 +83,7 @@ class TestResolvedTypes:
         c = _make_curriculum()
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -94,7 +94,7 @@ class TestResolvedTypes:
         c = _make_curriculum()
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -105,7 +105,7 @@ class TestResolvedTypes:
         c = _make_curriculum()
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -135,7 +135,7 @@ class TestResolvedTypes:
         })
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -148,7 +148,7 @@ class TestResolvedTypes:
         c = _make_curriculum()
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -179,7 +179,7 @@ class TestResolvedTypes:
         })
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -194,7 +194,7 @@ class TestTextBlockResolution:
         c = _curriculum_with_blocks([{"type": "text", "ref": "content/lesson.md"}])
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -212,7 +212,7 @@ class TestTextBlockResolution:
         with pytest.raises(ContentResolutionError, match="not found"):
             resolve_curriculum(
                 c, tmp_path,
-                quiz_provider=MagicMock(),
+                assessment_provider=MagicMock(),
                 exercise_provider=MagicMock(),
                 visualization_provider=MagicMock(),
             )
@@ -224,7 +224,7 @@ class TestTextBlockResolution:
         with pytest.raises(ContentResolutionError, match="mod-01"):
             resolve_curriculum(
                 c, tmp_path,
-                quiz_provider=MagicMock(),
+                assessment_provider=MagicMock(),
                 exercise_provider=MagicMock(),
                 visualization_provider=MagicMock(),
             )
@@ -238,7 +238,7 @@ class TestTextBlockResolution:
         with caplog.at_level(logging.WARNING, logger="learningfoundry.resolver"):
             resolve_curriculum(
                 c, tmp_path,
-                quiz_provider=MagicMock(),
+                assessment_provider=MagicMock(),
                 exercise_provider=MagicMock(),
                 visualization_provider=MagicMock(),
             )
@@ -264,7 +264,7 @@ class TestTextBlockImageAssets:
         c = _curriculum_with_blocks([{"type": "text", "ref": "content/lesson.md"}])
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -284,7 +284,7 @@ class TestTextBlockImageAssets:
         c = _curriculum_with_blocks([{"type": "text", "ref": "content/lesson.md"}])
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -307,7 +307,7 @@ class TestTextBlockImageAssets:
         with pytest.raises(ContentResolutionError) as exc_info:
             resolve_curriculum(
                 c, tmp_path,
-                quiz_provider=MagicMock(),
+                assessment_provider=MagicMock(),
                 exercise_provider=MagicMock(),
                 visualization_provider=MagicMock(),
             )
@@ -356,7 +356,7 @@ class TestTextBlockImageAssets:
         })
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -371,7 +371,7 @@ class TestVideoBlockResolution:
         )
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -395,7 +395,7 @@ class TestVideoBlockResolution:
         )
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -411,7 +411,7 @@ class TestVideoBlockResolution:
 
 
 class TestQuizBlockResolution:
-    def test_delegates_to_quiz_provider(self, tmp_path: Path) -> None:
+    def test_delegates_to_assessment_provider(self, tmp_path: Path) -> None:
         mock_quiz = MagicMock()
         mock_quiz.compile_assessment.return_value = {"quizName": "q1", "questions": []}
         c = _curriculum_with_blocks(
@@ -419,7 +419,7 @@ class TestQuizBlockResolution:
         )
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=mock_quiz,
+            assessment_provider=mock_quiz,
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -439,7 +439,7 @@ class TestQuizBlockResolution:
         with pytest.raises(ContentResolutionError, match="lesson-01"):
             resolve_curriculum(
                 c, tmp_path,
-                quiz_provider=mock_quiz,
+                assessment_provider=mock_quiz,
                 exercise_provider=MagicMock(),
                 visualization_provider=MagicMock(),
             )
@@ -454,7 +454,7 @@ class TestExerciseBlockResolution:
         )
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=mock_ex,
             visualization_provider=MagicMock(),
         )
@@ -482,7 +482,7 @@ class TestVisualizationBlockResolution:
         )
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=mock_vis,
         )
@@ -537,7 +537,7 @@ class TestAssessmentResolution:
         }])
         result = resolve_curriculum(
             curriculum, tmp_path,
-            quiz_provider=mock_quiz,
+            assessment_provider=mock_quiz,
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -561,7 +561,7 @@ class TestAssessmentResolution:
         }])
         result = resolve_curriculum(
             curriculum, tmp_path,
-            quiz_provider=mock_quiz,
+            assessment_provider=mock_quiz,
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -589,7 +589,7 @@ class TestAssessmentResolution:
         ])
         result = resolve_curriculum(
             curriculum, tmp_path,
-            quiz_provider=mock_quiz,
+            assessment_provider=mock_quiz,
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -615,7 +615,7 @@ class TestAssessmentResolution:
         ])
         result = resolve_curriculum(
             curriculum, tmp_path,
-            quiz_provider=mock_quiz,
+            assessment_provider=mock_quiz,
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -640,7 +640,7 @@ class TestAssessmentResolution:
         with pytest.raises(ContentResolutionError, match="role=`pre`"):
             resolve_curriculum(
                 curriculum, tmp_path,
-                quiz_provider=mock_quiz,
+                assessment_provider=mock_quiz,
                 exercise_provider=MagicMock(),
                 visualization_provider=MagicMock(),
             )
@@ -649,7 +649,7 @@ class TestAssessmentResolution:
         curriculum = self._build_curriculum([])
         result = resolve_curriculum(
             curriculum, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -679,7 +679,7 @@ class TestLockingResolution:
         })
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -712,7 +712,7 @@ class TestLockingResolution:
         })
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=mock_quiz,
+            assessment_provider=mock_quiz,
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -724,7 +724,7 @@ class TestLockingResolution:
         c = _curriculum_with_blocks([{"type": "text", "ref": "l.md"}])
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )

@@ -284,7 +284,7 @@ No version bump in the title — this story is doc + integration-test only and s
 
 **Tasks:**
 
-- [x] `tests/`: new fixture at `tests/fixtures/phase-j-curriculum.yml` + content at `tests/fixtures/phase-j-content/` exercising every affordance. New `tests/test_phase_j_smoke.py` (9 cases) asserts that `curriculum.json` carries module + lesson `meta`, all three directive opens, the three assessment roles in canonical resolved order with their position payloads, `pass_threshold` pass-through, content resolution, the `total_duration_minutes` aggregate, and the absence of legacy `pre_assessment` / `post_assessment` fields. DOM rendering of each affordance is covered by the per-feature vitest suites (markdown directives in `markdown.test.ts`, lesson tagline + role chip in `LessonView.test.ts` / `LessonList.test.ts`, assessment rows in `LessonList.test.ts`, total-duration formatting in `duration.test.ts`); the integration anchor here is the data contract.
+- [x] `tests/`: new fixture at `tests/fixtures/pedagogical-authoring-curriculum.yml` + content at `tests/fixtures/pedagogical-authoring-content/` exercising every affordance. New `tests/test_pedagogical_authoring_smoke.py` (9 cases — originally landed as `tests/test_phase_j_smoke.py` + `phase-j-*` fixtures; renamed in J.m.2) asserts that `curriculum.json` carries module + lesson `meta`, all three directive opens, the three assessment roles in canonical resolved order with their position payloads, `pass_threshold` pass-through, content resolution, the `total_duration_minutes` aggregate, and the absence of legacy `pre_assessment` / `post_assessment` fields. DOM rendering of each affordance is covered by the per-feature vitest suites (markdown directives in `markdown.test.ts`, lesson tagline + role chip in `LessonView.test.ts` / `LessonList.test.ts`, assessment rows in `LessonList.test.ts`, total-duration formatting in `duration.test.ts`); the integration anchor here is the data contract.
 - [x] `README.md`: replaced the standalone "Tutorial scaffold directives" section with a single "Pedagogical authoring" section that introduces meta + directives + assessments together, includes a worked example, and ends with a `pre_assessment` / `post_assessment` → `assessments[]` migration block. ToC entry updated.
 - [x] `docs/specs/features.md`: brief "Phase J: Pedagogical authoring" header inserted before the per-feature subsections (J.a / J.b / J.c / J.d.1 / J.e / J.f) and pointing at the integration test.
 - [x] No version bump (shares v0.69.0 with J.f). Phase J release ships at v0.69.0.
@@ -546,7 +546,7 @@ The local `QuizBlock.svelte` file **stays** — it's the adaptation layer that t
 
 ---
 
-### Story J.m.2: v0.71.0 — `QuizProvider` Protocol → `AssessmentProvider` + Parameter Rename [Planned]
+### Story J.m.2: v0.71.0 — `QuizProvider` Protocol → `AssessmentProvider` + Parameter Rename [Done]
 
 Renames the Python-internal Protocol type and the `quiz_provider` keyword parameter that flows through `pipeline.py` / `resolver.py`. No JSON contract change (Pydantic class names and YAML discriminators stay untouched here — those are J.m.3). No DB change. No TS change. No dependency on J.m.1 (pure Python plumbing).
 
@@ -563,16 +563,16 @@ Renames the Python-internal Protocol type and the `quiz_provider` keyword parame
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/integrations/protocols.py`: rename `class QuizProvider(Protocol)` → `class AssessmentProvider(Protocol)`. Method `compile_assessment` already correct.
-- [ ] `src/learningfoundry/integrations/quizazz.py`: docstring [line 11](../../src/learningfoundry/integrations/quizazz.py#L11) `"""QuizProvider implementation backed by the quizazz package."""` → `"""AssessmentProvider implementation backed by the quizazz package."""`. Class name `QuizazzProvider` **preserved**.
-- [ ] `src/learningfoundry/resolver.py`: rename all `QuizProvider` type annotations → `AssessmentProvider`; all `quiz_provider` parameter names and call-site keywords → `assessment_provider` (lines 15, 101, 110, 124, 147, 178, 190, 198, 215, 263, 292, 304, 323, 335, 428, 432). The `QuizBlock` references at lines 26, 321, 334 are **out of scope here** (J.m.3).
-- [ ] `src/learningfoundry/pipeline.py`: rename `QuizProvider` → `AssessmentProvider` (line 14); all `quiz_provider=` parameters and call-sites → `assessment_provider=` (lines 89, 101, 132, 153, 162, 182, 200, 218, 234). Update docstrings ("Override for quiz resolution" → "Override for assessment resolution").
-- [ ] `tests/test_phase_j_smoke.py`: `quiz_provider=` → `assessment_provider=` (line 64).
-- [ ] `tests/test_smoke_sveltekit.py`: `quiz_provider=` → `assessment_provider=` (line 49). The `quiz_block` locals at lines 229–233 are out of scope (J.m.3).
-- [ ] `tests/test_edge_cases.py`: all `quiz_provider=` keyword arguments → `assessment_provider=` (lines 123, 151, 173, 271, 281).
-- [ ] Bump version to **v0.71.0** in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] Update `CHANGELOG.md` v0.71.0 entry: `### Changed` (`QuizProvider` Protocol renamed; `quiz_provider=` keyword renamed across `pipeline.build()`, `resolver.*`). `### Removed (BREAKING)`: `QuizProvider` import path, `quiz_provider=` keyword.
-- [ ] Verify: `pyve test` passes; `ruff` + `mypy` clean. `grep -rn "QuizProvider\|quiz_provider" src/ tests/` returns no matches.
+- [x] `src/learningfoundry/integrations/protocols.py`: renamed `class QuizProvider(Protocol)` → `class AssessmentProvider(Protocol)`.
+- [x] `src/learningfoundry/integrations/quizazz.py`: module docstring + class docstring updated to reference `AssessmentProvider`. Class name `QuizazzProvider` **preserved** (vendor boundary).
+- [x] `src/learningfoundry/resolver.py`: bulk `replace_all` for `QuizProvider` → `AssessmentProvider` and `quiz_provider` → `assessment_provider`. Plus targeted docstring fix ("Provider for ``quiz`` blocks" → "Provider for assessment blocks"). `QuizBlock` references stay (J.m.3).
+- [x] `src/learningfoundry/pipeline.py`: bulk `replace_all` for `QuizProvider` / `quiz_provider`; docstring "Override for quiz resolution" → "Override for assessment resolution"; ruff `--fix` reordered the import block to sort `AssessmentProvider` before `ExerciseProvider`.
+- [x] `tests/test_phase_j_smoke.py` (now `test_pedagogical_authoring_smoke.py` — see naming-cleanup task below), `tests/test_smoke_sveltekit.py`, `tests/test_edge_cases.py`: all `quiz_provider=` → `assessment_provider=`.
+- [x] **Story under-counted.** Also caught `quiz_provider=` in `tests/test_resolver.py` (30 sites, including a `test_delegates_to_quiz_provider` method renamed to `test_delegates_to_assessment_provider`) and `tests/test_pipeline.py` (8 sites). Both fully renamed.
+- [x] **Naming cleanup (added in-flight):** renamed workflow-internal "Phase J" filenames to behavior-describing equivalents — `tests/test_phase_j_smoke.py` → `tests/test_pedagogical_authoring_smoke.py`; `tests/fixtures/phase-j-curriculum.yml` → `tests/fixtures/pedagogical-authoring-curriculum.yml`; `tests/fixtures/phase-j-content/` → `tests/fixtures/pedagogical-authoring-content/`. Git history preserved via `git mv`. In-test `CURRICULUM` / `CONTENT_DIR` constants + docstring updated. `features.md` author-facing pointer updated to the new path. Story J.g attribution kept in the test docstring as historical lineage. Caught while reading the test source during the J.m.2 implementation; "Phase J" was workflow vocabulary that wouldn't outlive the phase.
+- [x] Bumped version to **v0.71.0** in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Updated `CHANGELOG.md` v0.71.0 entry: `### Changed` (Protocol + keyword + docstrings); `### Removed (BREAKING)` (`QuizProvider` import path, `quiz_provider=` keyword); `### Notes` (internal-only; JSON / DB / TS changes scheduled for J.m.3+).
+- [x] Verify: `pyve test` 386 passed; `ruff` + `mypy` clean. `grep -rn "QuizProvider\b\|quiz_provider\b" src/ tests/` returns no matches.
 
 ---
 

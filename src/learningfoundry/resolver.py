@@ -11,8 +11,8 @@ from learningfoundry.asset_resolver import Asset, resolve_markdown_assets
 from learningfoundry.directives import lint_directives
 from learningfoundry.exceptions import ContentResolutionError
 from learningfoundry.integrations.protocols import (
+    AssessmentProvider,
     ExerciseProvider,
-    QuizProvider,
     VisualizationProvider,
 )
 from learningfoundry.schema_v1 import (
@@ -98,7 +98,7 @@ class ResolvedCurriculum:
 def resolve_curriculum(
     curriculum: CurriculumV1,
     base_dir: Path,
-    quiz_provider: QuizProvider | None = None,
+    assessment_provider: AssessmentProvider | None = None,
     exercise_provider: ExerciseProvider | None = None,
     visualization_provider: VisualizationProvider | None = None,
 ) -> ResolvedCurriculum:
@@ -107,7 +107,7 @@ def resolve_curriculum(
     Args:
         curriculum: Validated ``CurriculumV1`` from the parser.
         base_dir: Root directory for resolving relative content paths.
-        quiz_provider: Provider for ``quiz`` blocks. If None, uses
+        assessment_provider: Provider for assessment blocks. If None, uses
             ``QuizazzProvider`` (requires the ``quizazz`` package).
         exercise_provider: Provider for ``exercise`` blocks. If None, uses
             ``NbfoundryStub``.
@@ -121,10 +121,10 @@ def resolve_curriculum(
         ContentResolutionError: Any block or assessment reference that cannot
             be resolved. Error message includes block location context.
     """
-    if quiz_provider is None:
+    if assessment_provider is None:
         from learningfoundry.integrations.quizazz import QuizazzProvider
 
-        quiz_provider = QuizazzProvider()
+        assessment_provider = QuizazzProvider()
     if exercise_provider is None:
         from learningfoundry.integrations.nbfoundry_stub import NbfoundryStub
 
@@ -144,7 +144,7 @@ def resolve_curriculum(
             _resolve_module(
                 module,
                 base_dir,
-                quiz_provider,
+                assessment_provider,
                 exercise_provider,
                 visualization_provider,
                 assets_by_dest,
@@ -175,7 +175,7 @@ def resolve_curriculum(
 def _resolve_module(
     module: Module,
     base_dir: Path,
-    quiz_provider: QuizProvider,
+    assessment_provider: AssessmentProvider,
     exercise_provider: ExerciseProvider,
     visualization_provider: VisualizationProvider,
     assets_by_dest: dict[str, Asset],
@@ -187,7 +187,7 @@ def _resolve_module(
                 lesson,
                 module.id,
                 base_dir,
-                quiz_provider,
+                assessment_provider,
                 exercise_provider,
                 visualization_provider,
                 assets_by_dest,
@@ -195,7 +195,7 @@ def _resolve_module(
         )
 
     resolved_assessments = _resolve_assessments(
-        module, base_dir, quiz_provider
+        module, base_dir, assessment_provider
     )
 
     return ResolvedModule(
@@ -212,7 +212,7 @@ def _resolve_module(
 def _resolve_assessments(
     module: Module,
     base_dir: Path,
-    quiz_provider: QuizProvider,
+    assessment_provider: AssessmentProvider,
 ) -> list[ResolvedAssessment]:
     """Resolve every assessment defined on the module and emit them in
     canonical placement order (Story J.e).
@@ -260,7 +260,7 @@ def _resolve_assessments(
             f"module `{module.id}` assessment role=`{assessment.role}`"
         )
         content = _resolve_assessment(
-            assessment.ref, base_dir, quiz_provider, location
+            assessment.ref, base_dir, assessment_provider, location
         )
         resolved.append(
             ResolvedAssessment(
@@ -289,7 +289,7 @@ def _resolve_lesson(
     lesson: Lesson,
     module_id: str,
     base_dir: Path,
-    quiz_provider: QuizProvider,
+    assessment_provider: AssessmentProvider,
     exercise_provider: ExerciseProvider,
     visualization_provider: VisualizationProvider,
     assets_by_dest: dict[str, Asset],
@@ -301,7 +301,7 @@ def _resolve_lesson(
             _resolve_block(
                 block,
                 base_dir,
-                quiz_provider,
+                assessment_provider,
                 exercise_provider,
                 visualization_provider,
                 location,
@@ -320,7 +320,7 @@ def _resolve_lesson(
 def _resolve_block(
     block: TextBlock | VideoBlock | QuizBlock | ExerciseBlock | VisualizationBlock,
     base_dir: Path,
-    quiz_provider: QuizProvider,
+    assessment_provider: AssessmentProvider,
     exercise_provider: ExerciseProvider,
     visualization_provider: VisualizationProvider,
     location: str,
@@ -332,7 +332,7 @@ def _resolve_block(
         if isinstance(block, VideoBlock):
             return _resolve_video(block, location)
         if isinstance(block, QuizBlock):
-            manifest = quiz_provider.compile_assessment(
+            manifest = assessment_provider.compile_assessment(
                 Path(block.ref), base_dir
             )
             manifest["pass_threshold"] = block.pass_threshold
@@ -425,11 +425,11 @@ def _resolve_video(block: VideoBlock, location: str) -> ResolvedContentBlock:
 def _resolve_assessment(
     ref: str,
     base_dir: Path,
-    quiz_provider: QuizProvider,
+    assessment_provider: AssessmentProvider,
     location: str,
 ) -> dict[str, Any]:
     try:
-        return quiz_provider.compile_assessment(Path(ref), base_dir)
+        return assessment_provider.compile_assessment(Path(ref), base_dir)
     except Exception as exc:
         raise ContentResolutionError(
             f"{location}: failed to compile assessment `{ref}` — {exc}"

@@ -1,13 +1,14 @@
 # Copyright 2026 Pointmatic
 # SPDX-License-Identifier: Apache-2.0
-"""Cross-cutting Phase J smoke (Story J.g).
+"""Cross-cutting pedagogical-authoring smoke (originally Story J.g).
 
-Every Phase J affordance — lesson and module ``meta``, all three tutorial
-directives, all three assessment roles with mixed positions, and the
-``duration_minutes`` aggregate — composes cleanly through parse → resolve
-→ generate end-to-end. Per-feature tests are narrow by design; this
-single fixture is the integration anchor that catches "feature A and
-feature B both work in isolation but conflict together" regressions.
+Every pedagogical-authoring affordance — lesson and module ``meta``, all
+three tutorial directives, all three assessment roles with mixed
+positions, and the ``duration_minutes`` aggregate — composes cleanly
+through parse → resolve → generate end-to-end. Per-feature tests are
+narrow by design; this single fixture is the integration anchor that
+catches "feature A and feature B both work in isolation but conflict
+together" regressions.
 
 Stays in the regular pytest path (no ``smoke`` marker, no pnpm/vite
 dependency). DOM-rendering of each affordance is covered by the vitest
@@ -22,8 +23,8 @@ from unittest.mock import MagicMock
 from learningfoundry.pipeline import run_build
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
-CURRICULUM = FIXTURES_DIR / "phase-j-curriculum.yml"
-CONTENT_DIR = FIXTURES_DIR / "phase-j-content"
+CURRICULUM = FIXTURES_DIR / "pedagogical-authoring-curriculum.yml"
+CONTENT_DIR = FIXTURES_DIR / "pedagogical-authoring-content"
 
 
 def _stub_providers() -> tuple[MagicMock, MagicMock, MagicMock]:
@@ -42,11 +43,11 @@ def _stub_providers() -> tuple[MagicMock, MagicMock, MagicMock]:
 def _build(tmp_path: Path) -> dict:  # type: ignore[type-arg]
     """Run the pipeline, then read back the generated curriculum.json.
 
-    The fixture's content/ directory is named ``phase-j-content/`` so the
-    YAML refs (``content/mod-01/lesson-01.md``) resolve relative to a
-    custom base — copy the content tree into the build root so relative
-    paths line up with how ``learningfoundry build`` is normally
-    invoked.
+    The fixture's content/ directory is named
+    ``pedagogical-authoring-content/`` so the YAML refs
+    (``content/mod-01/lesson-01.md``) resolve relative to a custom base —
+    copy the content tree into the build root so relative paths line up
+    with how ``learningfoundry build`` is normally invoked.
     """
     build_root = tmp_path / "build_root"
     build_root.mkdir()
@@ -61,7 +62,7 @@ def _build(tmp_path: Path) -> dict:  # type: ignore[type-arg]
         build_root / "curriculum.yml",
         tmp_path / "out",
         base_dir=build_root,
-        quiz_provider=quiz,
+        assessment_provider=quiz,
         exercise_provider=exercise,
         visualization_provider=vis,
     )

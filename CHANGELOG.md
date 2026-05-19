@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.71.0] - 2026-05-19
+
+### Changed
+
+- **`QuizProvider` Protocol → `AssessmentProvider`** (Story J.m.2). The provider Protocol in [`src/learningfoundry/integrations/protocols.py`](src/learningfoundry/integrations/protocols.py) is renamed to match learningfoundry's "Assessment" domain vocabulary. `QuizazzProvider` adapter class name preserved (vendor boundary).
+- **`quiz_provider=` keyword → `assessment_provider=`** across `pipeline.build()`, `pipeline.validate()`, `pipeline.preview()`, and `resolver.resolve_curriculum()` plus all internal helpers in `resolver.py`. Test sites updated in `test_resolver.py`, `test_pipeline.py`, `test_edge_cases.py`, `test_pedagogical_authoring_smoke.py`, `test_smoke_sveltekit.py`.
+- **Renamed:** `tests/test_phase_j_smoke.py` → `tests/test_pedagogical_authoring_smoke.py`; `tests/fixtures/phase-j-curriculum.yml` → `tests/fixtures/pedagogical-authoring-curriculum.yml`; `tests/fixtures/phase-j-content/` → `tests/fixtures/pedagogical-authoring-content/`. The test exercises the *pedagogical-authoring* feature cluster (meta, hooks, tutorial directives, three-position assessments, duration aggregation); "Phase J" was workflow-internal vocabulary that won't outlive the phase. Git history preserved via `git mv`. Story J.g attribution kept in the test docstring as historical lineage.
+- **Docstrings:** "Override for quiz resolution" → "Override for assessment resolution"; module + class docstrings in [`integrations/quizazz.py`](src/learningfoundry/integrations/quizazz.py) updated to reference `AssessmentProvider`.
+
+### Removed (BREAKING)
+
+- **`QuizProvider` import** — `from learningfoundry.integrations.protocols import QuizProvider` no longer resolves. Use `AssessmentProvider` instead. Pre-1.0 break; no alias.
+- **`quiz_provider=` keyword argument** on the public `pipeline.build()` / `pipeline.validate()` / `pipeline.preview()` API. Callers passing `quiz_provider=...` will fail with a `TypeError` for unexpected keyword. Switch to `assessment_provider=...`.
+
+### Notes
+
+- Internal-only rename; no JSON contract change, no DB change, no TS change. The wire-format relabel (`quizName` → `assessmentName`) is scheduled for J.m.3; SQLite `quiz_scores` rename for J.m.4.
+- `QuizBlock` Pydantic class and YAML `type: quiz` discriminator **unchanged** in this release — both land in J.m.3.
+
 ## [0.70.0] - 2026-05-19
 
 ### Added

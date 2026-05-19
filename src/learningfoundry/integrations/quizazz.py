@@ -1,6 +1,6 @@
 # Copyright 2026 Pointmatic
 # SPDX-License-Identifier: Apache-2.0
-"""quizazz integration — QuizProvider backed by the quizazz package."""
+"""quizazz integration — AssessmentProvider backed by the quizazz package."""
 
 from pathlib import Path
 
@@ -8,7 +8,7 @@ from learningfoundry.exceptions import IntegrationError
 
 
 class QuizazzProvider:
-    """QuizProvider implementation backed by the quizazz package.
+    """AssessmentProvider implementation backed by the quizazz package.
 
     Delegates to ``quizazz.compile_assessment()`` to produce a
     manifest dict from a single assessment YAML file.

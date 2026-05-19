@@ -37,7 +37,7 @@ class TestRunBuild:
             VALID_CURRICULUM,
             tmp_path / "out",
             base_dir=FIXTURES_DIR,
-            quiz_provider=quiz,
+            assessment_provider=quiz,
             exercise_provider=exercise,
             visualization_provider=vis,
             generator=mock_gen,
@@ -54,7 +54,7 @@ class TestRunBuild:
             VALID_CURRICULUM,
             out,
             base_dir=FIXTURES_DIR,
-            quiz_provider=quiz,
+            assessment_provider=quiz,
             exercise_provider=exercise,
             visualization_provider=vis,
             generator=mock_gen,
@@ -72,7 +72,7 @@ class TestRunBuild:
             VALID_CURRICULUM,
             tmp_path / "out",
             base_dir=FIXTURES_DIR,
-            quiz_provider=quiz,
+            assessment_provider=quiz,
             exercise_provider=exercise,
             visualization_provider=vis,
             generator=capturing_gen,
@@ -107,7 +107,7 @@ class TestRunBuild:
         run_build(
             curriculum,
             tmp_path / "out",
-            quiz_provider=quiz,
+            assessment_provider=quiz,
             exercise_provider=exercise,
             visualization_provider=vis,
             generator=mock_gen,
@@ -135,7 +135,7 @@ class TestRunBuild:
                 VALID_CURRICULUM,
                 tmp_path / "out",
                 base_dir=FIXTURES_DIR,
-                quiz_provider=quiz,
+                assessment_provider=quiz,
                 generator=mock_gen,
             )
         mock_gen.assert_not_called()
@@ -147,7 +147,7 @@ class TestRunValidate:
         is_valid, errors = run_validate(
             VALID_CURRICULUM,
             base_dir=FIXTURES_DIR,
-            quiz_provider=quiz,
+            assessment_provider=quiz,
             exercise_provider=exercise,
             visualization_provider=vis,
         )
@@ -172,7 +172,7 @@ class TestRunValidate:
             run_validate(
                 VALID_CURRICULUM,
                 base_dir=FIXTURES_DIR,
-                quiz_provider=quiz,
+                assessment_provider=quiz,
                 exercise_provider=exercise,
                 visualization_provider=vis,
             )
@@ -196,7 +196,7 @@ class TestRunValidate:
         is_valid, errors = run_validate(
             curriculum,
             base_dir=tmp_path,
-            quiz_provider=quiz,
+            assessment_provider=quiz,
         )
         assert is_valid is False
         assert any("bad ref" in e for e in errors)

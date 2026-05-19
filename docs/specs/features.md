@@ -215,7 +215,7 @@ Resolve all content references in the parsed curriculum to their actual content.
 
 #### Phase J: Pedagogical authoring
 
-The remaining subsections under FR-2 — `meta` blocks, the generalized `assessments[]` array, module-flow rendering, the curriculum-wide time aggregate, and the tutorial-scaffold container directives — are the Phase J pedagogical-authoring affordances that compose into a single author-facing story. They were landed as separate stories (J.a → J.f) for blast-radius reasons but are designed to be used together. See README's "Pedagogical authoring" section for a unified worked example and the migration note for `pre_assessment` / `post_assessment` → `assessments[]`. The cross-cutting integration test that pins the composition lives at `tests/test_phase_j_smoke.py`.
+The remaining subsections under FR-2 — `meta` blocks, the generalized `assessments[]` array, module-flow rendering, the curriculum-wide time aggregate, and the tutorial-scaffold container directives — are the Phase J pedagogical-authoring affordances that compose into a single author-facing story. They were landed as separate stories (J.a → J.f) for blast-radius reasons but are designed to be used together. See README's "Pedagogical authoring" section for a unified worked example and the migration note for `pre_assessment` / `post_assessment` → `assessments[]`. The cross-cutting integration test that pins the composition lives at `tests/test_pedagogical_authoring_smoke.py`.
 
 **Module assessments — generalized array (Phase J / Story J.e):**
 

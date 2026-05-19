@@ -120,7 +120,7 @@ class TestEmptyCurriculum:
         c = _curriculum_with_blocks([])
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -148,7 +148,7 @@ class TestAllBlockTypesTogether:
         ])
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=quiz,
+            assessment_provider=quiz,
             exercise_provider=exercise,
             visualization_provider=vis,
         )
@@ -170,7 +170,7 @@ class TestAllBlockTypesTogether:
         ])
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=quiz,
+            assessment_provider=quiz,
             exercise_provider=exercise,
             visualization_provider=vis,
         )
@@ -268,7 +268,7 @@ class TestLargeCurriculum:
         c = self._make_large_curriculum(tmp_path)
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -278,7 +278,7 @@ class TestLargeCurriculum:
         c = self._make_large_curriculum(tmp_path)
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -291,7 +291,7 @@ class TestLargeCurriculum:
         c = self._make_large_curriculum(tmp_path)
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -308,7 +308,7 @@ class TestLargeCurriculum:
         c = self._make_large_curriculum(tmp_path)
         result = resolve_curriculum(
             c, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -332,7 +332,7 @@ class TestIntegrationRunBuild:
             VALID_CURRICULUM,
             out,
             base_dir=FIXTURES_DIR,
-            quiz_provider=quiz,
+            assessment_provider=quiz,
             exercise_provider=exercise,
             visualization_provider=vis,
         )
@@ -347,7 +347,7 @@ class TestIntegrationRunBuild:
             VALID_CURRICULUM,
             out,
             base_dir=FIXTURES_DIR,
-            quiz_provider=quiz,
+            assessment_provider=quiz,
             exercise_provider=exercise,
             visualization_provider=vis,
         )
@@ -363,7 +363,7 @@ class TestIntegrationRunBuild:
             VALID_CURRICULUM,
             out,
             base_dir=FIXTURES_DIR,
-            quiz_provider=quiz,
+            assessment_provider=quiz,
             exercise_provider=exercise,
             visualization_provider=vis,
         )
@@ -379,7 +379,7 @@ class TestIntegrationRunBuild:
             VALID_CURRICULUM,
             out,
             base_dir=FIXTURES_DIR,
-            quiz_provider=quiz,
+            assessment_provider=quiz,
             exercise_provider=exercise,
             visualization_provider=vis,
         )
@@ -448,7 +448,7 @@ class TestOptionalFields:
         })
         result = resolve_curriculum(
             curriculum, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -474,7 +474,7 @@ class TestOptionalFields:
         })
         result = resolve_curriculum(
             curriculum, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -498,7 +498,7 @@ class TestOptionalFields:
         })
         result = resolve_curriculum(
             curriculum, tmp_path,
-            quiz_provider=MagicMock(),
+            assessment_provider=MagicMock(),
             exercise_provider=MagicMock(),
             visualization_provider=MagicMock(),
         )
@@ -511,7 +511,7 @@ class TestOptionalFields:
         is_valid, errors = run_validate(
             VALID_CURRICULUM,
             base_dir=FIXTURES_DIR,
-            quiz_provider=quiz,
+            assessment_provider=quiz,
             exercise_provider=exercise,
             visualization_provider=vis,
         )

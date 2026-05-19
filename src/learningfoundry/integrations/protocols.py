@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Protocol
 
 
-class QuizProvider(Protocol):
+class AssessmentProvider(Protocol):
     def compile_assessment(self, ref_path: Path, base_dir: Path) -> dict:  # type: ignore[type-arg]
         """Compile an assessment YAML file into a renderable manifest dict.
 

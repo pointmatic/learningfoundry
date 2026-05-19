@@ -46,7 +46,7 @@ def built_app(tmp_path_factory: pytest.TempPathFactory) -> Path:
         VALID_CURRICULUM,
         out,
         base_dir=FIXTURES_DIR,
-        quiz_provider=quiz,
+        assessment_provider=quiz,
         exercise_provider=exercise,
         visualization_provider=vis,
     )
