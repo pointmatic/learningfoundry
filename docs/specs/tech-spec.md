@@ -49,7 +49,7 @@ For requirements and behavior, see [`features.md`](features.md). For the impleme
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `quizazz-builder` | `>=0.1` | Assessment YAML → JSON manifest compilation (first-party) |
+| `quizazz` | `>=0.1` | Assessment YAML → JSON manifest compilation (first-party) |
 
 nbfoundry is not yet published. learningfoundry defines an `ExerciseProvider` protocol; a stub implementation ships for v1. The real nbfoundry integration will be added when nbfoundry is available as a package.
 
@@ -111,7 +111,7 @@ learningfoundry/
 │       ├── integrations/
 │       │   ├── __init__.py
 │       │   ├── protocols.py                # AssessmentProvider, ExerciseProvider, and VisualizationProvider protocols
-│       │   ├── quizazz.py                  # quizazz integration (delegates to quizazz_builder)
+│       │   ├── quizazz.py                  # quizazz integration (delegates to quizazz.compile_assessment)
 │       │   ├── nbfoundry_stub.py           # Stub ExerciseProvider for v1
 │       │   └── d3foundry_stub.py           # Stub VisualizationProvider for v1
 │       ├── exceptions.py                   # Project-specific exception hierarchy
@@ -688,20 +688,19 @@ from learningfoundry.integrations.protocols import AssessmentProvider
 
 class QuizazzProvider:
     """
-    AssessmentProvider implementation backed by quizazz_builder.
+    AssessmentProvider implementation backed by the quizazz package.
 
-    Delegates to quizazz_builder.validator.validate_file() and
-    quizazz_builder.compiler.compile_quiz() to produce a manifest dict
-    from a single assessment YAML file.
+    Delegates to quizazz.compile_assessment() to produce a manifest dict
+    from a single assessment YAML file. quizazz owns internal
+    validate-then-compile sequencing; the adapter does not orchestrate it.
     """
 
     def compile_assessment(self, ref_path: Path, base_dir: Path) -> dict:
         """
-        1. Resolve ref_path relative to base_dir.
-        2. Call quizazz_builder.validator.validate_file(resolved_path).
-        3. Call quizazz_builder.compiler.compile_quiz() with validated output.
-        4. Return manifest dict.
-        Raises IntegrationError wrapping any quizazz ValidationError.
+        1. Lazy-import `compile_assessment` from the `quizazz` package
+           (raise ImportError with install hint if the optional dep is missing).
+        2. Call quizazz.compile_assessment(ref_path, base_dir) and return its dict.
+        3. Wrap any exception raised by quizazz in IntegrationError, citing ref_path.
         """
         ...
 ```
@@ -1275,7 +1274,7 @@ Performance optimization is deferred until real workloads identify bottlenecks.
 | `test_schema_v1.py` | Pydantic model validation: required fields, content block types, ID uniqueness, URL format, lesson/module minimums |
 | `test_resolver.py` | Markdown loading, YouTube URL validation, empty markdown warning, integration error propagation (mocked providers) |
 | `test_config.py` | Precedence: CLI > config file > defaults; malformed config; unknown keys warning |
-| `test_integrations/test_quizazz.py` | QuizazzProvider delegates correctly to quizazz_builder (mocked); error wrapping |
+| `test_integrations/test_quizazz.py` | QuizazzProvider delegates correctly to quizazz.compile_assessment (mocked); error wrapping |
 | `test_integrations/test_nbfoundry_stub.py` | Stub returns placeholder dict with correct structure |
 | `test_integrations/test_d3foundry_stub.py` | Stub returns placeholder visualization dict with correct structure |
 
