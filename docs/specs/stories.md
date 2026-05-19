@@ -477,67 +477,106 @@ Doc-only on the learningfoundry side. No production-facing impact. Unversioned p
 
 ---
 
-### J.m series overview — `Quiz*` → `Assessment*` code-side rename
+### J.m series overview — `Quiz*` → `Assessment*` code-side rename + vendor integration
 
-J.i was docs-only and explicitly teed up a code follow-up: "Code-side rename of Pydantic models, TS types, SvelteKit components, SQL schema, parameter names — landed as a follow-up story." The J.m series is that follow-up, split into three substories along the natural decoupling lines so each can ship independently in any order.
+J.i was docs-only and explicitly teed up a code follow-up: "Code-side rename of Pydantic models, TS types, SvelteKit components, SQL schema, parameter names — landed as a follow-up story." The J.m series is that follow-up, plus a prerequisite that emerged once `@pointmatic/quizazz` shipped: replace the SvelteKit-side placeholder with the real vendor component, then do the renames against the file's final shape. Split into six substories — one integration prerequisite, three per-surface code renames, one doc sweep for rename-residue, and one new author-facing walkthrough — so each can ship as an independent landable unit.
 
-The vendor-boundary rule from `project-essentials.md` ("Vendor terminology stops at the vendor boundary") draws the firm line that bounds all three substories: everything inside `learningfoundry`'s own surface renames to `Assessment*`; everything that touches the `quizazz` package surface keeps its vendor name. Without that line the rename grows to consume `quizazz` itself, which is wrong (quizazz is a separate package).
+The vendor-boundary rule from `project-essentials.md` ("Vendor terminology stops at the vendor boundary") draws the firm line that bounds the whole series: everything inside `learningfoundry`'s own surface renames to `Assessment*`; everything that touches the `quizazz` package surface keeps its vendor name. Without that line the rename grows to consume `quizazz` itself, which is wrong (quizazz is a separate package).
 
 **Vendor surface preserved across the whole series (must not rename — guarded by `project-essentials.md`):**
 - PyPI package `quizazz` (and the `[project.optional-dependencies].quizazz` extras key)
 - npm package `@pointmatic/quizazz`
-- SvelteKit component name `<QuizBlock>` (we render it; we don't own it)
+- SvelteKit component name `<QuizBlock>` exported by `@pointmatic/quizazz` (J.m.1 wires up the import; the local adapter file at `src/lib/components/QuizBlock.svelte` keeps the same filename and aliases the vendor import internally to avoid collision)
 - Python adapter class `QuizazzProvider` in `integrations/quizazz.py`
 - Test file `tests/test_integrations/test_quizazz.py`
 - Component prop `quizRef` on `<QuizBlock>` (vendor prop name)
-- Wire-format key `quizName` *as emitted by quizazz* — relabeled to `assessmentName` at the adapter boundary (J.m.2); the downstream `AssessmentManifest` TS type never sees `quizName`.
+- Wire-format key `quizName` *as emitted by quizazz* — relabeled to `assessmentName` at the adapter boundary (J.m.3); the downstream `AssessmentManifest` TS type never sees `quizName`.
 
-**Split rationale.** The renames cluster into three independent groups by external contract:
-- **J.m.1** — Python-internal protocol + parameter names. Touches no JSON contract, no DB, no TS. Standalone.
-- **J.m.2** — JSON wire-format contract: Pydantic `QuizBlock` ↔ YAML `type: assessment` discriminator ↔ TS `AssessmentManifest`/`AssessmentQuestion`/`AssessmentAnswer` types ↔ adapter relabel implementation. **Must ship as one** — Python and TS share the same JSON shape; renaming one without the other breaks `curriculum.json` round-tripping.
-- **J.m.3** — Frontend persistence: TS `QuizScore` field rename, SQLite `quiz_scores` table rename with data-loss migration, Svelte component handler renames. Touches no Python, no JSON contract. Standalone.
+**Split rationale:**
+- **J.m.1** — Integrate the published `@pointmatic/quizazz` SvelteKit component, replacing the local placeholder fallback. Lands first so subsequent rename stories operate on the file's final shape rather than placeholder code.
+- **J.m.2** — Python-internal protocol + parameter names. Touches no JSON contract, no DB, no TS. Standalone (independent of J.m.1).
+- **J.m.3** — JSON wire-format contract: Pydantic `QuizBlock` ↔ YAML `type: assessment` discriminator ↔ TS `AssessmentManifest`/`AssessmentQuestion`/`AssessmentAnswer` types ↔ adapter relabel implementation. **Must ship as one** — Python and TS share the same JSON shape; renaming one without the other breaks `curriculum.json` round-tripping.
+- **J.m.4** — Frontend persistence: TS `QuizScore` field rename, SQLite `quiz_scores` table rename with data-loss migration, Svelte component handler renames. Touches no Python, no JSON contract. Best landed after J.m.1 (real component) but otherwise standalone.
+- **J.m.5** — Documentation sweep for residual `quiz...` references across README, nbfoundry's dependency-spec, the phase-J plan doc, and concept.md. Must land after J.m.2–J.m.4.
+- **J.m.6** — New author-facing walkthrough in README: "Embedding a quizazz assessment" — a single end-to-end guide covering install, schema-link-out, both embedding shapes (content-block and `assessments[]`), what the learner sees, and common gotchas. Should land after J.m.5 so the new prose uses post-rename identifiers from day one.
 
 **Out of scope across the whole series:**
 - Renaming the `quizazz` package itself or anything within it (out of repo and out of contract).
 - Code-side renames in *quizazz* — quizazz already exposes `compile_assessment` at its top level (post its own rename); learningfoundry consumes that directly.
 - A row-copy SQLite migration that preserves learner progress across the schema rename — explicitly chosen against in J.i (data-loss accepted pre-1.0).
-- The `<QuizBlock>` component's internal naming (vendor surface; quizazz owns it).
+- Renaming or deleting `<QuizBlock>` (vendor component name).
 - Renaming the `tests/test_integrations/test_quizazz.py` file — the file tests the adapter, which keeps its `QuizazzProvider` vendor-boundary name.
-- README / `features.md` / `tech-spec.md` prose audit beyond what the per-identifier renames force — separate doc-sweep cleanup if needed.
+- Inlining the local `QuizBlock.svelte` adapter into `ContentBlock.svelte` (a refactor question, not a rename one — defer to a future story if the adapter's score-persistence/threshold logic ever moves).
+- README / `features.md` / `tech-spec.md` prose audit beyond what the per-identifier renames force — covered by J.m.5.
 
 ---
 
-### Story J.m.1: v0.70.0 — `QuizProvider` Protocol → `AssessmentProvider` + Parameter Rename [Planned]
+### Story J.m.1: v0.70.0 — Integrate Published `@pointmatic/quizazz` SvelteKit Component, Retire Local Placeholder [Done]
 
-Smallest of the three. Renames the Python-internal Protocol type and the `quiz_provider` keyword parameter that flows through `pipeline.py` / `resolver.py`. No JSON contract change (Pydantic class names and YAML discriminators stay untouched here — those are J.m.2). No DB change. No TS change.
+Prerequisite for the rest of the J.m series. The Python side already consumes the published `quizazz` package via [integrations/quizazz.py:36](../../src/learningfoundry/integrations/quizazz.py#L36), but the SvelteKit template has never been updated to import `@pointmatic/quizazz` — [QuizBlock.svelte](../../src/learningfoundry/sveltekit_template/src/lib/components/QuizBlock.svelte) still falls back to a `PlaceholderBlock` with a *"quizazz component pending (@pointmatic/quizazz)."* message, written when the npm package wasn't yet shipped. The package is now shipped; the placeholder fallback is stale. J.m.1 wires up the real import.
+
+The local `QuizBlock.svelte` file **stays** — it's the adaptation layer that translates the vendor's `complete` event detail into a learningfoundry `QuizScore` and persists it via `progressRepo.saveQuizScore`. Only the rendering surface inside it changes: `<PlaceholderBlock ... />` is replaced with `<VendorQuizBlock ... />` imported from `@pointmatic/quizazz` under an alias to avoid the local filename / vendor export-name collision.
+
+**Why this lands before J.m.2 in the series:** running the rename stories against placeholder code means renaming identifiers in a file that's about to undergo a structural swap. Doing the wire-up first means J.m.3 / J.m.4 operate on the file's final shape (still an adapter, but actually rendering the vendor component), and the vendor event surface (`quizRef`, `quizName`, `complete`) is empirically validated rather than just specified-on-paper.
+
+**Per-route requirements (from `dependency-spec.md` RR-4) — verify each:**
+- **Stylesheet import.** `import '@pointmatic/quizazz/styles.css';` in the root [+layout.svelte](../../src/learningfoundry/sveltekit_template/src/routes/+layout.svelte). Today line 3 imports `'../app.css'` only; add the quizazz stylesheet next to it.
+- **`ssr = false` on routes mounting `<QuizBlock>`.** Already satisfied globally by [+layout.ts:9](../../src/learningfoundry/sveltekit_template/src/routes/+layout.ts#L9) (`export const ssr = false;`). No additional per-route opt-out needed.
+- **Vite-based build.** SvelteKit ships Vite by default. Satisfied.
+
+**Out of scope:**
+- Any `Quiz*` → `Assessment*` rename — owned by J.m.2 / J.m.3 / J.m.4. J.m.1 changes only the rendering surface; existing identifier names inside the adapter (`QuizManifest`, `QuizScore`, `saveQuizScore`, `onquizcomplete`) stay as-is and are renamed in their respective rename substories.
+- Removing the local `QuizBlock.svelte` adapter — keeping it preserves the score-persistence + pass-threshold + event-dispatch protocol that `ContentBlock.svelte` calls. Inlining the adapter into `ContentBlock.svelte` is a refactor question for a future story.
+- Replacing or restyling `PlaceholderBlock.svelte` — it remains in the template for other content-block stubs (`NbfoundryStub`, `D3foundryStub`).
+- Validating quizazz's full feature surface (keyboard interactions, review nav, etc.) — out of scope; assume vendor's component-level tests cover that. J.m.1 verifies the integration boundary only.
+
+**Tasks:**
+
+- [x] `src/learningfoundry/sveltekit_template/package.json`: added `@pointmatic/quizazz: ^1.3.1` to `dependencies` (current published version per `pnpm view @pointmatic/quizazz version`).
+- [x] `src/learningfoundry/sveltekit_template/pnpm-lock.yaml`: regenerated via `pnpm install --no-frozen-lockfile`; locks `@pointmatic/quizazz@1.3.1` and its transitive `sql.js@^1.13.0` / `lucide-svelte@^0.563.0`.
+- [x] `src/learningfoundry/sveltekit_template/src/routes/+layout.svelte`: added `import '@pointmatic/quizazz/styles.css';` after `import '../app.css';` (line 4).
+- [x] `src/learningfoundry/sveltekit_template/src/lib/components/QuizBlock.svelte`: replaced the `<PlaceholderBlock>` fallback with the real vendor render. Vendor exports `QuizBlock` as a named export; aliased to `VendorQuizBlock` inside the adapter to avoid the local filename / vendor export-name collision. Vendor's event API matches `dependency-spec.md` RR-1: `manifest`, `quizRef`, `oncomplete?: (event: QuizCompleteEvent) => void` where `QuizCompleteEvent` is shape `{ quizRef, score, maxScore, questionCount }` — same as our local `QuizCompleteDetail`. Manifest type cast as `never` at the prop boundary (TS structural-incompatibility bridge between learningfoundry's pass-through `QuizManifest` and the vendor's narrower one; documented with an inline comment).
+- [x] `src/learningfoundry/sveltekit_template/src/lib/components/QuizBlock.svelte`: updated file header comment (lines 2–8) to describe the adapter's actual role rather than "pending @pointmatic/quizazz".
+- [x] `tests/test_smoke_sveltekit.py`: no placeholder-banner assertion existed (verified via `grep -i "placeholder\|pending\|QuizBlock\|quizazz component"`); no update needed.
+- [x] Component test: new [`src/learningfoundry/sveltekit_template/src/lib/components/QuizBlock.test.ts`](../../src/learningfoundry/sveltekit_template/src/lib/components/QuizBlock.test.ts) — 4 cases, mocks `@pointmatic/quizazz` with a stub component that captures props (manifest, quizRef, oncomplete callback). Pins: prop forwarding, vendor `complete` event translation to `QuizScore` + `progressRepo.saveQuizScore` persistence, pass-threshold gating (score/maxScore >= threshold), zero-question edge case (avoids div-by-zero).
+- [x] Manual verify: deferred to developer pre-merge — visual confirmation that `pnpm dev` renders the vendor quiz UI rather than the placeholder banner. (Component test covers the adapter-side contract; the visual confirmation covers vendor styles/markup loading.)
+- [x] Bumped version to **v0.70.0** in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Updated `CHANGELOG.md` v0.70.0 entry: `### Added` (live `@pointmatic/quizazz` SvelteKit integration; new component test). `### Changed` (`QuizBlock.svelte` adapter swap; root layout styles import; `package.json` dependency). `### Notes` (vendor-surface preservation; rename schedule across J.m.2–J.m.5).
+- [x] Verify: `pyve test` 386 passed; `pnpm test` (vitest) 230 passed (was 226, +4 from new QuizBlock test); `ruff` + `mypy` clean. `svelte-check` reports 24 pre-existing errors and 0 new ones (the integration adds no type errors).
+
+---
+
+### Story J.m.2: v0.71.0 — `QuizProvider` Protocol → `AssessmentProvider` + Parameter Rename [Planned]
+
+Renames the Python-internal Protocol type and the `quiz_provider` keyword parameter that flows through `pipeline.py` / `resolver.py`. No JSON contract change (Pydantic class names and YAML discriminators stay untouched here — those are J.m.3). No DB change. No TS change. No dependency on J.m.1 (pure Python plumbing).
 
 **Why this can stand alone:** the `QuizProvider` Protocol is consumed only by learningfoundry's own internal call graph — `pipeline.build()` accepts a `quiz_provider=` keyword and threads it to `resolver._resolve_*` helpers, which dispatch to whatever provider implements `compile_assessment(ref_path, base_dir)`. Renaming the Protocol and the parameter is purely internal Python plumbing; no JSON shape, no on-disk artifact changes.
 
 **Breaking change:** `learningfoundry.pipeline.build()`'s public `quiz_provider=` keyword goes away; callers must use `assessment_provider=`. No alias. Pre-1.0 so acceptable; in practice the public-API consumer count is near-zero today.
 
 **Out of scope (handled in other J.m substories):**
-- `QuizBlock` Pydantic class + `type: quiz` discriminator — **J.m.2** (JSON contract).
-- TS types and any field-level renames — **J.m.2** / **J.m.3**.
-- SQLite schema rename — **J.m.3**.
-- Wire-format relabel implementation in `QuizazzProvider.compile_assessment()` — **J.m.2** (the relabel only matters once downstream TS reads the new field name).
+- `QuizBlock` Pydantic class + `type: quiz` discriminator — **J.m.3** (JSON contract).
+- TS types and any field-level renames — **J.m.3** / **J.m.4**.
+- SQLite schema rename — **J.m.4**.
+- Wire-format relabel implementation in `QuizazzProvider.compile_assessment()` — **J.m.3** (the relabel only matters once downstream TS reads the new field name).
 - `QuizazzProvider` adapter class docstring tweak from `QuizProvider` → `AssessmentProvider` — done here (lives next to the Protocol rename and is cheaper to land together).
 
 **Tasks:**
 
 - [ ] `src/learningfoundry/integrations/protocols.py`: rename `class QuizProvider(Protocol)` → `class AssessmentProvider(Protocol)`. Method `compile_assessment` already correct.
 - [ ] `src/learningfoundry/integrations/quizazz.py`: docstring [line 11](../../src/learningfoundry/integrations/quizazz.py#L11) `"""QuizProvider implementation backed by the quizazz package."""` → `"""AssessmentProvider implementation backed by the quizazz package."""`. Class name `QuizazzProvider` **preserved**.
-- [ ] `src/learningfoundry/resolver.py`: rename all `QuizProvider` type annotations → `AssessmentProvider`; all `quiz_provider` parameter names and call-site keywords → `assessment_provider` (lines 15, 101, 110, 124, 147, 178, 190, 198, 215, 263, 292, 304, 323, 335, 428, 432). The `QuizBlock` references at lines 26, 321, 334 are **out of scope here** (J.m.2).
+- [ ] `src/learningfoundry/resolver.py`: rename all `QuizProvider` type annotations → `AssessmentProvider`; all `quiz_provider` parameter names and call-site keywords → `assessment_provider` (lines 15, 101, 110, 124, 147, 178, 190, 198, 215, 263, 292, 304, 323, 335, 428, 432). The `QuizBlock` references at lines 26, 321, 334 are **out of scope here** (J.m.3).
 - [ ] `src/learningfoundry/pipeline.py`: rename `QuizProvider` → `AssessmentProvider` (line 14); all `quiz_provider=` parameters and call-sites → `assessment_provider=` (lines 89, 101, 132, 153, 162, 182, 200, 218, 234). Update docstrings ("Override for quiz resolution" → "Override for assessment resolution").
 - [ ] `tests/test_phase_j_smoke.py`: `quiz_provider=` → `assessment_provider=` (line 64).
-- [ ] `tests/test_smoke_sveltekit.py`: `quiz_provider=` → `assessment_provider=` (line 49). The `quiz_block` locals at lines 229–233 are out of scope (J.m.2).
+- [ ] `tests/test_smoke_sveltekit.py`: `quiz_provider=` → `assessment_provider=` (line 49). The `quiz_block` locals at lines 229–233 are out of scope (J.m.3).
 - [ ] `tests/test_edge_cases.py`: all `quiz_provider=` keyword arguments → `assessment_provider=` (lines 123, 151, 173, 271, 281).
-- [ ] Bump version to **v0.70.0** in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] Update `CHANGELOG.md` v0.70.0 entry: `### Changed` (`QuizProvider` Protocol renamed; `quiz_provider=` keyword renamed across `pipeline.build()`, `resolver.*`). `### Removed (BREAKING)`: `QuizProvider` import path, `quiz_provider=` keyword.
+- [ ] Bump version to **v0.71.0** in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [ ] Update `CHANGELOG.md` v0.71.0 entry: `### Changed` (`QuizProvider` Protocol renamed; `quiz_provider=` keyword renamed across `pipeline.build()`, `resolver.*`). `### Removed (BREAKING)`: `QuizProvider` import path, `quiz_provider=` keyword.
 - [ ] Verify: `pyve test` passes; `ruff` + `mypy` clean. `grep -rn "QuizProvider\|quiz_provider" src/ tests/` returns no matches.
 
 ---
 
-### Story J.m.2: v0.71.0 — JSON Wire-Format Rename (`QuizBlock` + Discriminator + TS Manifest + Adapter Relabel) [Planned]
+### Story J.m.3: v0.72.0 — JSON Wire-Format Rename (`QuizBlock` + Discriminator + TS Manifest + Adapter Relabel) [Planned]
 
 The tight-couple cluster that has to land together because all four sides describe the same `curriculum.json` shape. Renames the Pydantic block, the YAML discriminator literal, the TS manifest interfaces (`QuizManifest`/`QuizQuestion`/`QuizAnswer`), and lands the long-documented `quizName` → `assessmentName` adapter relabel.
 
@@ -551,41 +590,43 @@ The tight-couple cluster that has to land together because all four sides descri
 - **TypeScript types:** `QuizManifest`, `QuizQuestion`, `QuizAnswer` removed; field `quizName` removed from the new `AssessmentManifest`.
 
 **Out of scope (handled in other J.m substories):**
-- `QuizProvider` Protocol + `quiz_provider` parameter — **J.m.1**.
-- `QuizScore` TS type and the SQLite `quiz_scores` table — **J.m.3** (frontend persistence is independent of the JSON wire-format).
-- The component-level `onquizcomplete` callback prop name — **J.m.3** (tracks with `QuizScore`, not with the JSON shape).
+- `QuizProvider` Protocol + `quiz_provider` parameter — **J.m.2**.
+- `QuizScore` TS type and the SQLite `quiz_scores` table — **J.m.4** (frontend persistence is independent of the JSON wire-format).
+- The component-level `onquizcomplete` callback prop name — **J.m.4** (tracks with `QuizScore`, not with the JSON shape).
 
 **Tasks:**
 
 - [ ] `src/learningfoundry/schema_v1.py`: rename `class QuizBlock(StrictModel)` → `class AssessmentBlock(StrictModel)` (line 112). Change discriminator literal from `type: Literal["quiz"]` → `type: Literal["assessment"]`. Update the `ContentBlock` union at [schema_v1.py:132](../../src/learningfoundry/schema_v1.py#L132) to reference `AssessmentBlock`. No backwards-compat alias for the old literal.
 - [ ] `src/learningfoundry/resolver.py`: rename remaining `QuizBlock` references → `AssessmentBlock` (lines 26, 321, 334). `isinstance(block, QuizBlock)` → `isinstance(block, AssessmentBlock)`.
 - [ ] `src/learningfoundry/integrations/quizazz.py`: implement the wire-format relabel — after calling `compile_assessment(ref_path, base_dir)`, if the returned dict contains a `quizName` key, rename it to `assessmentName` in-place before returning. Document with a one-line comment citing RR-1a / project-essentials. Defensive: if the returned dict already has `assessmentName` (future-proofing), leave it alone.
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts`: rename interfaces — `QuizManifest` → `AssessmentManifest` ([line 24](../../src/learningfoundry/sveltekit_template/src/lib/types/index.ts#L24)), `QuizQuestion` → `AssessmentQuestion` (line 32), `QuizAnswer` → `AssessmentAnswer` (line 39). Inside `AssessmentManifest`, rename field `quizName: string` → `assessmentName: string`. Update `ContentBlock` union content type (line 78) and the assessment-specific content block type (line 153) to use `AssessmentManifest`. `QuizScore` reference at lines 220–221 stays as `QuizScore` here — renamed in J.m.3.
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/components/ContentBlock.svelte`: type import `QuizManifest` → `AssessmentManifest` (line 10); casts `block.content as QuizManifest` → `as AssessmentManifest` (lines 41, 43). `QuizScore` import at line 7 stays — J.m.3.
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts`: rename interfaces — `QuizManifest` → `AssessmentManifest` ([line 24](../../src/learningfoundry/sveltekit_template/src/lib/types/index.ts#L24)), `QuizQuestion` → `AssessmentQuestion` (line 32), `QuizAnswer` → `AssessmentAnswer` (line 39). Inside `AssessmentManifest`, rename field `quizName: string` → `assessmentName: string`. Update `ContentBlock` union content type (line 78) and the assessment-specific content block type (line 153) to use `AssessmentManifest`. `QuizScore` reference at lines 220–221 stays as `QuizScore` here — renamed in J.m.4.
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/components/ContentBlock.svelte`: type import `QuizManifest` → `AssessmentManifest` (line 10); casts `block.content as QuizManifest` → `as AssessmentManifest` (lines 41, 43). `QuizScore` import at line 7 stays — J.m.4.
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/components/QuizBlock.svelte` (adapter file): type import `QuizManifest` → `AssessmentManifest` ([line 11](../../src/learningfoundry/sveltekit_template/src/lib/components/QuizBlock.svelte#L11)); `manifest: QuizManifest` prop type → `manifest: AssessmentManifest` (line 22). `QuizScore` import / typing stays — renamed in J.m.4.
 - [ ] `src/learningfoundry/sveltekit_template/src/lib/components/module-list.test.ts` (line 135), `LessonList.test.ts` (line 203): fixture content `{ quizName: role, ... }` → `{ assessmentName: role, ... }`.
 - [ ] `tests/test_schema_v1.py`: rename `QuizBlock` import → `AssessmentBlock` (line 24); rename `test_quiz_block` → `test_assessment_block` and update body (lines 115–116, 287–307); `quiz_block` locals → `assessment_block` (lines 357–358); discriminator fixtures use `type: assessment`.
 - [ ] `tests/test_smoke_sveltekit.py`: `quiz_block` locals → `assessment_block` (lines 230, 233); comment "Quiz pass_threshold" → "Assessment pass_threshold" (line 229).
 - [ ] `tests/fixtures/valid-curriculum.yml`: discriminator `type: quiz` → `type: assessment` (line 44); ref filename `assessments/mod-01-lesson-01-quiz.yml` → `assessments/mod-01-lesson-01-assessment.yml` (line 46). Mirror the on-disk fixture file rename.
 - [ ] New test in `tests/test_integrations/test_quizazz.py`: pin the wire-format relabel — given a mocked `quizazz.compile_assessment` that returns `{"quizName": "X", ...}`, assert `QuizazzProvider.compile_assessment(...)` returns `{"assessmentName": "X", ...}` with no `quizName` key. Pins the RR-1a contract.
-- [ ] Bump version to **v0.71.0** in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] Update `CHANGELOG.md` v0.71.0 entry: `### Changed` (Pydantic `QuizBlock` renamed; YAML discriminator renamed; TS manifest types renamed; wire-format relabel now implemented). `### Removed (BREAKING)`: YAML `type: quiz` literal; `QuizBlock` import; `QuizManifest`/`QuizQuestion`/`QuizAnswer` TS exports; `quizName` field in the emitted manifest.
-- [ ] Verify: `pyve test` passes; `pnpm test` passes; `ruff` + `mypy` clean. `grep -rn "QuizBlock\|QuizManifest\|QuizQuestion\|QuizAnswer\|quizName\b" src/ tests/` returns no matches except in `integrations/quizazz.py`'s relabel-implementation comment.
+- [ ] Bump version to **v0.72.0** in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [ ] Update `CHANGELOG.md` v0.72.0 entry: `### Changed` (Pydantic `QuizBlock` renamed; YAML discriminator renamed; TS manifest types renamed; wire-format relabel now implemented). `### Removed (BREAKING)`: YAML `type: quiz` literal; `QuizBlock` import; `QuizManifest`/`QuizQuestion`/`QuizAnswer` TS exports; `quizName` field in the emitted manifest.
+- [ ] Verify: `pyve test` passes; `pnpm test` passes; `ruff` + `mypy` clean. `grep -rn "QuizBlock\|QuizManifest\|QuizQuestion\|QuizAnswer\|quizName\b" src/ tests/` returns no matches except in `integrations/quizazz.py`'s relabel-implementation comment and the aliased vendor import in `QuizBlock.svelte` (`import { QuizBlock as VendorQuizBlock }`).
 - [ ] Verify: smoke build (`pnpm build`) succeeds — particularly the route that renders `<QuizBlock>`, since the manifest key downstream consumers read has changed.
 
 ---
 
-### Story J.m.3: v0.71.1 — Frontend Persistence Rename (`QuizScore` + `quiz_scores` Table + Component Handlers) [Planned]
+### Story J.m.4: v0.72.1 — Frontend Persistence Rename (`QuizScore` + `quiz_scores` Table + Component Handlers) [Planned]
 
-Frontend-only follow-up. Renames the TS `QuizScore` interface (with `quizRef` field → `assessmentRef`), the SQLite `quiz_scores` table (with data-loss migration per J.i), the `progress.ts` repo methods (`saveQuizScore` / `getQuizScore`), and the Svelte component handlers (`handleQuizComplete` / `onquizcomplete` callback prop). No Python changes; no JSON-contract changes.
+Frontend-only follow-up. Renames the TS `QuizScore` interface (with `quizRef` field → `assessmentRef`), the SQLite `quiz_scores` table (with data-loss migration per J.i), the `progress.ts` repo methods (`saveQuizScore` / `getQuizScore`), and the Svelte component handlers (`handleQuizComplete` / `onquizcomplete` callback prop, plus the internal adapter logic in `QuizBlock.svelte`). No Python changes; no JSON-contract changes.
 
 **Why this can stand alone:** the `QuizScore` TS interface and the `quiz_scores` SQLite table are *learningfoundry's* internal persistence layer for the score data fired out of `<QuizBlock>`'s `complete` event. The event itself comes from quizazz with vendor field name `quizRef` (preserved per project-essentials), but our consuming handler is free to rename what it does with that data downstream. So this story does the rename at the receiving boundary inward, without touching the vendor surface or the upstream JSON contract.
 
 **Breaking change:** **In-browser SQLite schema** rename with **data-loss migration** per J.i: drop the legacy `quiz_scores` table on next `Database.getDb()`, create `assessment_scores` fresh. No row-copy. Learner progress in the assessment-scores track is lost on upgrade — acceptable pre-1.0; the `lesson_progress` and `exercise_status` tables are unaffected.
 
 **Out of scope (handled in other J.m substories):**
-- TS `QuizManifest` and related manifest types — **J.m.2** (JSON contract).
-- Pydantic `QuizBlock` and YAML discriminator — **J.m.2**.
-- Python `QuizProvider` and `quiz_provider` parameter — **J.m.1**.
+- TS `QuizManifest` and related manifest types — **J.m.3** (JSON contract).
+- Pydantic `QuizBlock` and YAML discriminator — **J.m.3**.
+- Python `QuizProvider` and `quiz_provider` parameter — **J.m.2**.
+- The vendor-side `quizRef` prop and `QuizCompleteDetail.quizRef` event field in `QuizBlock.svelte` — vendor event surface (the local adapter reads `detail.quizRef` and translates to internal `assessmentRef`; the boundary stays put).
 
 **Tasks:**
 
@@ -596,11 +637,111 @@ Frontend-only follow-up. Renames the TS `QuizScore` interface (with `quizRef` fi
 - [ ] `src/learningfoundry/sveltekit_template/src/lib/components/LessonView.svelte`: type import `QuizScore` → `AssessmentScore` (line 6); function `handleQuizComplete` → `handleAssessmentComplete` (line 116); callback prop `onquizcomplete={...}` → `onassessmentcomplete={...}` (line 141). The `<QuizBlock>` component prop name on the same line stays — vendor surface.
 - [ ] `src/learningfoundry/sveltekit_template/src/lib/components/ContentBlock.svelte`: type import `QuizScore` → `AssessmentScore` (line 7); callback prop type `onquizcomplete?: (score: QuizScore) => void` → `onassessmentcomplete?: (score: AssessmentScore) => void` (line 26).
 - [ ] `src/learningfoundry/sveltekit_template/src/lib/components/ProgressDashboard.svelte`: type import `QuizScore` → `AssessmentScore` (line 4); `quizScores` prop and its type → `assessmentScores` (lines 13, 16).
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/components/QuizBlock.svelte` (adapter): type import `QuizScore` → `AssessmentScore` ([line 11](../../src/learningfoundry/sveltekit_template/src/lib/components/QuizBlock.svelte#L11)); callback prop type `oncomplete?: (score: QuizScore) => void` → `oncomplete?: (score: AssessmentScore) => void` (line 25); rename the outbound prop `onquizcomplete?: () => void` → `onassessmentcomplete?: () => void` (lines 26, 41, 43); inside `handleComplete`, the constructed `score` object type → `AssessmentScore` and its `quizRef: detail.quizRef` field → `assessmentRef: detail.quizRef` (line 32 — note: `detail.quizRef` reading the vendor event field stays); rename `progressRepo.saveQuizScore(score)` → `progressRepo.saveAssessmentScore(score)` (line 38). The `QuizCompleteDetail` interface (line 14) and its `quizRef: string` field (line 15) **stay** — they describe the vendor event detail and mirror quizazz's emitted shape.
 - [ ] `src/learningfoundry/sveltekit_template/src/lib/db/progress.test.ts`: `DELETE FROM quiz_scores` regex → `DELETE FROM assessment_scores` (lines 40, 46); test names `saveQuizScore resolves quietly...` → `saveAssessmentScore resolves quietly...` (line 149) and `getQuizScore returns null...` → `getAssessmentScore returns null...` (line 171); method invocations `repo.getQuizScore(...)` → `repo.getAssessmentScore(...)` (line 173) and `repo.saveQuizScore(...)` → `repo.saveAssessmentScore(...)`.
 - [ ] New test in `src/learningfoundry/sveltekit_template/src/lib/db/database.test.ts` (or equivalent): bootstrap a DB with a legacy `quiz_scores` table populated, then trigger init and assert (a) `quiz_scores` is gone, (b) `assessment_scores` exists and is empty, (c) no exception thrown. Pins the data-loss migration contract from J.i.
-- [ ] Bump version to **v0.71.1** in `pyproject.toml` and `src/learningfoundry/__init__.py`. (Patch — frontend-internal rename + DB data loss; no Python public-API surface change.)
-- [ ] Update `CHANGELOG.md` v0.71.1 entry: `### Changed` (`QuizScore` TS type renamed; `progress.ts` repo methods renamed; Svelte handler callbacks renamed). `### Removed (BREAKING)`: `quiz_scores` SQLite table (data lost on upgrade); `QuizScore` TS export; `saveQuizScore`/`getQuizScore` repo methods; `onquizcomplete` callback prop on `<ContentBlock>`.
-- [ ] Verify: `pnpm test` passes; smoke build (`pnpm build`) succeeds. `grep -rn "QuizScore\|quiz_scores\|quiz_ref\|saveQuizScore\|getQuizScore\|onquizcomplete\|handleQuizComplete\|quizScores\b" src/learningfoundry/sveltekit_template/` returns no matches except in the migration test fixture that intentionally creates a legacy `quiz_scores` table. (`quizRef` on its own — without `Quiz` prefix — survives where it's passed to `<QuizBlock>`'s vendor prop.)
+- [ ] Bump version to **v0.72.1** in `pyproject.toml` and `src/learningfoundry/__init__.py`. (Patch — frontend-internal rename + DB data loss; no Python public-API surface change.)
+- [ ] Update `CHANGELOG.md` v0.72.1 entry: `### Changed` (`QuizScore` TS type renamed; `progress.ts` repo methods renamed; Svelte handler callbacks renamed). `### Removed (BREAKING)`: `quiz_scores` SQLite table (data lost on upgrade); `QuizScore` TS export; `saveQuizScore`/`getQuizScore` repo methods; `onquizcomplete` callback prop on `<ContentBlock>`.
+- [ ] Verify: `pnpm test` passes; smoke build (`pnpm build`) succeeds. `grep -rn "QuizScore\|quiz_scores\|quiz_ref\|saveQuizScore\|getQuizScore\|onquizcomplete\|handleQuizComplete\|quizScores\b" src/learningfoundry/sveltekit_template/` returns no matches except (a) the migration test fixture that intentionally creates a legacy `quiz_scores` table, and (b) the local `QuizBlock.svelte` adapter's `QuizCompleteDetail.quizRef` field describing the vendor event shape. (`quizRef` on its own — without `Quiz` prefix — survives where it's passed to `<QuizBlock>`'s vendor prop.)
+
+---
+
+### Story J.m.5: Documentation Sweep for Residual `quiz...` References [Planned]
+
+Closes the J.m series. The code-side renames in J.m.2 / J.m.3 / J.m.4 leave several documentation files citing identifiers that no longer exist (`QuizBlock`, `quiz_scores`, `saveQuizScore`, `quizRef` field, `type: quiz` YAML literal, prose like "quiz content blocks"). J.m.5 sweeps those, while preserving the vendor surface, the historical record, and J.i's deliberate problem-space prose decisions.
+
+**Why a standalone doc-sweep instead of folding into J.m.2/3/4:** the doc edits cross substory boundaries (a single README example uses both J.m.3's discriminator rename and J.m.4's persistence-layer rename in adjacent paragraphs). Bundling all the doc sweeps in one focused story keeps each code substory's diff narrow and gives the doc cleanup a single coherent review. The cost is a small window between the code shipping and the docs catching up — acceptable for narrative prose; the per-identifier code changes already ship loud-failing breaking semantics in their own substories.
+
+**Sequencing:** **J.m.5 must land after J.m.2, J.m.3, and J.m.4.** The doc updates here cite identifiers introduced by those substories; landing the docs first would describe code that doesn't exist yet. J.m.1 (integration) doesn't gate this — none of its changes affect the prose under sweep.
+
+**Preserved per `project-essentials.md` "Vendor terminology stops at the vendor boundary" — do not touch in this story:**
+- `docs/specs/sql-js-wasm-robustness.md` line 5: `<QuizBlock>-style embed` — refers to the vendor npm component. Vendor surface.
+- Any reference inside `docs/specs/quizazz/` that describes quizazz's own surface (vendor spec).
+- `concept.md` lines 14, 20, 23, 29 — "quiz platforms" as an industry-category landscape mention. J.i deliberately preserved these; revisit only if a future story argues otherwise.
+
+**Out of scope (intentionally not touched):**
+- **`CHANGELOG.md`** — every historical version entry that mentions `QuizBlock` / `quiz_scores` / `saveQuizScore` / `QuizManifest` (v0.36.0 through v0.66.x) describes the codebase state at the time of that release. Rewriting falsifies history. **Must not touch.** J.m.2 / J.m.3 / J.m.4's own changelog entries for v0.71.0 / v0.72.0 / v0.72.1 carry the rename narrative.
+- **`docs/specs/phase-j-improvement-idea.md`** (4 refs) and **`docs/specs/d802-curriculum-idea-statement.md`** (1 ref) — frozen pre-Phase-J idea/plan input documents. Conventional to leave as-shipped artifacts.
+- Code identifier renames — owned by J.m.2 / J.m.3 / J.m.4.
+
+**Tasks:**
+
+**`README.md` — 7 refs**
+
+- [ ] [README.md:234](../../README.md#L234): YAML example `- type: quiz` → `- type: assessment`.
+- [ ] [README.md:236](../../README.md#L236): ref filename `assessments/mod-01-quiz.yml` → `assessments/mod-01-assessment.yml`.
+- [ ] [README.md:385](../../README.md#L385): prose "places quizzes at named positions" → "places assessments at named positions".
+- [ ] [README.md:571](../../README.md#L571): "same shape as `quiz` content blocks" → "same shape as `assessment` content blocks".
+- [ ] [README.md:626](../../README.md#L626): YAML example `- type: quiz` → `- type: assessment`.
+- [ ] [README.md:628](../../README.md#L628): ref filename `assessments/quiz.yml` → `assessments/assessment.yml`.
+- [ ] [README.md:705](../../README.md#L705): file-tree comment `# Quiz / exercise / visualization providers` → `# Assessment / exercise / visualization providers`.
+
+**`docs/specs/nbfoundry/dependency-spec.md` — 4 refs**
+
+- [ ] [line 198](../../docs/specs/nbfoundry/dependency-spec.md#L198): "analogous to QuizBlock" → "analogous to `AssessmentBlock`" (referring to learningfoundry's Pydantic content-block class, post-J.m.3).
+- [ ] [line 237](../../docs/specs/nbfoundry/dependency-spec.md#L237): two edits on this line — "the same shape QuizBlock uses" → "the same shape `AssessmentBlock` uses"; "learningfoundry's `quiz_scores` table-shape mental model" → "learningfoundry's `assessment_scores` table-shape mental model"; update the linked anchor to point at the post-J.m.3 FR-4 section name if it changed in features.md.
+- [ ] [line 262](../../docs/specs/nbfoundry/dependency-spec.md#L262): "the same as how QuizBlock manifests carry `quizRef` separately from the rendering host's URL scheme." — Judgment call on which side this refers to. The analogy bridges *the data shape* (post-J.m.3 `AssessmentBlock` / `AssessmentManifest`) *plus* the vendor component (`<QuizBlock>`) that consumes it with the `quizRef` prop. Rewrite as: "the same as how `<QuizBlock>` is mounted with a `quizRef` prop separately from the manifest's URL fields" — keeps the vendor prop name (correct) and removes the conflated "QuizBlock manifests" framing (was inaccurate even pre-rename — `<QuizBlock>` is the component; the manifest is its prop).
+- [ ] [line 436](../../docs/specs/nbfoundry/dependency-spec.md#L436): "mirrors the QuizBlock convention; see learningfoundry's `saveQuizScore` upsert" — the *convention* (event firing on every submit, "best score wins" on the recording side) belongs to the `<QuizBlock>` vendor component, so leave that side as `<QuizBlock>`. The repo-method reference renames per J.m.4: "see learningfoundry's `saveAssessmentScore` upsert". Update the linked file-line anchor accordingly.
+
+**`docs/specs/phase-j-pedagogical-authoring-plan.md` — 1 ref**
+
+- [ ] [line 13](../../docs/specs/phase-j-pedagogical-authoring-plan.md#L13): "content blocks (`text`, `video`, `quiz`, `exercise`, `visualization`)" → "content blocks (`text`, `video`, `assessment`, `exercise`, `visualization`)".
+
+**`docs/specs/concept.md` — 4 refs (the J.i-missed capability-list bucket)**
+
+- [ ] [line 34](../../docs/specs/concept.md#L34): "across text, video, quizzes, and hands-on exercises" → "across text, video, assessments, and hands-on exercises".
+- [ ] [line 68](../../docs/specs/concept.md#L68): "Text, video (YouTube embeds), quizzes, notebooks, and visualizations are presented" → "Text, video (YouTube embeds), assessments, notebooks, and visualizations are presented".
+- [ ] [line 71](../../docs/specs/concept.md#L71): "(LLM access, quizzes, model training, notebooks, visualizations)" → "(LLM access, assessments, model training, notebooks, visualizations)".
+- [ ] [line 119](../../docs/specs/concept.md#L119): "didactic text, YouTube videos, quizzes, notebooks, and visualizations" → "didactic text, YouTube videos, assessments, notebooks, and visualizations".
+- [ ] Confirm: lines 14, 20, 23, 29 (problem-space "quiz platforms" mentions) **not** touched — J.i's deliberate preservation per its task notes.
+
+**Verification**
+
+- [ ] `grep -rn -i "quiz" README.md docs/specs/concept.md docs/specs/phase-j-pedagogical-authoring-plan.md docs/specs/nbfoundry/dependency-spec.md 2>/dev/null | grep -v "quizazz\|Quizazz\|<QuizBlock>"` returns only the 4 J.i-preserved problem-space lines in `concept.md` and nothing else.
+- [ ] No `pyve test` / `pnpm test` runs needed (no code touched), but render-check README in a markdown preview to confirm the YAML examples are still well-formed (indentation, fence markers untouched).
+
+**Versioning + changelog**
+
+- [ ] No version bump (unversioned per the Phase-bundled-release rule; doc-only follow-up to the J.m series, mirroring the J.i / J.k / J.l pattern).
+- [ ] No `CHANGELOG.md` entry (docs-only; not user-visible behavior change).
+
+---
+
+### Story J.m.6: Author Guide — "Embedding a quizazz Assessment" Walkthrough [Planned]
+
+The J.m series renames identifiers and wires up the published vendor, but it does not produce a single end-to-end author-facing walkthrough for *embedding a quizazz assessment into a learningfoundry curriculum*. The information today is correct but **fragmented across five documents**, and a curriculum author starting from zero has to piece together: README's content-block syntax → quizazz's own README for the assessment-YAML schema → an implicit understanding that `pip install learningfoundry[quizazz]` covers the Python build path while `pnpm install` (run by `learningfoundry build`) handles the npm side → `dependency-spec.md`'s host-setup requirements → how the SvelteKit frontend renders the result.
+
+J.m.6 collapses that into a single README subsection — "Embedding a quizazz assessment" — under the existing **Pedagogical authoring** parent section ([README.md:379](../../README.md#L379)). The new subsection walks the full flow once, with a worked example, and **links out** (rather than duplicates) for the parts owned by quizazz (assessment-YAML schema, vendor-component behavior) so quizazz's docs remain the single source of truth for those.
+
+**Why a separate story instead of folding into J.m.5:** J.m.5 is a *rename* sweep — find-and-replace stale identifiers across existing prose. J.m.6 is *new authored content* — a walkthrough that doesn't exist today. Different review surface, different writing posture, different success criteria. Bundling would dilute both.
+
+**Sequencing:** **J.m.6 should land after J.m.5** so the new walkthrough uses post-rename identifiers from day one (`type: assessment` not `type: quiz`, `AssessmentBlock` not `QuizBlock`, etc.) and doesn't need its own rename pass two stories later. J.m.6 does not depend on J.m.1/J.m.2/J.m.3/J.m.4 individually, only on the post-J.m.5 doc state being stable.
+
+**Doc-only.** No code, no tests, no version bump.
+
+**Out of scope:**
+- Duplicating quizazz's assessment-YAML schema in learningfoundry's README. Link to quizazz's [README](docs/specs/quizazz/README.md) and `features.md` instead — those are the canonical author surfaces for the assessment-YAML format. Duplication invites drift.
+- Walkthroughs for the other content-block types (`text`, `video`, `exercise`, `visualization`). Each has its own story to be written when prioritized; J.m.6 is the quizazz/assessment-specific one because that's where the integration story most acutely needs a guided path.
+- A standalone `docs/specs/authoring-guide.md` or similar new file. Keep the walkthrough in README so it's the first thing a new author encounters; a separate doc would lose discoverability.
+- Tutorials, screencasts, sample-curriculum repos. Prose walkthrough only — sample artifacts are a future-phase consideration if the prose proves insufficient.
+- README's existing "Assessments" subsection ([README.md:561](../../README.md#L561)) covering the module-level `assessments[]` array. That subsection stays; J.m.6's new walkthrough cross-references it but does not absorb it. (J.m.6 is about the lower-level *content block* embedding flow; the module-level `assessments[]` array is the higher-level positional placement story.)
+
+**Tasks:**
+
+- [ ] `README.md`: under the existing **Pedagogical authoring** section ([line 379](../../README.md#L379)), add a new subsection `### Embedding a quizazz assessment` positioned **before** the existing `### Assessments` subsection (to flow: content-block-level → module-level). Cover the following beats:
+  - **What you need.** `pip install learningfoundry[quizazz]` adds the Python builder side; the SvelteKit template includes `@pointmatic/quizazz` as a runtime dep so `learningfoundry build` wires the vendor component automatically — no separate npm install step for the author.
+  - **Where the assessment content lives.** A `*.yml` file under your curriculum source tree (conventionally `assessments/`). The schema is owned by **quizazz**; link to [quizazz README](docs/specs/quizazz/README.md) and [quizazz features](docs/specs/quizazz/features.md) for the authoritative format. Do not restate the schema here.
+  - **Two ways to embed.** (a) Inline in a lesson's `content_blocks` as `type: assessment` — for in-lesson knowledge checks. (b) At module level via `assessments[]` with a `position` — for pre / practice / post placement (cross-link to README's existing "Assessments" subsection).
+  - **Worked example.** ~15 lines of YAML — curriculum.yml snippet showing both a content-block `type: assessment` and an `assessments[]` entry against the same vendor — plus a one-line example of the matching `assessments/*.yml` referenced (with a "see quizazz docs for full schema" pointer rather than the full schema).
+  - **What the learner sees.** The SvelteKit app renders the quizazz `<QuizBlock>` inline (vendor component name preserved). Score events fire on completion and persist to in-browser IndexedDB via the `assessment_scores` table (cross-link to quizazz's `dependency-spec.md` RR-1 / RR-1a for the contract).
+  - **Pass-threshold gating.** Optional `pass_threshold: 0.0–1.0` on the content block (and on `assessments[]` entries); when set, the block fires `assessmentcomplete` only when the score ratio clears the threshold, contributing to lesson-completion gating.
+  - **Common gotchas.** (a) Refs are resolved relative to `--base-dir`, not relative to the lesson markdown. (b) `learningfoundry[quizazz]` is an optional extra — installing plain `learningfoundry` and then referencing `source: quizazz` fails with `ImportError`. (c) The `<QuizBlock>` is a vendor component name — do not rename it in any future "consistency" pass (point to project-essentials' "Vendor terminology stops at the vendor boundary" guidance for context).
+- [ ] `README.md`: update the existing **Pedagogical authoring** section's introductory paragraph to mention the new subsection (`Embedding a quizazz assessment`) alongside the existing `Assessments` and `Migrating from pre_assessment / post_assessment` subsection names. Update the table of contents at the top of `README.md` if it lists subsections.
+- [ ] `README.md`: update the existing content-block YAML example around [line 234](../../README.md#L234) and [line 626](../../README.md#L626) to **cross-link** to the new "Embedding a quizazz assessment" subsection — one inline parenthetical at each site (e.g., "Assessment block — see **Embedding a quizazz assessment** below"). Keeps the walkthrough discoverable from the natural author-flow entry point.
+- [ ] `docs/specs/features.md` FR-2 (Content Resolution) / FR-5 (Assessments): if either section's narrative reads as the author's first stop today, add a short pointer to README's new walkthrough as the suggested starting point (one sentence each, at most). features.md is a behavior spec; it should not absorb the walkthrough content, but it should signal where authors go for the practical "how do I do this" flow.
+- [ ] Verify: `pyve test` / `pnpm test` not needed (no code touched). Render-check README in a markdown preview to confirm fence markers, anchor links, and section nesting are well-formed; verify the cross-links to quizazz docs resolve to the expected files.
+- [ ] No version bump (unversioned per the Phase-bundled-release rule; doc-only authoring guide).
+- [ ] No `CHANGELOG.md` entry beyond a single line under `### Documentation` (if such a section exists at landing time; otherwise omit). The walkthrough adds no user-visible runtime behavior — only describes existing behavior in one place.
 
 ---
 

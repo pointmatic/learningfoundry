@@ -1,6 +1,7 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
 	import '../app.css';
+	import '@pointmatic/quizazz/styles.css';
 	import { afterNavigate } from '$app/navigation';
 	import { curriculum, modules } from '$lib/stores/curriculum.js';
 	import { progressStore, invalidateProgress } from '$lib/stores/progress.js';

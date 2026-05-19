@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.70.0] - 2026-05-19
+
+### Added
+
+- **Live `@pointmatic/quizazz` SvelteKit integration** (Story J.m.1). Assessment content blocks in generated SvelteKit apps now render the real vendor quiz UI from [`@pointmatic/quizazz@^1.3.1`](https://www.npmjs.com/package/@pointmatic/quizazz) instead of the placeholder banner shipped pre-v0.70.0. Vendor-side score events translate to learningfoundry's `QuizScore` and persist to the in-browser SQLite `quiz_scores` table; pass-threshold gating remains in the adapter.
+- **Component test:** [`src/learningfoundry/sveltekit_template/src/lib/components/QuizBlock.test.ts`](src/learningfoundry/sveltekit_template/src/lib/components/QuizBlock.test.ts) — 4 cases pinning the adapter contract (manifest/quizRef prop forwarding, vendor `complete` event translation to `QuizScore`, `progressRepo.saveQuizScore` persistence, pass-threshold gating, zero-question edge case). Vendor component is stubbed via `vi.mock` so the test exercises only the adapter's translation logic.
+
+### Changed
+
+- **`src/learningfoundry/sveltekit_template/src/lib/components/QuizBlock.svelte`** — adapter now imports `QuizBlock as VendorQuizBlock` from `@pointmatic/quizazz` and renders it in place of the prior `<PlaceholderBlock>` fallback. Manifest shape is cast at the prop boundary (`as never`) to bridge the structural gap between learningfoundry's pass-through type and the vendor's narrower type — runtime shapes are identical since both describe quizazz's `compile_assessment` output. File header comment updated to describe the file's role as an adapter (no longer "placeholder pending @pointmatic/quizazz").
+- **`src/learningfoundry/sveltekit_template/src/routes/+layout.svelte`** — root layout now imports `@pointmatic/quizazz/styles.css` alongside the existing `app.css` import, per `dependency-spec.md` RR-4 (vendor host setup).
+- **`src/learningfoundry/sveltekit_template/package.json`** — added `@pointmatic/quizazz: ^1.3.1` to `dependencies`. The npm package is now an actual runtime dependency of the generated SvelteKit app, not an aspirational reference.
+
+### Notes
+
+- The local `QuizBlock.svelte` adapter file is kept (not deleted) — it preserves the score-persistence + pass-threshold + event-dispatch protocol that `ContentBlock.svelte` calls. Vendor surface (`quizRef` prop, `QuizCompleteDetail.quizRef` event field, internal vendor types `quizName`, `QuizManifest`) preserved per `project-essentials.md` "Vendor terminology stops at the vendor boundary."
+- `PlaceholderBlock.svelte` is unchanged — still used for other content-block stubs (`NbfoundryStub`, `D3foundryStub`).
+- The remaining `Quiz*` → `Assessment*` internal renames (`QuizProvider` Protocol, `quiz_provider` parameter, Pydantic `QuizBlock`, YAML `type: quiz` discriminator, TS `QuizManifest`/`QuizScore`, SQLite `quiz_scores` table) are scheduled across stories J.m.2 / J.m.3 / J.m.4 / J.m.5.
+
 ## [0.69.1] - 2026-05-18
 
 ### Added

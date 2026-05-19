@@ -1,15 +1,15 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <!--
-  QuizBlock renders a quizazz quiz manifest.
-  When the quiz completes, it writes the score to SQLite and dispatches
-  a 'complete' event with QuizScore data.
-  The quizazz SvelteKit component is imported dynamically so it remains
-  optional until the quizazz npm package is published.
+  Adapter between the vendor `<QuizBlock>` from `@pointmatic/quizazz` and
+  learningfoundry's score-persistence + pass-threshold event protocol.
+  Renders the vendor component, translates its `complete` event payload to a
+  `QuizScore`, persists via `progressRepo.saveQuizScore`, and fires the
+  consumer-facing `oncomplete` / `onquizcomplete` callbacks.
 -->
 <script lang="ts">
+	import { QuizBlock as VendorQuizBlock } from '@pointmatic/quizazz';
 	import { progressRepo } from '$lib/db/index.js';
 	import type { QuizManifest, QuizScore } from '$lib/types/index.js';
-	import PlaceholderBlock from './PlaceholderBlock.svelte';
 
 	interface QuizCompleteDetail {
 		quizRef: string;
@@ -46,15 +46,11 @@
 </script>
 
 <!--
-  Replace this placeholder once @pointmatic/quizazz is published:
-
-  <QuizazzComponent
-    {manifest}
-    {quizRef}
-    on:complete={(e) => handleComplete(e.detail)}
-  />
+  The vendor `<QuizBlock>` types `manifest` against its internal `QuizManifest`
+  (narrow: NavNode[]/Question[]). Our local `QuizManifest` uses opaque
+  `unknown[]` plus an index signature because we pass-through Python-emitted
+  JSON without re-asserting the vendor's schema. The runtime shapes match
+  (both describe the same `compile_assessment` output); the cast bridges the
+  TS declarations.
 -->
-<PlaceholderBlock
-	label="Quiz: {manifest.quizName ?? quizRef}"
-	message="quizazz component pending (@pointmatic/quizazz)."
-/>
+<VendorQuizBlock manifest={manifest as never} {quizRef} oncomplete={(detail) => handleComplete(detail)} />
