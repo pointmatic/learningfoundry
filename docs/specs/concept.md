@@ -28,7 +28,7 @@ This problem is acute for individual educators, graduate students, and small tea
 - **Manual assembly**: Every curriculum requires hand-wiring content generation, assessment, notebooks, and visualization into a one-off pipeline with no reusable structure.
 - **No unified delivery surface**: Learners must jump between separate apps (quiz tool, notebook server, video player, static site) with no shared progress tracking or navigation.
 - **Content format lock-in**: Learning content authored in one platform's format cannot easily be version-controlled, diffed, or repurposed for a different delivery channel.
-- **Assessment disconnect**: Quiz and assessment tools operate independently from the curriculum structure, with no built-in mechanism for pre/post-module gating or adaptive sequencing.
+- **Assessment disconnect**: Assessment tools operate independently from the curriculum structure, with no built-in mechanism for pre/post-module gating or adaptive sequencing.
 - **Experiential learning gap**: Embedding executable, interactive coding exercises (notebooks, model training) into a curriculum requires custom infrastructure that most educators cannot build.
 - **Visualization isolation**: Data visualizations live in separate tools or notebooks rather than being integrated into the learning flow where the learner encounters the relevant concept.
 - **Progress opacity**: There is no unified way to track a learner's progress across text, video, quizzes, and hands-on exercises within a single curriculum.
@@ -58,7 +58,7 @@ This project turns a YAML curriculum definition into a deployable SvelteKit lear
 
 ### Solution Statement
 
-learningfoundry is a PyPI package that acts as a curriculum engine and pipeline orchestrator. An author defines a curriculum's structure — modules, content templates, assessment gates, notebook exercises, and visualizations — in a YAML format. learningfoundry reads that definition and orchestrates a suite of owned, pluggable libraries to produce the learning artifacts: **lmentry** for LLM-powered content generation, **quizazz** for quiz and assessment content, **nbfoundry** for Marimo notebook generation which relies on **modelfoundry** for data preparation and model training scaffolding, and **d3foundry** for D3.js visualizations. The final output is a self-contained SvelteKit application with an in-browser SQLite database for progress tracking, deployable to a CDN or runnable locally. Each curriculum lives in its own application repository and consumes learningfoundry as a dependency, keeping the engine reusable across projects.
+learningfoundry is a PyPI package that acts as a curriculum engine and pipeline orchestrator. An author defines a curriculum's structure — modules, content templates, assessment gates, notebook exercises, and visualizations — in a YAML format. learningfoundry reads that definition and orchestrates a suite of owned, pluggable libraries to produce the learning artifacts: **lmentry** for LLM-powered content generation, **quizazz** for assessment content, **nbfoundry** for Marimo notebook generation which relies on **modelfoundry** for data preparation and model training scaffolding, and **d3foundry** for D3.js visualizations. The final output is a self-contained SvelteKit application with an in-browser SQLite database for progress tracking, deployable to a CDN or runnable locally. Each curriculum lives in its own application repository and consumes learningfoundry as a dependency, keeping the engine reusable across projects.
 
 For v1, the focus is on delivering a working end-to-end pipeline for a single reference curriculum (D802 Deep Learning Essentials) using the hello-world-first philosophy: mock and hack beneath the abstracted dependency interfaces, ship a functional learning artifact, and iterate. The library integrations will be minimal viable implementations — sufficient to prove the pipeline and produce a usable curriculum — with the expectation that each library matures independently over time.
 
@@ -82,7 +82,7 @@ For v1, the focus is on delivering a working end-to-end pipeline for a single re
 - nbfoundry integration for model training exercises (interacting with modelfoundry for data prep, training, optimization, and evaluation steps with student code insertion points in the notebook)
 - YouTube video embedding via URL references in YAML
 - SvelteKit frontend shell — unified learner experience with module navigation, progress tracking (SQLite/IndexedDB), and embedded content types
-- In-browser SQLite database for learner progress (module completion, quiz scores, exercise status)
+- In-browser SQLite database for learner progress (module completion, assessment scores, exercise status)
 - D802 Deep Learning Essentials as the reference curriculum implementation
 - Static deployment target (CDN or local)
 
@@ -125,7 +125,7 @@ For v1, the focus is on delivering a working end-to-end pipeline for a single re
 
 **Assessment disconnect**:
   - quizazz produces assessment content in a content-only artifact mode that learningfoundry consumes directly into the unified frontend.
-  - The YAML curriculum definition supports pre/post-module assessment gates — quiz scores stored in the in-browser SQLite database drive module skip/retry logic within the learning flow.
+  - The YAML curriculum definition supports pre/post-module assessment gates — assessment scores stored in the in-browser SQLite database drive module skip/retry logic within the learning flow.
 
 **Experiential learning gap**:
   - nbfoundry provides scaffolded model training exercises with explicit student code insertion points — learners write key neural network code without managing the full data/training/evaluation pipeline. It will generate Marimo notebooks embedded in the same frontend; for v1, notebook exercises are manually authored and integrated into the SvelteKit shell.
@@ -135,7 +135,7 @@ For v1, the focus is on delivering a working end-to-end pipeline for a single re
   - For v1, manually authored visualizations are embedded directly in the SvelteKit frontend alongside didactic and experiential content.
 
 **Progress opacity**:
-  - The in-browser SQLite database records a unified progress model: module completion, quiz scores (pre/post), and exercise status — all queryable from the SvelteKit frontend.
+  - The in-browser SQLite database records a unified progress model: module completion, assessment scores (pre/post), and exercise status — all queryable from the SvelteKit frontend.
   - The navigation UI surfaces per-module mastery indicators so the learner always knows where they stand.
 
 **Repetitive infrastructure**:

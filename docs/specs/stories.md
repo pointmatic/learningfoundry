@@ -346,6 +346,97 @@ At parse time, `pydantic.create_model` synthesizes `_ExtendedCurriculumMeta` / `
 
 ---
 
+### Story J.i: Quiz → Assessment Terminology Rename (Docs) [Done]
+
+Streamline crufty terminology across the planning artifacts: `Quiz*` → `Assessment*` on every learningfoundry-owned surface, leaving the `quizazz` vendor name and its exports (`<QuizBlock>` component, `compile_quiz()` method, `QuizazzProvider` adapter class, `quizazz_builder` references that survive — none in our code) untouched. Motivated by the schema discriminator confusion: `type: quiz` was the YAML literal that gated a `QuizBlock` Pydantic model, while the conceptual category in features/tech-spec was already "assessment" — the inconsistency made every reader pause.
+
+Decisions baked into this pass:
+- **Pure rename, no scope broadening.** `Assessment` does not absorb `Exercise`; the two providers stay separate. Exercise blocks remain `type: exercise`.
+- **YAML discriminator renamed** (`type: quiz` → `type: assessment`) alongside the Python/TS/SQL identifiers, accepting the curriculum-YAML breaking change (pre-1.0).
+- **IndexedDB migration: data-loss.** The runtime SQLite schema rename (`quiz_scores` → `assessment_scores`, columns `quiz_ref`/`quiz_type` → `assessment_ref`/`assessment_type`) drops the old table and creates the new one fresh on next `Database.getDb()`. No row-copy migration.
+- **Manifest wire-format relabel happens in the adapter, not the vendor.** quizazz keeps emitting `quizName`; learningfoundry's `QuizazzProvider` relabels to `assessmentName` before serialization so the `AssessmentManifest` TS interface stays consistent.
+
+This story is docs-only — no executable code changes — and unversioned per the Phase-bundled-release rule (no production-facing impact). The code follow-up lands as a separate story when scheduled.
+
+**Out of scope:**
+- Code-side rename of Pydantic models, TS types, SvelteKit components, SQL schema, parameter names — landed as a follow-up story.
+- Adding the missing CI/CD Automation section to `tech-spec.md` (template gap noted; separate concern from the rename).
+- Renaming the `quizazz` vendor surface — vendor name preserved.
+
+**Tasks:**
+
+- [x] `docs/specs/concept.md`: 5 prose edits ("Quiz and assessment tools" → "Assessment tools", "quiz scores" → "assessment scores" in scope + value mapping, "quizazz for quiz and assessment content" → "quizazz for assessment content"). Problem-space "quiz platforms" landscape mentions preserved.
+- [x] `docs/specs/features.md`: 23 edits — YAML discriminator rename in worked example, block-type docs (`**quiz**` → `**assessment**`), all `quiz_scores` / `quiz` references in FR-1 through FR-5 and acceptance criteria, recording-paused-state straggler.
+- [x] `docs/specs/tech-spec.md`: 29 edits — `class QuizBlock` → `AssessmentBlock` (+ literal), `class QuizProvider(Protocol)` → `AssessmentProvider`, resolver param `quiz_provider` → `assessment_provider`, SQL schema rename (`quiz_scores`/`quiz_ref`/`quiz_type` → `assessment_*`), TS interfaces `QuizManifest`/`QuizScore` → `AssessmentManifest`/`AssessmentScore` with field renames (`quizName` → `assessmentName`, `quizRef` → `assessmentRef`, `quizType` → `assessmentType`), `QuizManifest` docstring updated to note `QuizazzProvider` relabels the vendor wire key.
+- [x] `docs/specs/project-essentials.md`: revisited per refactor_plan Final Step — added (1) "Vendor terminology stops at the vendor boundary" in Domain Conventions, enumerating the preserved vendor surface and the wrong-but-plausible consistency-rename failure mode; (2) "`QuizazzProvider` relabels the manifest wire-format key" in Hidden Coupling, documenting the `quizName` → `assessmentName` adapter responsibility. Updated four stale identifiers (`quiz_scores` table, `QuizProvider`, `QuizManifest`, `quiz` in block-types list).
+- [x] Old-file backups (`*_old.md`) created during the per-document cycle; deletion left to developer discretion.
+- [ ] No version bump (unversioned per Phase-bundled-release rule).
+- [ ] No `CHANGELOG.md` entry (docs-only; not user-visible).
+
+---
+
+### Story J.j: `@types/node` Missing from SvelteKit Template devDependencies
+
+VSCode reports a TypeScript error on every open of `src/learningfoundry/sveltekit_template/tsconfig.json`:
+
+> Cannot find type definition file for 'node'. The file is in the program because: Entry point of type library 'node' specified in compilerOptions
+
+The auto-generated `.svelte-kit/tsconfig.json` declares `"types": ["node"]` because SvelteKit's internal Vite/build pipeline references node APIs during build. Standard `pnpm create svelte` scaffolds include `@types/node` as a devDependency; this template's [package.json](../../src/learningfoundry/sveltekit_template/package.json) only declares `@types/sql.js`, so the type lookup fails. Production builds via static adapter likely succeed (the runtime output is browser-only), but `svelte-check` / `tsc --noEmit` will report the error and the editor surfaces it persistently.
+
+No production-facing impact (static adapter output doesn't need node types at runtime) — unversioned per the Phase-bundled-release rule.
+
+**Out of scope:**
+- Removing the `"types": ["node"]` entry from the generated tsconfig — it's auto-emitted by SvelteKit and not configurable through user config.
+
+**Tasks:**
+
+- [ ] `src/learningfoundry/sveltekit_template/package.json`: add `@types/node` to `devDependencies` at the latest LTS-compatible version range.
+- [ ] `src/learningfoundry/sveltekit_template/pnpm-lock.yaml`: regenerate via `pnpm install` inside the template (or via a smoke build) to lock the new transitive graph.
+- [ ] Verify: open `tsconfig.json` in VSCode — error gone; run `pnpm check` in a generated output directory — clean.
+- [ ] No version bump (unversioned per Phase-bundled-release rule).
+
+---
+
+### Story J.k: `dependency-spec.md` + `pyproject.toml` Extras Name Correction
+
+Bringing [docs/specs/quizazz/dependency-spec.md](quizazz/dependency-spec.md) and learningfoundry's quizazz extras declaration in line with quizazz's actual shipped surface. Several pre-existing inaccuracies plus updates flowing from the J.i rename.
+
+**Pre-existing bugs (independent of J.i):**
+
+1. **Wrong package name.** dependency-spec says `quizazz-builder` everywhere ("from quizazz_builder import compile_assessment", "pip install learningfoundry[quizazz] installs quizazz-builder", "learningfoundry pins quizazz-builder>=0.1"). quizazz's actual PyPI name is `quizazz` ([quizazz/tech-spec.md:905-906](quizazz/tech-spec.md#L905-L906), [quizazz/README.md:42](quizazz/README.md#L42)). [tech-spec.md:1323-1325](tech-spec.md#L1323-L1325) in learningfoundry's own `pyproject.toml` extras declaration carries the same bug.
+2. **Stale Svelte 4 event syntax.** dependency-spec shows `on:complete={handleQuizComplete}`. quizazz now uses Svelte 5 callback-prop convention `oncomplete={handler}` ([quizazz/tech-spec.md:632](quizazz/tech-spec.md#L632)) and dispatches a `CustomEvent('complete')` as legacy-compat — both forms work, but the documented one is stale.
+3. **Missing host-side setup steps:** SvelteKit hosts must (a) `import '@pointmatic/quizazz/styles.css'`, (b) disable SSR on routes mounting `<QuizBlock>` (`export const ssr = false;`), and (c) use a Vite-based build so the `?url`-imported WASM asset resolves. None are documented in dependency-spec.
+4. **Missing path-escape constraint:** quizazz raises `ValidationError` when `yaml_path` resolves outside `base_dir` ([quizazz/tech-spec.md:842](quizazz/tech-spec.md#L842)) — undocumented in BR-1.
+
+**Rename-driven updates (consequence of J.i):**
+
+5. RR-2 reference to `quiz_scores` table → `assessment_scores`.
+6. Data Flow block: `type: quiz` → `type: assessment`; "writes {quizRef, score, maxScore} to its quiz_scores table" → `assessment_scores`.
+7. Wire-format mismatch contractualization: quizazz emits manifest key `quizName`; learningfoundry's `AssessmentManifest` TS type uses `assessmentName`. The contract must pin down that learningfoundry's `QuizazzProvider` adapter relabels `quizName` → `assessmentName` before JSON serialization (not the vendor's responsibility). Document this in dependency-spec so the relabeling layer is explicit.
+8. `<QuizBlock>` component name **preserved** (vendor surface) — but RR-1 heading "Embeddable Quiz Component" could become "Embeddable Assessment Component" on learningfoundry's side of the contract.
+
+Quizazz itself does NOT need to change — its Python API (`compile_assessment`, `validate_assessment`, `ValidationError`) and SvelteKit component contract (`<QuizBlock>` with `manifest`/`quizRef`/`oncomplete`) already match what learningfoundry needs. The rename is internal to learningfoundry.
+
+No production-facing impact — unversioned per the Phase-bundled-release rule. Doc-only on the learningfoundry side plus a one-line `pyproject.toml` extras-name correction in the tech-spec (the actual `pyproject.toml` fix lands when the code-rename story runs).
+
+**Out of scope:**
+- Code changes to quizazz (none required).
+- Implementing the `quizName` → `assessmentName` adapter relabel — lands in the code-rename follow-up.
+
+**Tasks:**
+
+- [ ] `docs/specs/quizazz/dependency-spec.md`: fix `quizazz-builder` → `quizazz` throughout (BR-1 import path, Package Distribution table, Versioning section, Testing Contract table).
+- [ ] `docs/specs/quizazz/dependency-spec.md` RR-1: update event-handler syntax example from `on:complete={...}` to `oncomplete={handler}`; note the legacy `CustomEvent('complete')` dispatch form is also supported.
+- [ ] `docs/specs/quizazz/dependency-spec.md`: add a "Host Setup" subsection under Runtime Requirements covering (a) `import '@pointmatic/quizazz/styles.css'`, (b) `export const ssr = false;` on routes mounting `<QuizBlock>`, (c) Vite-based build requirement for the `?url` WASM import.
+- [ ] `docs/specs/quizazz/dependency-spec.md` BR-1: document the path-escape constraint — `yaml_path` resolves under `base_dir` strictly; out-of-tree paths raise `ValidationError`.
+- [ ] `docs/specs/quizazz/dependency-spec.md`: rename `quiz_scores` → `assessment_scores` (RR-2 + Data Flow); rename `type: quiz` → `type: assessment` (Data Flow).
+- [ ] `docs/specs/quizazz/dependency-spec.md`: new subsection under RR-1 (or in Data Flow) pinning the manifest wire-format relabel — `QuizazzProvider` (learningfoundry adapter) translates quizazz's `quizName` to `assessmentName` before serialization; downstream `AssessmentManifest` TS type never sees `quizName`.
+- [ ] `docs/specs/tech-spec.md` (learningfoundry): fix `[project.optional-dependencies].quizazz` extras line from `quizazz-builder>=0.1` → `quizazz>=<version>` (line ~1324).
+- [ ] No version bump (unversioned per Phase-bundled-release rule).
+- [ ] No `CHANGELOG.md` entry (docs-only).
+
+---
+
 ## Future
 
 <!--

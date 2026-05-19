@@ -74,9 +74,9 @@ top-level `#` title — the wrapper provides it.
 - Module IDs: `mod-01`, `mod-02`. Lesson IDs: `lesson-01`, `lesson-02`.
 - Never integers, never camelCase, never underscored.
 
-**Quiz scores — aggregate only in learningfoundry:**
+**Assessment scores — aggregate only in learningfoundry:**
 - quizazz uses a weighted scoring model internally (+1 correct, −2 partially correct, −5 incorrect, −10 ridiculous) and manages per-question detail in its own IndexedDB databases.
-- learningfoundry's `quiz_scores` table stores only the aggregate: `score` (points earned) and `max_score` (questions count). Do not attempt to replicate quizazz's per-question schema.
+- learningfoundry's `assessment_scores` table stores only the aggregate: `score` (points earned) and `max_score` (questions count). Do not attempt to replicate quizazz's per-question schema.
 
 **Progress timestamps are Unix integer seconds:**
 - All `completed_at` and `updated_at` columns in the SQLite progress schema are integer Unix timestamps (seconds since epoch), not ISO 8601 strings, not milliseconds.
@@ -85,6 +85,18 @@ top-level `#` title — the wrapper provides it.
 - `lesson_progress.status` runs `not_started → opened → in_progress → complete` (plus the orthogonal `optional`).
 - The sidebar visually merges `opened` and `in_progress` into the `…` icon — the data distinction exists for analytics / future hooks, not for direct learner display. Don't add a separate sidebar symbol for `opened`.
 - `markLessonOpened` is upgrade-only and never demotes a more advanced status.
+
+**Vendor terminology stops at the vendor boundary (Story J.i):**
+- learningfoundry's domain abstraction is "Assessment": `AssessmentBlock` Pydantic model, `AssessmentProvider` Protocol, `AssessmentManifest` / `AssessmentScore` TS interfaces, `assessment_scores` SQLite table, YAML discriminator `type: assessment`.
+- quizazz is *one* current implementation of `AssessmentProvider`, and its vendor surface keeps quizazz terminology — do **not** rename any of these to "fix the inconsistency":
+  - PyPI package name: `quizazz` (and the `[project.optional-dependencies].quizazz` extras key in `pyproject.toml`)
+  - npm package: `@pointmatic/quizazz`
+  - SvelteKit vendor component: `<QuizBlock>` from `@pointmatic/quizazz`
+  - Python adapter class in `integrations/quizazz.py`: `QuizazzProvider`
+  - Vendor API method called by the adapter: `compile_quiz()` (this is quizazz's name, not ours)
+  - Test file: `tests/test_integrations/test_quizazz.py`
+- **Wrong-but-plausible move to avoid:** a future LLM seeing `AssessmentProvider` and `QuizazzProvider` side by side could "consistency-rename" `QuizazzProvider` or change the `quizazz` extras to `assessment`. That breaks the integration silently — the PyPI install will fail, or worse, succeed against a stale name.
+- The asymmetry is intentional: a future `KahootProvider` or `CanvasProvider` would also implement `AssessmentProvider` and keep its own vendor name.
 
 ### Testing
 
@@ -96,13 +108,19 @@ top-level `#` title — the wrapper provides it.
 ### Hidden Coupling
 
 **Provider protocols ↔ dependency specs:**
-- `QuizProvider`, `ExerciseProvider`, and `VisualizationProvider` in `integrations/protocols.py` define the Python-side contracts.
+- `AssessmentProvider`, `ExerciseProvider`, and `VisualizationProvider` in `integrations/protocols.py` define the Python-side contracts.
 - These must stay in sync with the API contracts in `docs/specs/quizazz/dependency-spec.md`, `docs/specs/nbfoundry/dependency-spec.md`, and `docs/specs/d3foundry/dependency-spec.md`.
 - If you change a provider method signature, update both the protocol and the corresponding dependency spec.
 
 **TypeScript interfaces ↔ Python dict schemas:**
-- `ExerciseContent`, `VisualizationContent`, `QuizManifest` in `lib/types/index.ts` describe the JSON shape of dicts returned by the Python providers.
+- `ExerciseContent`, `VisualizationContent`, `AssessmentManifest` in `lib/types/index.ts` describe the JSON shape of dicts returned by the Python providers.
 - Changes to a provider's return dict (e.g., adding a field to `compile_exercise`'s output) must be reflected in the corresponding TypeScript interface.
 
 **Curriculum YAML schema ↔ Pydantic models ↔ TypeScript types:**
-- The YAML content block types (`text`, `video`, `quiz`, `exercise`, `visualization`) are defined in three places: the YAML schema docs, the Pydantic `ContentBlock` union in `schema_v1.py`, and the `ContentBlock` TypeScript interface. Adding a new block type requires updating all three.
+- The YAML content block types (`text`, `video`, `assessment`, `exercise`, `visualization`) are defined in three places: the YAML schema docs, the Pydantic `ContentBlock` union in `schema_v1.py`, and the `ContentBlock` TypeScript interface. Adding a new block type requires updating all three.
+
+**`QuizazzProvider` relabels the manifest wire-format key — do not "simplify" it:**
+- quizazz's compiled manifest emits the top-level key `quizName: string` (the vendor's name for its core concept).
+- learningfoundry's `AssessmentManifest` TS interface uses `assessmentName: string` so the curriculum.json schema consumed by the SvelteKit frontend stays in our terminology.
+- The single point of translation is `QuizazzProvider.compile_assessment()` in `integrations/quizazz.py`. It calls quizazz's `compile_quiz()`, then relabels `quizName` → `assessmentName` in the returned dict before learningfoundry hands it downstream.
+- **A future LLM looking at this and thinking "this rename looks redundant" and removing the relabel will silently break the frontend** — quizazz keeps emitting `quizName`, the SvelteKit frontend keeps reading `assessmentName`, and the field will appear undefined in `curriculum.json` without any build-time error.

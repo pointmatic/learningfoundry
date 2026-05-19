@@ -8,15 +8,15 @@ For a high-level concept (why), see [`concept.md`](concept.md). For implementati
 
 ## Project Goal
 
-learningfoundry is a PyPI package that turns a versioned YAML curriculum definition into a deployable, self-contained SvelteKit learning application. An author defines curriculum structure — modules, lessons, content blocks (markdown text, YouTube videos, quizzes, model-training exercises) — in a single YAML file. learningfoundry reads that definition, assembles content from referenced markdown files and library integrations (quizazz for assessments, nbfoundry for training exercises), and produces a static SvelteKit app with in-browser SQLite progress tracking. The goal is to eliminate the manual assembly cost of building a structured, multi-format learning curriculum so that an educator can go from a topic outline to a working learner-facing application using a single tool.
+learningfoundry is a PyPI package that turns a versioned YAML curriculum definition into a deployable, self-contained SvelteKit learning application. An author defines curriculum structure — modules, lessons, content blocks (markdown text, YouTube videos, assessments, model-training exercises) — in a single YAML file. learningfoundry reads that definition, assembles content from referenced markdown files and library integrations (quizazz for assessments, nbfoundry for training exercises), and produces a static SvelteKit app with in-browser SQLite progress tracking. The goal is to eliminate the manual assembly cost of building a structured, multi-format learning curriculum so that an educator can go from a topic outline to a working learner-facing application using a single tool.
 
 ### Core Requirements
 
 1. **YAML curriculum parser** — Read and validate a versioned (`semver`) YAML curriculum definition file that describes the full curriculum structure: modules, lessons, and content blocks.
 2. **Pipeline orchestrator** — Process the parsed YAML by resolving content references (markdown files, video URLs) and invoking library integrations (quizazz, nbfoundry) to assemble all learning artifacts.
 3. **SvelteKit frontend generation** — Produce a static SvelteKit application that presents all content types in a unified learner experience with module/lesson navigation and in-browser progress tracking.
-4. **In-browser SQLite** — The generated app uses sql.js/WASM to persist learner progress (module completion, quiz scores, exercise status) entirely client-side with no server dependency.
-5. **quizazz integration** — Consume assessment content produced by quizazz for pre- and post-module quizzes, rendered inline in the SvelteKit frontend.
+4. **In-browser SQLite** — The generated app uses sql.js/WASM to persist learner progress (module completion, assessment scores, exercise status) entirely client-side with no server dependency.
+5. **quizazz integration** — Consume assessment content produced by quizazz for pre- and post-module assessments, rendered inline in the SvelteKit frontend.
 6. **nbfoundry integration** — Consume scaffolded model-training exercises produced by nbfoundry, rendered inline in the SvelteKit frontend. Exercise authoring details (code insertion points, data prep) are handled by nbfoundry, which integrates with modelfoundry.
 7. **Static deployment** — The final artifact is a static site deployable to any CDN or runnable locally via a dev server.
 
@@ -99,9 +99,9 @@ curriculum:
             - type: video
               url: "https://www.youtube.com/watch?v=..."
 
-            - type: quiz
+            - type: assessment
               source: quizazz
-              ref: assessments/mod-01-lesson-01-quiz.yml
+              ref: assessments/mod-01-lesson-01-assessment.yml
 
             - type: exercise
               source: nbfoundry
@@ -111,7 +111,7 @@ curriculum:
 **Content block types (v1):**
 - **text** — References a markdown file (`ref`). The most common content type.
 - **video** — `url` (YouTube watch or youtu.be). Optional `provider` (default `youtube`). Optional `extensions` — a JSON object for player-specific data (e.g. chapters, transcript refs); the frontend interprets keys per provider so new players do not require a unified schema.
-- **quiz** — References a quizazz assessment definition file (`ref`).
+- **assessment** — References a quizazz assessment definition file (`ref`).
 - **exercise** — References an nbfoundry exercise definition file (`ref`).
 
 ### Markdown content files
@@ -148,7 +148,7 @@ The primary output is a build-ready SvelteKit project directory containing:
 
 - All curriculum content compiled into SvelteKit pages/components
 - Module and lesson navigation
-- Embedded quiz, video, and exercise components
+- Embedded assessment, video, and exercise components
 - In-browser SQLite (sql.js/WASM) for progress tracking
 - Placeholder slots for future nbfoundry and d3foundry content
 - A `static/content/<hash12>/<basename>` directory holding every co-located image asset referenced by any lesson's markdown. The 12-character prefix is the SHA-256 hash of the source file's bytes, so identical images dedupe automatically and the URL is stable across rebuilds.
@@ -179,7 +179,7 @@ Parse and validate the curriculum YAML file against the schema for the declared 
 - `curriculum.locking` (optional `LockingConfig`): `sequential: bool` (default false — module N+1 requires module N complete), `lesson_sequential: bool` (default false — lesson N+1 requires lesson N complete within a module).
 - `module.locked` (optional `bool | None`): per-module override. `None`/absent inherits from curriculum/global locking config. Explicit `true`/`false` trumps inheritance.
 - `lesson.unlock_module_on_complete` (optional `bool`, default false): when this lesson completes, unlocks sibling lessons and the next module.
-- `quiz` block `pass_threshold` (optional `float`, 0.0–1.0, default 0.0): minimum `score / maxScore` ratio required for the quiz to count as "passed" for block-completion purposes.
+- `assessment` block `pass_threshold` (optional `float`, 0.0–1.0, default 0.0): minimum `score / maxScore` ratio required for the assessment to count as "passed" for block-completion purposes.
 
 **Edge Cases:**
 - Missing `version` field → Error: "Curriculum YAML must include a top-level `version` field (semver)."
@@ -194,7 +194,7 @@ Resolve all content references in the parsed curriculum to their actual content.
 **Behavior:**
 1. For each `text` block, read the referenced markdown file, then scan the markdown for image references and rewrite them (see "Image asset resolution" below).
 2. For each `video` block, validate the YouTube URL format.
-3. For each `quiz` block, delegate to quizazz to parse the referenced assessment file and return renderable content.
+3. For each `assessment` block, delegate to quizazz to parse the referenced assessment file and return renderable content.
 4. For each `exercise` block, delegate to nbfoundry to parse the referenced exercise file and return renderable content.
 5. Attach resolved content to the in-memory curriculum structure.
 
@@ -227,7 +227,7 @@ Each module declares assessments as a list of `AssessmentDefinition` entries —
   - `after_lessons` — anchors at the end.
   - `{ before_lesson: <lesson-id> }` — anchors immediately before the named lesson.
   - `{ after_lesson: <lesson-id> }` — anchors immediately after.
-- `source` and `ref` follow the same provider-+-path convention as quiz content blocks.
+- `source` and `ref` follow the same provider-+-path convention as assessment content blocks.
 - `pass_threshold` is optional (`0.0`–`1.0`); recorded but not gating in v1.
 - The parser validates `before_lesson` / `after_lesson` refs against the module's `lessons` and rejects unknown ids at parse time.
 - The resolver materializes assessments into canonical placement order: `before_lessons` first, then for each lesson the `before_lesson` and `after_lesson` anchors, then `after_lessons`.
@@ -290,7 +290,7 @@ Generate a complete, build-ready SvelteKit project from the resolved curriculum.
 1. Scaffold the SvelteKit project structure (or populate a bundled template).
 2. Generate a page/component for each module and lesson, embedding resolved content blocks in order.
 3. Include navigation components: module list, lesson list within a module, prev/next lesson navigation.
-4. Include a progress dashboard component showing per-module completion status and quiz scores.
+4. Include a progress dashboard component showing per-module completion status and assessment scores.
 5. Embed the sql.js/WASM runtime and initialize the progress database schema on first load.
 6. Include placeholder component slots for future nbfoundry (notebook) and d3foundry (visualization) content types.
 
@@ -337,15 +337,15 @@ The `lesson_progress.status` column moves through four states plus the orthogona
 `opened` and `in_progress` share the sidebar `…` icon — the lifecycle distinction is data-only, intended for analytics / future hooks. `LessonView` emits three callback-prop events (`onlessonopen`, `onlessonengage`, `onlessoncomplete`) that fire at most once per mount session and are suppressed when the corresponding state transition is a no-op (e.g. revisiting a `complete` lesson fires `onlessonopen` only). No internal subscribers exist today.
 
 **Behavior:**
-1. On first app load, create the SQLite database and initialize the schema (modules, lessons, quiz_scores, exercise_status).
+1. On first app load, create the SQLite database and initialize the schema (modules, lessons, assessment_scores, exercise_status).
 2. Mark a lesson as completed when every content block in the lesson has fired its completion event. Per-block completion contracts:
    - **Text block** — fires when a sentinel `<div data-textblock-end>` placed at the *end* of the rendered markdown is continuously visible in the viewport for 1 s. Observing the end-of-block sentinel (rather than any portion of the wrapper) is what makes a tall lesson require actual reading-time scroll: simply landing on the page is no longer sufficient.
    - **Video block** — fires on the YouTube IFrame Player API `ENDED` state, with a 3-second viewport-fallback when the IFrame API is unavailable.
-   - **Quiz block** — fires when `score / maxScore >= passThreshold` (default `0.0`); failed attempts retry internally without firing.
-3. Store quiz scores (pre/post assessment and inline quizzes) with timestamps.
+   - **Assessment block** — fires when `score / maxScore >= passThreshold` (default `0.0`); failed attempts retry internally without firing.
+3. Store assessment scores (pre/post and inline) with timestamps.
 4. Store exercise completion status.
-5. Surface progress in the navigation UI: per-module completion percentage, quiz score indicators.
-6. Provide a course-level reset button in the sidebar (Story I.l): disabled when no learner activity exists; on confirmed click, truncate `lesson_progress`, `quiz_scores`, and `exercise_status` and route to `/`.
+5. Surface progress in the navigation UI: per-module completion percentage, assessment score indicators.
+6. Provide a course-level reset button in the sidebar (Story I.l): disabled when no learner activity exists; on confirmed click, truncate `lesson_progress`, `assessment_scores`, and `exercise_status` and route to `/`.
 
 **Locking and sequential access:**
 The locking configuration (parsed from YAML and global config) controls which modules/lessons the learner can access:
@@ -359,7 +359,7 @@ The locking configuration (parsed from YAML and global config) controls which mo
 When the sql.js WASM asset (`/sql-wasm.wasm`) cannot be fetched at runtime — asset-pipeline regression, deploy misconfiguration, browser cache poisoning, network partition — `Database.getDb()` rejects with the typed `WasmAssetMissingError`. The frontend MUST:
 - Surface a persistent, non-blocking banner above the main content area: "Progress recording is paused. Your activity in this session will not be saved. Try refreshing to retry." with a refresh CTA that reloads the page.
 - Continue rendering the dashboard, sidebar, and lesson views as if no progress had been recorded yet (empty `not_started` state). A missing-WASM read MUST NOT render an error page.
-- Best-effort write attempts (lesson opens, quiz scores, exercise status) MUST resolve quietly so UI flows complete without unhandled rejections; the banner is the user-facing signal.
+- Best-effort write attempts (lesson opens, assessment scores, exercise status) MUST resolve quietly so UI flows complete without unhandled rejections; the banner is the user-facing signal.
 - The banner clears once a refresh successfully fetches the WASM asset (`dbInit` transitions to `ready`).
 
 **Edge Cases:**
@@ -369,13 +369,13 @@ When the sql.js WASM asset (`/sql-wasm.wasm`) cannot be fetched at runtime — a
 
 ### FR-5: quizazz Integration
 
-Consume quiz/assessment content produced by quizazz and render it in the SvelteKit frontend.
+Consume assessment content produced by quizazz and render it in the SvelteKit frontend.
 
 **Behavior:**
-1. During content resolution, invoke quizazz to parse assessment YAML files referenced by `quiz` content blocks and entries in the module's `assessments` array (Story J.e — replaces the legacy two-slot `pre_assessment`/`post_assessment` fields).
+1. During content resolution, invoke quizazz to parse assessment YAML files referenced by `assessment` content blocks and entries in the module's `assessments` array (Story J.e — replaces the legacy two-slot `pre_assessment`/`post_assessment` fields).
 2. quizazz returns a content-only artifact (questions, answer choices, correct answers, explanations).
-3. The SvelteKit frontend renders quizzes inline with immediate scoring and explanation display.
-4. Quiz scores are written to the in-browser SQLite database.
+3. The SvelteKit frontend renders assessments inline with immediate scoring and explanation display.
+4. Assessment scores are written to the in-browser SQLite database.
 
 **Edge Cases:**
 - quizazz assessment file is malformed → Error surfaced with file path and quizazz's error message.
@@ -480,10 +480,10 @@ No specific performance targets for v1. The pipeline should complete in a reason
 
 ## Acceptance Criteria
 
-1. An author can write a curriculum YAML file and markdown content files, run `learningfoundry build`, and receive a static SvelteKit application that renders all modules and lessons with text, video, quiz, and exercise content.
+1. An author can write a curriculum YAML file and markdown content files, run `learningfoundry build`, and receive a static SvelteKit application that renders all modules and lessons with text, video, assessment, and exercise content.
 2. `learningfoundry validate` catches and reports schema errors, missing files, and version mismatches with clear, actionable messages.
 3. `learningfoundry preview` builds the app and serves it locally for review.
-4. The generated app tracks lesson completion and quiz scores in an in-browser SQLite database and displays progress in the navigation UI.
+4. The generated app tracks lesson completion and assessment scores in an in-browser SQLite database and displays progress in the navigation UI.
 5. The D802 Deep Learning Essentials reference curriculum builds and runs successfully as the first end-to-end proof of the pipeline.
 6. The pipeline runs on macOS, Linux, and Windows with Python 3.12.
 7. Pre/post assessment data is stored in the progress database, anticipating future gating support without enforcing it in v1.

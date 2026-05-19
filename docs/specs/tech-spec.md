@@ -49,7 +49,7 @@ For requirements and behavior, see [`features.md`](features.md). For the impleme
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `quizazz-builder` | `>=0.1` | Quiz/assessment YAML → JSON manifest compilation (first-party) |
+| `quizazz-builder` | `>=0.1` | Assessment YAML → JSON manifest compilation (first-party) |
 
 nbfoundry is not yet published. learningfoundry defines an `ExerciseProvider` protocol; a stub implementation ships for v1. The real nbfoundry integration will be added when nbfoundry is available as a package.
 
@@ -110,7 +110,7 @@ learningfoundry/
 │       ├── generator.py                    # SvelteKit project generation from resolved curriculum
 │       ├── integrations/
 │       │   ├── __init__.py
-│       │   ├── protocols.py                # QuizProvider, ExerciseProvider, and VisualizationProvider protocols
+│       │   ├── protocols.py                # AssessmentProvider, ExerciseProvider, and VisualizationProvider protocols
 │       │   ├── quizazz.py                  # quizazz integration (delegates to quizazz_builder)
 │       │   ├── nbfoundry_stub.py           # Stub ExerciseProvider for v1
 │       │   └── d3foundry_stub.py           # Stub VisualizationProvider for v1
@@ -133,21 +133,21 @@ learningfoundry/
 │       │   ├── db/
 │       │   │   ├── index.ts                # Barrel export
 │       │   │   ├── database.ts             # sql.js init, IndexedDB persistence, schema
-│       │   │   └── progress.ts             # Progress CRUD: lesson completion, quiz scores, exercise status
+│       │   │   └── progress.ts             # Progress CRUD: lesson completion, assessment scores, exercise status
 │       │   ├── stores/
 │       │   │   └── curriculum.ts           # Svelte stores for curriculum state and navigation
 │       │   ├── components/
 │       │   │   ├── ModuleList.svelte       # Module navigation sidebar
 │       │   │   ├── LessonList.svelte       # Lesson list within a module
 │       │   │   ├── LessonView.svelte       # Lesson content renderer (dispatches content blocks)
-│       │   │   ├── ContentBlock.svelte     # Content block dispatcher (text, video, quiz, exercise, visualization)
+│       │   │   ├── ContentBlock.svelte     # Content block dispatcher (text, video, assessment, exercise, visualization)
 │       │   │   ├── TextBlock.svelte        # Rendered markdown content (end-of-block sentinel drives `textcomplete`)
 │       │   │   ├── VideoBlock.svelte       # YouTube embed
-│       │   │   ├── QuizBlock.svelte        # Inline quiz (consumes quizazz manifest JSON)
+│       │   │   ├── AssessmentBlock.svelte  # Inline assessment (consumes quizazz manifest JSON)
 │       │   │   ├── ExerciseBlock.svelte    # Model-training exercise (consumes nbfoundry output)
 │       │   │   ├── VisualizationBlock.svelte # Data visualization (consumes d3foundry output)
 │       │   │   ├── PlaceholderBlock.svelte # Placeholder for future interactive content
-│       │   │   ├── ProgressDashboard.svelte # Per-module completion, quiz scores overview
+│       │   │   ├── ProgressDashboard.svelte # Per-module completion, assessment scores overview
 │       │   │   ├── Navigation.svelte       # Prev/next lesson navigation
 │       │   │   └── ProgressBar.svelte      # Visual progress indicator
 │       │   └── utils/
@@ -339,8 +339,8 @@ class VideoBlock(BaseModel):
         """YouTube URL validation when provider is youtube."""
         ...
 
-class QuizBlock(BaseModel):
-    type: str = "quiz"
+class AssessmentBlock(BaseModel):
+    type: str = "assessment"
     source: str                     # "quizazz"
     ref: str                        # Path to quizazz assessment YAML
     pass_threshold: float = 0.0     # 0.0–1.0; minimum score ratio for completion
@@ -355,7 +355,7 @@ class VisualizationBlock(BaseModel):
     source: str                     # "d3foundry"
     ref: str                        # Path to d3foundry visualization YAML
 
-ContentBlock = TextBlock | VideoBlock | QuizBlock | ExerciseBlock | VisualizationBlock
+ContentBlock = TextBlock | VideoBlock | AssessmentBlock | ExerciseBlock | VisualizationBlock
 
 class Hook(BaseModel):
     """Opening hook for a lesson. ``extra='allow'`` (Phase J / J.a)."""
@@ -449,7 +449,7 @@ class CurriculumV1(BaseModel):
 ```python
 from pathlib import Path
 from learningfoundry.schema_v1 import CurriculumV1
-from learningfoundry.integrations.protocols import QuizProvider, ExerciseProvider, VisualizationProvider
+from learningfoundry.integrations.protocols import AssessmentProvider, ExerciseProvider, VisualizationProvider
 
 @dataclass
 class ResolvedCurriculum:
@@ -488,13 +488,13 @@ class ResolvedLesson:
 
 @dataclass
 class ResolvedContentBlock:
-    block_type: str                  # "text" | "video" | "quiz" | "exercise" | "visualization"
+    block_type: str                  # "text" | "video" | "assessment" | "exercise" | "visualization"
     content: str | dict              # HTML string, URL, or integration output dict
 
 def resolve_curriculum(
     curriculum: CurriculumV1,
     base_dir: Path,
-    quiz_provider: QuizProvider,
+    assessment_provider: AssessmentProvider,
     exercise_provider: ExerciseProvider,
     visualization_provider: VisualizationProvider,
 ) -> ResolvedCurriculum:
@@ -508,7 +508,7 @@ def resolve_curriculum(
       URLs. Image asset records aggregate onto ResolvedCurriculum.assets
       (deduped globally by content hash).
     - video blocks: validate YouTube URL, pass through
-    - quiz blocks: delegate to quiz_provider
+    - assessment blocks: delegate to assessment_provider
     - exercise blocks: delegate to exercise_provider
     - visualization blocks: delegate to visualization_provider
 
@@ -652,7 +652,7 @@ def resolve_markdown_assets(
 from typing import Protocol
 from pathlib import Path
 
-class QuizProvider(Protocol):
+class AssessmentProvider(Protocol):
     def compile_assessment(self, ref_path: Path, base_dir: Path) -> dict:
         """
         Compile an assessment YAML file into a renderable manifest dict.
@@ -684,11 +684,11 @@ class VisualizationProvider(Protocol):
 
 ```python
 from pathlib import Path
-from learningfoundry.integrations.protocols import QuizProvider
+from learningfoundry.integrations.protocols import AssessmentProvider
 
 class QuizazzProvider:
     """
-    QuizProvider implementation backed by quizazz_builder.
+    AssessmentProvider implementation backed by quizazz_builder.
 
     Delegates to quizazz_builder.validator.validate_file() and
     quizazz_builder.compiler.compile_quiz() to produce a manifest dict
@@ -920,9 +920,9 @@ curriculum:
               ref: content/mod-01/lesson-01.md
             - type: video
               url: "https://www.youtube.com/watch?v=..."
-            - type: quiz
+            - type: assessment
               source: quizazz
-              ref: assessments/mod-01-lesson-01-quiz.yml
+              ref: assessments/mod-01-lesson-01-assessment.yml
             - type: exercise
               source: nbfoundry
               ref: exercises/mod-01-exercise-01.yml
@@ -974,7 +974,7 @@ In addition to the module/lesson/content tree, `ResolvedCurriculum` carries an `
           "content_blocks": [
             { "type": "text", "content": "<p>Rendered HTML from markdown...</p>" },
             { "type": "video", "content": "https://www.youtube.com/watch?v=..." },
-            { "type": "quiz", "content": { "...quizazz manifest..." } },
+            { "type": "assessment", "content": { "...quizazz manifest..." } },
             { "type": "exercise", "content": { "...nbfoundry output..." } },
             { "type": "visualization", "content": { "...d3foundry output..." } }
           ]
@@ -995,13 +995,13 @@ CREATE TABLE IF NOT EXISTS lesson_progress (
   completed_at  INTEGER                        -- Unix timestamp, NULL if incomplete
 );
 
-CREATE TABLE IF NOT EXISTS quiz_scores (
-  quiz_ref      TEXT PRIMARY KEY,              -- Assessment ref path (unique per quiz)
-  module_id     TEXT NOT NULL,
-  quiz_type     TEXT NOT NULL,                 -- "pre" | "post" | "inline"
-  score         INTEGER NOT NULL DEFAULT 0,
-  max_score     INTEGER NOT NULL DEFAULT 0,
-  completed_at  INTEGER NOT NULL               -- Unix timestamp
+CREATE TABLE IF NOT EXISTS assessment_scores (
+  assessment_ref  TEXT PRIMARY KEY,              -- Assessment ref path (unique per assessment)
+  module_id       TEXT NOT NULL,
+  assessment_type TEXT NOT NULL,                 -- "pre" | "post" | "inline"
+  score           INTEGER NOT NULL DEFAULT 0,
+  max_score       INTEGER NOT NULL DEFAULT 0,
+  completed_at    INTEGER NOT NULL               -- Unix timestamp
 );
 
 CREATE TABLE IF NOT EXISTS exercise_status (
@@ -1042,7 +1042,7 @@ export interface AssessmentDefinition {
   source: string;
   ref: string;
   pass_threshold: number | null;
-  content: QuizManifest;
+  content: AssessmentManifest;
 }
 
 export interface Module {
@@ -1060,13 +1060,16 @@ export interface Lesson {
 }
 
 export interface ContentBlock {
-  type: "text" | "video" | "quiz" | "exercise" | "visualization" | "placeholder";
-  content: string | QuizManifest | ExerciseContent | VisualizationContent;
+  type: "text" | "video" | "assessment" | "exercise" | "visualization" | "placeholder";
+  content: string | AssessmentManifest | ExerciseContent | VisualizationContent;
 }
 
-export interface QuizManifest {
-  // Matches quizazz compiled manifest structure
-  quizName: string;
+export interface AssessmentManifest {
+  // Mirrors quizazz compiled manifest structure; QuizazzProvider relabels
+  // quizazz's `quizName` wire key to `assessmentName` so the vendor's
+  // terminology does not leak into the curriculum.json schema consumed by
+  // the SvelteKit frontend.
+  assessmentName: string;
   tree: NavNode[];
   questions: Question[];
 }
@@ -1123,10 +1126,10 @@ export interface LessonProgress {
   completedAt: number | null;
 }
 
-export interface QuizScore {
-  quizRef: string;
+export interface AssessmentScore {
+  assessmentRef: string;
   moduleId: string;
-  quizType: "pre" | "post" | "inline";
+  assessmentType: "pre" | "post" | "inline";
   score: number;
   maxScore: number;
   completedAt: number;
@@ -1144,8 +1147,8 @@ export interface ModuleProgress {
   lessonsCompleted: number;
   lessonsTotal: number;
   percentComplete: number;
-  preAssessmentScore: QuizScore | null;
-  postAssessmentScore: QuizScore | null;
+  preAssessmentScore: AssessmentScore | null;
+  postAssessmentScore: AssessmentScore | null;
 }
 ```
 

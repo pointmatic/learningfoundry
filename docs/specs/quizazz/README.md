@@ -294,26 +294,25 @@ pnpm add @pointmatic/quizazz
 <QuizBlock {manifest} quizRef="module-4-pre" oncomplete={handleComplete} />
 ```
 
-Three host-side setup steps are required and easy to miss:
+Two host-side setup steps are required:
 
 1. Disable SSR on the route that mounts `<QuizBlock>` (sql.js + IndexedDB
    are browser-only). Add `export const ssr = false;` to the route's
    `+page.ts` or `+layout.ts`.
-2. Copy sql.js's WebAssembly binary into the host's static root, e.g.
-   `cp node_modules/sql.js/dist/*.wasm static/` during postinstall. The
-   wildcard form covers both `sql-wasm.wasm` (sql.js ≤ 1.13) and the
-   `sql-wasm-browser.wasm` that sql.js ≥ 1.14 ships and that Vite
-   resolves via the `browser` export condition.
-3. Import the precompiled styles bundle once:
+2. Import the precompiled styles bundle once:
    `import '@pointmatic/quizazz/styles.css';`. The bundle ships only the
    utilities the component uses (no Tailwind preflight, no project-wide
    footprint) so it composes cleanly whether or not your host already
    uses Tailwind.
 
+No WASM copy step is needed: `<QuizBlock>` imports the `sql-wasm.wasm`
+asset via Vite's `?url` pattern, so the host's build emits it
+automatically into the build output.
+
 The full embedding reference — theming custom properties, the `complete`
 event's DOM-event form, the single-instance-per-page guard, and the
-detailed sql.js WASM and SvelteKit host setup steps — lives alongside the
-source at [`app/src/lib/embed/README.md`](app/src/lib/embed/README.md).
+SvelteKit host setup steps — lives alongside the source at
+[`app/src/lib/embed/README.md`](app/src/lib/embed/README.md).
 
 ## Testing
 
