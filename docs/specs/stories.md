@@ -375,7 +375,7 @@ This story is docs-only — no executable code changes — and unversioned per t
 
 ---
 
-### Story J.j: `@types/node` Missing from SvelteKit Template devDependencies
+### Story J.j: `@types/node` Missing from SvelteKit Template devDependencies [Done]
 
 VSCode reports a TypeScript error on every open of `src/learningfoundry/sveltekit_template/tsconfig.json`:
 
@@ -390,10 +390,10 @@ No production-facing impact (static adapter output doesn't need node types at ru
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/sveltekit_template/package.json`: add `@types/node` to `devDependencies` at the latest LTS-compatible version range.
-- [ ] `src/learningfoundry/sveltekit_template/pnpm-lock.yaml`: regenerate via `pnpm install` inside the template (or via a smoke build) to lock the new transitive graph.
-- [ ] Verify: open `tsconfig.json` in VSCode — error gone; run `pnpm check` in a generated output directory — clean.
-- [ ] No version bump (unversioned per Phase-bundled-release rule).
+- [x] `src/learningfoundry/sveltekit_template/package.json`: added `@types/node: ^24.0.0` (Node 24 LTS line) to `devDependencies`.
+- [x] `src/learningfoundry/sveltekit_template/pnpm-lock.yaml`: regenerated via `pnpm install --no-frozen-lockfile`; locked `@types/node@24.12.4`.
+- [x] Verify: `svelte-check` no longer reports "Cannot find type definition file for 'node'". 24 pre-existing errors (`LessonList.test.ts` Set typing, `vite.config.ts` overload, `database.test.ts` fake-indexeddb declarations, etc.) are unrelated and out of scope. `pyve test` 386 passed; `vitest` 226 passed; `ruff` + `mypy` clean.
+- [x] No version bump (unversioned per Phase-bundled-release rule).
 
 ---
 
@@ -434,6 +434,72 @@ No production-facing impact — unversioned per the Phase-bundled-release rule. 
 - [ ] `docs/specs/tech-spec.md` (learningfoundry): fix `[project.optional-dependencies].quizazz` extras line from `quizazz-builder>=0.1` → `quizazz>=<version>` (line ~1324).
 - [ ] No version bump (unversioned per Phase-bundled-release rule).
 - [ ] No `CHANGELOG.md` entry (docs-only).
+
+---
+
+### Story J.l: `lucide-svelte` 1.0 Migration
+
+`lucide-svelte@0.468.0` is marked **deprecated** on npm — the 0.x line is end-of-life and will not receive bug or security fixes. The supported line is 1.x (currently 1.0.1). This is the only deprecated package in the template's dependency graph; every other "newer version available" notice from `pnpm install` is a normal patch/minor diff within the existing caret ranges.
+
+Scope is small: the template imports exactly three icons across two components:
+- [Navigation.svelte:4](../../src/learningfoundry/sveltekit_template/src/lib/components/Navigation.svelte#L4) — `ChevronLeft`, `ChevronRight`
+- [ResetCourseButton.svelte:7](../../src/learningfoundry/sveltekit_template/src/lib/components/ResetCourseButton.svelte#L7) — `RotateCcw`
+
+Lucide 1.0's primary breaking change is the move from default tree-shaken icon exports to per-icon module imports (`from 'lucide-svelte/icons/chevron-left'`) plus a Svelte 5 runes-native rewrite. Existing barrel imports may still work via a compatibility shim, but the canonical 1.x form is per-icon — worth migrating to match the supported pattern, not just suppressing the deprecation warning.
+
+No production-facing impact on the runtime API of the template (these are icons in navigation and reset controls). Unversioned per the Phase-bundled-release rule.
+
+**Out of scope:**
+- Visual redesign of any control that uses these icons.
+- Bulk migration of other "newer available" packages (covered by J.m).
+
+**Tasks:**
+
+- [ ] `src/learningfoundry/sveltekit_template/package.json`: bump `lucide-svelte` from `^0.468.0` to `^1.0.1` (or whatever 1.x is current at implementation time).
+- [ ] Update the two import sites to the 1.x canonical form (per-icon module imports if the migration guide recommends; otherwise the barrel import if 1.x still supports it cleanly).
+- [ ] `src/learningfoundry/sveltekit_template/pnpm-lock.yaml`: regenerate.
+- [ ] Verify: `vitest` passes (Navigation and ResetCourseButton component tests exercise the icons); `pnpm dev` renders the icons in browser; `pnpm build` produces no warnings about deprecated imports.
+- [ ] No version bump (unversioned per Phase-bundled-release rule).
+- [ ] No `CHANGELOG.md` entry (template internals; not user-facing).
+
+---
+
+### Story J.m: Dependabot Wiring for Template + Workspace Dependencies
+
+Today the project relies on developer-initiated `pnpm update` / `pip install -U` to pull in security and patch updates. There's no automated signal when a CVE drops against a dependency in `src/learningfoundry/sveltekit_template/package.json` or `pyproject.toml`, and the "newer available" notes from `pnpm install` are the only feedback loop — which mixes security-relevant updates with routine patch noise.
+
+Story J.m wires up GitHub Dependabot via `.github/dependabot.yml` to open weekly PRs for both the Python and SvelteKit-template dependency graphs, with security advisories flowing as a separate, higher-priority signal.
+
+**Why Dependabot (not Renovate or a cadence script):**
+- Native to GitHub; no third-party app install required.
+- Security advisories file PRs immediately (not on the weekly schedule) — the security signal is what we actually want.
+- Configuration is one YAML file in the repo; no out-of-band service to administer.
+- Renovate is more configurable but the marginal value over Dependabot is small for a project this size.
+
+**Configuration intent:**
+- One ecosystem entry per dependency surface:
+  - `pip` against the repo root for `pyproject.toml` / `requirements-dev.txt`.
+  - `npm` (Dependabot's name for the JS ecosystem, covers pnpm lockfiles) against `src/learningfoundry/sveltekit_template/` for the SvelteKit template.
+  - `github-actions` against `.github/workflows/` so CI action versions don't bit-rot silently.
+- Weekly schedule (not daily) to keep PR noise manageable.
+- Group patch-and-minor updates per ecosystem into a single weekly PR; major updates land as individual PRs so they can be reviewed deliberately.
+- Auto-ignore the `@types/node` major-bump line (we deliberately pin to the LTS major; bumping to odd-numbered "Current" releases is wrong).
+
+**Out of scope:**
+- Auto-merge wiring (separate concern; needs branch protection + CI green-gate decisions first).
+- Renovate as an alternative (decision baked in above).
+- Bulk one-time `pnpm update` to clear the existing backlog of patch/minor diffs — that's a separate cleanup that can land before or after this story.
+- `pnpm audit` integration as a CI step (complementary but distinct; the Dependabot security-advisory PR is the primary signal).
+
+**Tasks:**
+
+- [ ] New `.github/dependabot.yml` with three ecosystem entries (`pip`, `npm`, `github-actions`), weekly schedule, grouped patch+minor.
+- [ ] Configure the `npm` entry's `directory:` to `/src/learningfoundry/sveltekit_template`.
+- [ ] Add an `ignore:` rule for `@types/node` `version-update:semver-major` (LTS-pin rationale).
+- [ ] `README.md`: brief mention under a "Maintenance" subsection (or equivalent) noting that Dependabot opens weekly update PRs and security advisories file PRs immediately.
+- [ ] Verify: file passes Dependabot's config validator (commit the file; Dependabot lints it on GitHub and surfaces errors in the repository's Insights → Dependency graph → Dependabot tab).
+- [ ] No version bump (unversioned per Phase-bundled-release rule).
+- [ ] No `CHANGELOG.md` entry (infra; not user-facing).
 
 ---
 
