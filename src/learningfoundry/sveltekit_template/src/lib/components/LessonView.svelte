@@ -3,7 +3,7 @@
 	import { progressRepo } from '$lib/db/index.js';
 	import { curriculum } from '$lib/stores/curriculum.js';
 	import { invalidateProgress } from '$lib/stores/progress.js';
-	import type { Lesson, QuizScore } from '$lib/types/index.js';
+	import type { AssessmentScore, Lesson } from '$lib/types/index.js';
 	import ContentBlock from './ContentBlock.svelte';
 	import Navigation from './Navigation.svelte';
 	import { contentBlockKey } from './lesson-view.helpers.js';
@@ -113,7 +113,7 @@
 		}
 	}
 
-	function handleQuizComplete(_score: QuizScore) {
+	function handleAssessmentComplete(_score: AssessmentScore) {
 		// Score already persisted by QuizBlock; could trigger further logic here
 	}
 </script>
@@ -138,7 +138,7 @@
 					{block}
 					blockIndex={i}
 					onblockcomplete={handleBlockComplete}
-					onquizcomplete={handleQuizComplete}
+					onassessmentcomplete={handleAssessmentComplete}
 				/>
 			</section>
 		{/each}

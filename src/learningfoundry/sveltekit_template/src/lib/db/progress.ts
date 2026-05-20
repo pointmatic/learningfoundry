@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
  * Repository for learner progress. Wraps a `Database` instance and
- * exposes CRUD operations on the lesson_progress / quiz_scores /
+ * exposes CRUD operations on the lesson_progress / assessment_scores /
  * exercise_status tables. All write methods call `database.persist()`
  * to flush to IndexedDB.
  *
@@ -23,10 +23,10 @@
 import { WasmAssetMissingError } from './database.js';
 import type { Database } from './database.js';
 import type {
+	AssessmentScore,
 	LessonProgress,
 	LessonStatus,
-	ModuleProgress,
-	QuizScore
+	ModuleProgress
 } from '$lib/types/index.js';
 
 function isWasmMissing(err: unknown): err is WasmAssetMissingError {
@@ -132,19 +132,28 @@ export class ProgressRepo {
 	}
 
 	// -------------------------------------------------------------------
-	// Quiz scores
+	// Assessment scores
 	// -------------------------------------------------------------------
 
-	async saveQuizScore(score: Omit<QuizScore, 'completedAt'>): Promise<void> {
+	async saveAssessmentScore(
+		score: Omit<AssessmentScore, 'completedAt'>
+	): Promise<void> {
 		try {
 			const db = await this.#database.getDb();
 			db.run(
-				`INSERT INTO quiz_scores (quiz_ref, score, max_score, question_count, completed_at)
+				`INSERT INTO assessment_scores
+         (assessment_ref, score, max_score, question_count, completed_at)
        VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(quiz_ref) DO UPDATE SET
+       ON CONFLICT(assessment_ref) DO UPDATE SET
          score=excluded.score, max_score=excluded.max_score,
          question_count=excluded.question_count, completed_at=excluded.completed_at`,
-				[score.quizRef, score.score, score.maxScore, score.questionCount, new Date().toISOString()]
+				[
+					score.assessmentRef,
+					score.score,
+					score.maxScore,
+					score.questionCount,
+					new Date().toISOString()
+				]
 			);
 			await this.#database.persist();
 		} catch (err) {
@@ -153,24 +162,19 @@ export class ProgressRepo {
 		}
 	}
 
-	async getQuizScore(quizRef: string): Promise<QuizScore | null> {
+	async getAssessmentScore(assessmentRef: string): Promise<AssessmentScore | null> {
 		try {
 			const db = await this.#database.getDb();
 			const result = db.exec(
-				`SELECT quiz_ref, score, max_score, question_count, completed_at
-       FROM quiz_scores WHERE quiz_ref = ?`,
-				[quizRef]
+				`SELECT assessment_ref, score, max_score, question_count, completed_at
+       FROM assessment_scores WHERE assessment_ref = ?`,
+				[assessmentRef]
 			);
 			if (!result.length || !result[0].values.length) return null;
-			const [quiz_ref, sc, max_sc, q_count, completed_at] = result[0].values[0] as [
-				string,
-				number,
-				number,
-				number,
-				string
-			];
+			const [assessment_ref, sc, max_sc, q_count, completed_at] = result[0]
+				.values[0] as [string, number, number, number, string];
 			return {
-				quizRef: quiz_ref,
+				assessmentRef: assessment_ref,
 				score: sc,
 				maxScore: max_sc,
 				questionCount: q_count,
@@ -216,7 +220,7 @@ export class ProgressRepo {
 			db.exec(
 				`BEGIN;
 				 DELETE FROM lesson_progress;
-				 DELETE FROM quiz_scores;
+				 DELETE FROM assessment_scores;
 				 DELETE FROM exercise_status;
 				 COMMIT;`
 			);

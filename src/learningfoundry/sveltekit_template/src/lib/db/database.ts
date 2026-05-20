@@ -49,6 +49,13 @@ export class WasmAssetMissingError extends Error {
 	}
 }
 
+// Story J.m.4 — `quiz_scores` table renamed to `assessment_scores` with a
+// data-loss migration per Story J.i. The DROP is idempotent: on fresh
+// databases (no legacy table) it is a no-op; on upgrade from a pre-J.m.4
+// schema it removes the old table; on every subsequent boot it is a no-op
+// again. Learner progress in the assessment-scores track is intentionally
+// lost on upgrade — acceptable pre-1.0; `lesson_progress` and
+// `exercise_status` are unaffected.
 const DDL = `
 CREATE TABLE IF NOT EXISTS lesson_progress (
   module_id   TEXT NOT NULL,
@@ -58,13 +65,15 @@ CREATE TABLE IF NOT EXISTS lesson_progress (
   PRIMARY KEY (module_id, lesson_id)
 );
 
-CREATE TABLE IF NOT EXISTS quiz_scores (
-  quiz_ref      TEXT NOT NULL,
-  score         INTEGER NOT NULL,
-  max_score     INTEGER NOT NULL,
+DROP TABLE IF EXISTS quiz_scores;
+
+CREATE TABLE IF NOT EXISTS assessment_scores (
+  assessment_ref TEXT NOT NULL,
+  score          INTEGER NOT NULL,
+  max_score      INTEGER NOT NULL,
   question_count INTEGER NOT NULL,
-  completed_at  TEXT NOT NULL,
-  PRIMARY KEY (quiz_ref)
+  completed_at   TEXT NOT NULL,
+  PRIMARY KEY (assessment_ref)
 );
 
 CREATE TABLE IF NOT EXISTS exercise_status (

@@ -53,7 +53,7 @@ vi.mock('$lib/db/index.js', () => ({
 		markLessonOpened: vi.fn().mockResolvedValue(undefined),
 		markLessonInProgress: vi.fn().mockResolvedValue(undefined),
 		markLessonComplete: vi.fn().mockResolvedValue(undefined),
-		recordQuizScore: vi.fn().mockResolvedValue(undefined),
+		recordAssessmentScore: vi.fn().mockResolvedValue(undefined),
 		recordExerciseStatus: vi.fn().mockResolvedValue(undefined),
 		getLessonProgress: vi.fn().mockResolvedValue(null),
 		listAllProgress: vi.fn().mockResolvedValue([])

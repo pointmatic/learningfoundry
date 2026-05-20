@@ -2,14 +2,17 @@
 <!--
   Adapter between the vendor `<QuizBlock>` from `@pointmatic/quizazz` and
   learningfoundry's score-persistence + pass-threshold event protocol.
-  Renders the vendor component, translates its `complete` event payload to a
-  `QuizScore`, persists via `progressRepo.saveQuizScore`, and fires the
-  consumer-facing `oncomplete` / `onquizcomplete` callbacks.
+  Renders the vendor component, translates its `complete` event payload
+  (whose `quizRef` field mirrors the vendor's identifier name — preserved
+  per project-essentials' vendor-boundary rule) into a learningfoundry
+  `AssessmentScore` with `assessmentRef`, persists via
+  `progressRepo.saveAssessmentScore`, and fires the consumer-facing
+  `oncomplete` / `onassessmentcomplete` callbacks.
 -->
 <script lang="ts">
 	import { QuizBlock as VendorQuizBlock } from '@pointmatic/quizazz';
 	import { progressRepo } from '$lib/db/index.js';
-	import type { AssessmentManifest, QuizScore } from '$lib/types/index.js';
+	import type { AssessmentManifest, AssessmentScore } from '$lib/types/index.js';
 
 	interface QuizCompleteDetail {
 		quizRef: string;
@@ -22,25 +25,31 @@
 		manifest: AssessmentManifest;
 		quizRef: string;
 		passThreshold?: number;
-		oncomplete?: (score: QuizScore) => void;
-		onquizcomplete?: () => void;
+		oncomplete?: (score: AssessmentScore) => void;
+		onassessmentcomplete?: () => void;
 	}
-	let { manifest, quizRef, passThreshold = 0.0, oncomplete, onquizcomplete }: Props = $props();
+	let {
+		manifest,
+		quizRef,
+		passThreshold = 0.0,
+		oncomplete,
+		onassessmentcomplete
+	}: Props = $props();
 
 	async function handleComplete(detail: QuizCompleteDetail) {
-		const score: QuizScore = {
-			quizRef: detail.quizRef,
+		const score: AssessmentScore = {
+			assessmentRef: detail.quizRef,
 			score: detail.score,
 			maxScore: detail.maxScore,
 			questionCount: detail.questionCount,
 			completedAt: new Date().toISOString()
 		};
-		await progressRepo.saveQuizScore(score);
+		await progressRepo.saveAssessmentScore(score);
 		oncomplete?.(score);
 		if (detail.maxScore > 0 && detail.score / detail.maxScore >= passThreshold) {
-			onquizcomplete?.();
+			onassessmentcomplete?.();
 		} else if (detail.maxScore === 0) {
-			onquizcomplete?.();
+			onassessmentcomplete?.();
 		}
 	}
 </script>

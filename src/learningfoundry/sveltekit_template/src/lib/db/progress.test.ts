@@ -37,13 +37,13 @@ describe('resetProgress', () => {
 		vi.clearAllMocks();
 	});
 
-	it('truncates lesson_progress, quiz_scores, and exercise_status in a single transaction', async () => {
+	it('truncates lesson_progress, assessment_scores, and exercise_status in a single transaction', async () => {
 		await repo.resetProgress();
 		expect(execMock).toHaveBeenCalledTimes(1);
 		const sql = String(execMock.mock.calls[0][0]);
 		expect(sql).toMatch(/BEGIN;/);
 		expect(sql).toMatch(/DELETE FROM lesson_progress;/);
-		expect(sql).toMatch(/DELETE FROM quiz_scores;/);
+		expect(sql).toMatch(/DELETE FROM assessment_scores;/);
 		expect(sql).toMatch(/DELETE FROM exercise_status;/);
 		expect(sql).toMatch(/COMMIT;/);
 	});
@@ -146,10 +146,15 @@ describe('ProgressRepo — WasmAssetMissingError handling (Story I.bb)', () => {
 		await expect(repo.markLessonInProgress('mod-01', 'lesson-01')).resolves.toBeUndefined();
 	});
 
-	it('saveQuizScore resolves quietly when wasm is missing', async () => {
+	it('saveAssessmentScore resolves quietly when wasm is missing', async () => {
 		const repo = makeRepoWithBrokenDb();
 		await expect(
-			repo.saveQuizScore({ quizRef: 'q1', score: 1, maxScore: 1, questionCount: 1 })
+			repo.saveAssessmentScore({
+				assessmentRef: 'q1',
+				score: 1,
+				maxScore: 1,
+				questionCount: 1
+			})
 		).resolves.toBeUndefined();
 	});
 
@@ -168,9 +173,9 @@ describe('ProgressRepo — WasmAssetMissingError handling (Story I.bb)', () => {
 		await expect(repo.getLessonProgress('mod-01', 'lesson-01')).resolves.toBeNull();
 	});
 
-	it('getQuizScore returns null when wasm is missing', async () => {
+	it('getAssessmentScore returns null when wasm is missing', async () => {
 		const repo = makeRepoWithBrokenDb();
-		await expect(repo.getQuizScore('q1')).resolves.toBeNull();
+		await expect(repo.getAssessmentScore('q1')).resolves.toBeNull();
 	});
 
 	it('getModuleProgress returns an empty not_started shape so the dashboard renders', async () => {

@@ -1,7 +1,7 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import type { Curriculum, Module, ModuleProgress, QuizScore } from '$lib/types/index.js';
+	import type { AssessmentScore, Curriculum, Module, ModuleProgress } from '$lib/types/index.js';
 	import { getOptionalLessons, lockedModuleIds } from '$lib/utils/locking.js';
 	import { moduleStatus } from './progress-dashboard.helpers.js';
 	import ProgressBar from './ProgressBar.svelte';
@@ -10,10 +10,10 @@
 	interface Props {
 		modules: Module[];
 		progress: Record<string, ModuleProgress>;
-		quizScores?: Record<string, QuizScore>;
+		assessmentScores?: Record<string, AssessmentScore>;
 		curriculum?: Curriculum | null;
 	}
-	let { modules, progress, quizScores = {}, curriculum = null }: Props = $props();
+	let { modules, progress, assessmentScores = {}, curriculum = null }: Props = $props();
 
 	type ModuleStatus = 'not_started' | 'in_progress' | 'complete';
 

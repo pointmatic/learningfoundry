@@ -4,7 +4,7 @@
   Forwards child completion events upward as `onblockcomplete(blockIndex)`.
 -->
 <script lang="ts">
-	import type { ContentBlock, QuizScore } from '$lib/types/index.js';
+	import type { AssessmentScore, ContentBlock } from '$lib/types/index.js';
 	import type {
 		AssessmentManifest,
 		ExerciseContent,
@@ -23,9 +23,9 @@
 		block: ContentBlock;
 		blockIndex: number;
 		onblockcomplete?: (blockIndex: number) => void;
-		onquizcomplete?: (score: QuizScore) => void;
+		onassessmentcomplete?: (score: AssessmentScore) => void;
 	}
-	let { block, blockIndex, onblockcomplete, onquizcomplete }: Props = $props();
+	let { block, blockIndex, onblockcomplete, onassessmentcomplete }: Props = $props();
 
 	function handleBlockComplete() {
 		onblockcomplete?.(blockIndex);
@@ -41,8 +41,8 @@
 		manifest={block.content as AssessmentManifest}
 		quizRef={block.ref ?? ''}
 		passThreshold={(block.content as AssessmentManifest).passThreshold ?? 0.0}
-		oncomplete={onquizcomplete}
-		onquizcomplete={handleBlockComplete}
+		oncomplete={onassessmentcomplete}
+		onassessmentcomplete={handleBlockComplete}
 	/>
 {:else if block.type === 'exercise'}
 	<ExerciseBlock content={block.content as ExerciseContent} />

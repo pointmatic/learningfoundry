@@ -295,3 +295,134 @@ describe('Database — wasm-asset failure surfaces as WasmAssetMissingError', ()
 		}
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Story J.m.4 — `quiz_scores` → `assessment_scores` data-loss migration.
+// On upgrade from a pre-J.m.4 schema, the DDL run during `getDb()` drops
+// the legacy table and creates the new one fresh. Learner progress in the
+// scores track is intentionally lost (per J.i decision; pre-1.0). The
+// `lesson_progress` and `exercise_status` tables are unaffected.
+// ---------------------------------------------------------------------------
+
+describe('Database — quiz_scores → assessment_scores migration (Story J.m.4)', () => {
+	beforeEach(() => {
+		vi.resetModules();
+		localStorage.removeItem('learningfoundry-user-id');
+		freshIdb();
+	});
+
+	async function seedLegacyDb(userId: string): Promise<void> {
+		// Build a sql.js DB that mimics the pre-J.m.4 schema (has
+		// `quiz_scores`, no `assessment_scores`) and plant it directly in
+		// IDB under the per-user key. Bypasses the `Database` class so the
+		// J.m.4 DDL doesn't run on the seed.
+		const initSqlJsFn = (await import('sql.js')).default;
+		const SQL = await initSqlJsFn({ locateFile: () => '/sql-wasm.wasm' });
+		const db = new SQL.Database();
+		db.run(`
+			CREATE TABLE lesson_progress (
+				module_id TEXT NOT NULL,
+				lesson_id TEXT NOT NULL,
+				status TEXT NOT NULL DEFAULT 'not_started',
+				completed_at TEXT,
+				PRIMARY KEY (module_id, lesson_id)
+			);
+			CREATE TABLE quiz_scores (
+				quiz_ref TEXT NOT NULL,
+				score INTEGER NOT NULL,
+				max_score INTEGER NOT NULL,
+				question_count INTEGER NOT NULL,
+				completed_at TEXT NOT NULL,
+				PRIMARY KEY (quiz_ref)
+			);
+			CREATE TABLE exercise_status (
+				exercise_ref TEXT NOT NULL,
+				status TEXT NOT NULL DEFAULT 'not_started',
+				updated_at TEXT NOT NULL,
+				PRIMARY KEY (exercise_ref)
+			);
+			INSERT INTO lesson_progress
+				(module_id, lesson_id, status, completed_at)
+				VALUES ('mod-01', 'lesson-01', 'complete', '2026-01-01T00:00:00Z');
+			INSERT INTO quiz_scores
+				(quiz_ref, score, max_score, question_count, completed_at)
+				VALUES ('mod-01-pre', 4, 5, 5, '2026-01-01T00:00:00Z');
+			INSERT INTO exercise_status
+				(exercise_ref, status, updated_at)
+				VALUES ('mod-01-ex', 'complete', '2026-01-01T00:00:00Z');
+		`);
+		const bytes = db.export();
+		db.close();
+		await rawIdbPut(`db:${userId}`, bytes);
+	}
+
+	function tableExists(db: import('sql.js').Database, name: string): boolean {
+		const result = db.exec(
+			`SELECT name FROM sqlite_master WHERE type='table' AND name='${name}';`
+		);
+		return result.length > 0 && result[0].values.length > 0;
+	}
+
+	it('drops the legacy quiz_scores table on first init under the new schema', async () => {
+		await seedLegacyDb('user-migrate-1');
+		const { Database } = await import('./database.js');
+		const after = new Database('user-migrate-1');
+		const db = await after.getDb();
+
+		expect(tableExists(db, 'quiz_scores')).toBe(false);
+	});
+
+	it('creates an empty assessment_scores table in place of quiz_scores', async () => {
+		await seedLegacyDb('user-migrate-2');
+		const { Database } = await import('./database.js');
+		const after = new Database('user-migrate-2');
+		const db = await after.getDb();
+
+		expect(tableExists(db, 'assessment_scores')).toBe(true);
+		const rows = db.exec('SELECT COUNT(*) FROM assessment_scores;');
+		expect(rows[0]?.values?.[0]?.[0]).toBe(0);
+	});
+
+	it('preserves lesson_progress and exercise_status rows across the migration', async () => {
+		await seedLegacyDb('user-migrate-3');
+		const { Database } = await import('./database.js');
+		const after = new Database('user-migrate-3');
+		const db = await after.getDb();
+
+		const lessons = db.exec(
+			"SELECT status FROM lesson_progress WHERE lesson_id='lesson-01';"
+		);
+		expect(lessons[0]?.values?.[0]?.[0]).toBe('complete');
+
+		const exercises = db.exec(
+			"SELECT status FROM exercise_status WHERE exercise_ref='mod-01-ex';"
+		);
+		expect(exercises[0]?.values?.[0]?.[0]).toBe('complete');
+	});
+
+	it('is idempotent: re-init on a post-migration DB does not error and keeps assessment_scores intact', async () => {
+		await seedLegacyDb('user-migrate-4');
+		const { Database } = await import('./database.js');
+
+		const first = new Database('user-migrate-4');
+		const db1 = await first.getDb();
+		db1.run(
+			`INSERT INTO assessment_scores
+				(assessment_ref, score, max_score, question_count, completed_at)
+				VALUES ('mod-01-post', 3, 5, 5, '2026-02-01T00:00:00Z');`
+		);
+		await first.persist();
+
+		// Fresh instance, same userId — DDL runs again. The DROP IF EXISTS
+		// is a no-op (legacy table is already gone) and CREATE IF NOT EXISTS
+		// preserves the row inserted above.
+		const second = new Database('user-migrate-4');
+		const db2 = await second.getDb();
+		expect(tableExists(db2, 'quiz_scores')).toBe(false);
+		expect(tableExists(db2, 'assessment_scores')).toBe(true);
+		const rows = db2.exec(
+			"SELECT score FROM assessment_scores WHERE assessment_ref='mod-01-post';"
+		);
+		expect(rows[0]?.values?.[0]?.[0]).toBe(3);
+	});
+});

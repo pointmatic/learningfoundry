@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.72.1] - 2026-05-20
+
+### Changed
+
+- **`QuizScore` TS interface → `AssessmentScore`** (Story J.m.4). Field `quizRef: string` → `assessmentRef: string`. `ModuleProgress.preAssessment` / `postAssessment` references updated.
+- **`progress.ts` repo methods renamed:** `saveQuizScore` → `saveAssessmentScore` (takes `Omit<AssessmentScore, 'completedAt'>`); `getQuizScore(quizRef)` → `getAssessmentScore(assessmentRef)`. SQL queries rewritten to use `assessment_scores` / `assessment_ref`. `resetProgress()` transaction now does `DELETE FROM assessment_scores`.
+- **Svelte component handlers + callback props renamed:**
+  - `LessonView.svelte`: `handleQuizComplete(score: QuizScore)` → `handleAssessmentComplete(score: AssessmentScore)`; callback prop on `<ContentBlock>` `onquizcomplete={...}` → `onassessmentcomplete={...}`.
+  - `ContentBlock.svelte`: `onquizcomplete?: (score: QuizScore) => void` callback prop → `onassessmentcomplete?: (score: AssessmentScore) => void`; the prop forwarded to `<QuizBlock>` (the local adapter) is now `onassessmentcomplete`.
+  - `ProgressDashboard.svelte`: `quizScores?: Record<string, QuizScore>` prop → `assessmentScores?: Record<string, AssessmentScore>`.
+  - `QuizBlock.svelte` (adapter): outbound callback `onquizcomplete?: () => void` → `onassessmentcomplete?: () => void`; `handleComplete()` now builds an `AssessmentScore` (with `assessmentRef: detail.quizRef`) and calls `progressRepo.saveAssessmentScore(score)`. The inbound vendor event's `quizRef` field is preserved (vendor surface — `QuizCompleteDetail.quizRef` stays). The file is the precise boundary where vendor `quizRef` becomes our `assessmentRef`.
+- **DDL migration in `database.ts`:** SQLite table `quiz_scores` (with column `quiz_ref`) replaced by `assessment_scores` (with column `assessment_ref`). The DDL block now starts with `DROP TABLE IF EXISTS quiz_scores;` then `CREATE TABLE IF NOT EXISTS assessment_scores (...)`. Idempotent: no-op on fresh DBs and on already-migrated DBs.
+
+### Added
+
+- **Migration smoke test** in [`src/learningfoundry/sveltekit_template/src/lib/db/database.test.ts`](src/learningfoundry/sveltekit_template/src/lib/db/database.test.ts): new `describe` block (4 cases) seeds a pre-J.m.4 IDB blob (legacy `quiz_scores` table populated, no `assessment_scores`) and asserts that next `Database.getDb()` (a) drops the legacy table, (b) creates `assessment_scores` empty, (c) preserves `lesson_progress` + `exercise_status` rows, (d) is idempotent on re-init with persisted post-migration data.
+
+### Removed (BREAKING)
+
+- **In-browser SQLite `quiz_scores` table** — dropped on next `Database.getDb()` after upgrade. **Learner progress in the scores track is permanently lost on upgrade** (per J.i decision; pre-1.0). `lesson_progress` and `exercise_status` are unaffected.
+- **TS exports** `QuizScore` (and its `quizRef` field) — use `AssessmentScore` with `assessmentRef`.
+- **Repo methods** `progressRepo.saveQuizScore` / `progressRepo.getQuizScore` — use `saveAssessmentScore` / `getAssessmentScore`.
+- **Callback props** `onquizcomplete` on `<ContentBlock>` and on the local `<QuizBlock>` adapter — use `onassessmentcomplete`.
+
+### Notes
+
+- Vendor surface preserved per `project-essentials.md`: the local `QuizBlock.svelte` file keeps its filename (mirrors `@pointmatic/quizazz`'s `<QuizBlock>` export); the `quizRef` prop on the vendor component stays; the internal `QuizCompleteDetail.quizRef` event-detail field stays (it mirrors quizazz's emitted event shape). The boundary where vendor `quizRef` becomes learningfoundry `assessmentRef` is the adapter's `handleComplete()`.
+- No Python changes; no JSON-contract changes; no `curriculum.json` shape change in this release.
+- Story under-counted (re-recurring J.m.2 lesson): also caught and renamed `recordQuizScore` mock-only key in `src/routes/[module]/[lesson]/page.test.ts` → `recordAssessmentScore`; updated the J.m.1 `QuizBlock.test.ts` mock target (`saveQuizScore` → `saveAssessmentScore`), the persisted-field assertion (`quizRef` → `assessmentRef`), and the three `onquizcomplete` test props (now `onassessmentcomplete`).
+
 ## [0.72.0] - 2026-05-19
 
 ### Changed

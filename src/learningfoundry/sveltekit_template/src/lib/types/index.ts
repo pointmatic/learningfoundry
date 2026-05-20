@@ -205,8 +205,8 @@ export interface LessonProgress {
 	completedAt: string | null;
 }
 
-export interface QuizScore {
-	quizRef: string;
+export interface AssessmentScore {
+	assessmentRef: string;
 	score: number;
 	maxScore: number;
 	questionCount: number;
@@ -217,8 +217,8 @@ export interface ModuleProgress {
 	moduleId: string;
 	status: ModuleStatus;
 	lessons: Record<string, LessonProgress>;
-	preAssessment: QuizScore | null;
-	postAssessment: QuizScore | null;
+	preAssessment: AssessmentScore | null;
+	postAssessment: AssessmentScore | null;
 }
 
 export interface CurriculumProgress {

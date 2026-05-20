@@ -5,7 +5,7 @@
  *
  * Used by `ResetCourseButton.svelte` to decide whether to enable the
  * destructive action: a course is "untouched" only when every lesson
- * across every module is `not_started`. Quiz scores and exercise
+ * across every module is `not_started`. Assessment scores and exercise
  * statuses are reflected back into `lesson_progress` via the
  * `markLessonInProgress` / `markLessonComplete` cascades, so this single
  * predicate covers all three tables. If a future feature lets either
