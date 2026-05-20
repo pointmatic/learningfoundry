@@ -9,11 +9,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
 import QuizBlock from './QuizBlock.svelte';
-import type { QuizManifest, QuizScore } from '$lib/types/index.js';
+import type { AssessmentManifest, QuizScore } from '$lib/types/index.js';
 
+// `capturedProps.current` is a runtime-only mutable slot that the stub
+// vendor component writes its props to. We cast to `any` here because
+// the mocked vendor component's exact prop shape is uninteresting to
+// type-check (the test asserts specific keys directly) and the alternative
+// (`Record<string, unknown>` plus narrowing) trips `svelte-check`'s strict
+// indexed-access rules.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { saveQuizScoreMock, capturedProps } = vi.hoisted(() => ({
 	saveQuizScoreMock: vi.fn().mockResolvedValue(undefined),
-	capturedProps: { current: null as Record<string, unknown> | null }
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	capturedProps: { current: null as any }
 }));
 
 vi.mock('$lib/db/index.js', () => ({
@@ -33,8 +41,8 @@ vi.mock('@pointmatic/quizazz', () => {
 	return { QuizBlock: VendorQuizBlockStub };
 });
 
-const manifest: QuizManifest = {
-	quizName: 'Test Quiz',
+const manifest: AssessmentManifest = {
+	assessmentName: 'Test Assessment',
 	tree: [],
 	questions: []
 };

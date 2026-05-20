@@ -9,7 +9,7 @@
 <script lang="ts">
 	import { QuizBlock as VendorQuizBlock } from '@pointmatic/quizazz';
 	import { progressRepo } from '$lib/db/index.js';
-	import type { QuizManifest, QuizScore } from '$lib/types/index.js';
+	import type { AssessmentManifest, QuizScore } from '$lib/types/index.js';
 
 	interface QuizCompleteDetail {
 		quizRef: string;
@@ -19,7 +19,7 @@
 	}
 
 	interface Props {
-		manifest: QuizManifest;
+		manifest: AssessmentManifest;
 		quizRef: string;
 		passThreshold?: number;
 		oncomplete?: (score: QuizScore) => void;
@@ -47,10 +47,11 @@
 
 <!--
   The vendor `<QuizBlock>` types `manifest` against its internal `QuizManifest`
-  (narrow: NavNode[]/Question[]). Our local `QuizManifest` uses opaque
+  (narrow: NavNode[]/Question[]). Our local `AssessmentManifest` uses opaque
   `unknown[]` plus an index signature because we pass-through Python-emitted
   JSON without re-asserting the vendor's schema. The runtime shapes match
-  (both describe the same `compile_assessment` output); the cast bridges the
+  (both describe the same `compile_assessment` output, with `quizName`
+  relabeled to `assessmentName` by `QuizazzProvider`); the cast bridges the
   TS declarations.
 -->
 <VendorQuizBlock manifest={manifest as never} {quizRef} oncomplete={(detail) => handleComplete(detail)} />

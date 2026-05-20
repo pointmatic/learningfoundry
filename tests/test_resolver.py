@@ -410,12 +410,15 @@ class TestVideoBlockResolution:
             )
 
 
-class TestQuizBlockResolution:
+class TestAssessmentBlockResolution:
     def test_delegates_to_assessment_provider(self, tmp_path: Path) -> None:
         mock_quiz = MagicMock()
-        mock_quiz.compile_assessment.return_value = {"quizName": "q1", "questions": []}
+        mock_quiz.compile_assessment.return_value = {
+            "assessmentName": "q1",
+            "questions": [],
+        }
         c = _curriculum_with_blocks(
-            [{"type": "quiz", "source": "quizazz", "ref": "assessments/q.yml"}]
+            [{"type": "assessment", "source": "quizazz", "ref": "assessments/q.yml"}]
         )
         result = resolve_curriculum(
             c, tmp_path,
@@ -427,14 +430,14 @@ class TestQuizBlockResolution:
             Path("assessments/q.yml"), tmp_path
         )
         block = result.modules[0].lessons[0].content_blocks[0]
-        assert block.type == "quiz"
-        assert block.content["quizName"] == "q1"
+        assert block.type == "assessment"
+        assert block.content["assessmentName"] == "q1"
 
     def test_provider_error_wrapped_with_location(self, tmp_path: Path) -> None:
         mock_quiz = MagicMock()
         mock_quiz.compile_assessment.side_effect = RuntimeError("bad quiz")
         c = _curriculum_with_blocks(
-            [{"type": "quiz", "source": "quizazz", "ref": "assessments/q.yml"}]
+            [{"type": "assessment", "source": "quizazz", "ref": "assessments/q.yml"}]
         )
         with pytest.raises(ContentResolutionError, match="lesson-01"):
             resolve_curriculum(
@@ -528,7 +531,7 @@ class TestAssessmentResolution:
         self, tmp_path: Path
     ) -> None:
         mock_quiz = MagicMock()
-        mock_quiz.compile_assessment.return_value = {"quizName": "pre"}
+        mock_quiz.compile_assessment.return_value = {"assessmentName": "pre"}
         curriculum = self._build_curriculum([{
             "role": "pre",
             "position": "before_lessons",
@@ -545,13 +548,13 @@ class TestAssessmentResolution:
         assert len(assessments) == 1
         assert assessments[0].role == "pre"
         assert assessments[0].position == "before_lessons"
-        assert assessments[0].content == {"quizName": "pre"}
+        assert assessments[0].content == {"assessmentName": "pre"}
 
     def test_after_lessons_resolves_to_last_position(
         self, tmp_path: Path
     ) -> None:
         mock_quiz = MagicMock()
-        mock_quiz.compile_assessment.return_value = {"quizName": "post"}
+        mock_quiz.compile_assessment.return_value = {"assessmentName": "post"}
         curriculum = self._build_curriculum([{
             "role": "post",
             "position": "after_lessons",
@@ -574,7 +577,7 @@ class TestAssessmentResolution:
         # to: before_lessons, before_lesson:lesson-01, after_lesson:lesson-01,
         # before_lesson:lesson-02, after_lesson:lesson-02, after_lessons.
         mock_quiz = MagicMock()
-        mock_quiz.compile_assessment.return_value = {"quizName": "stub"}
+        mock_quiz.compile_assessment.return_value = {"assessmentName": "stub"}
         curriculum = self._build_curriculum([
             {"role": "post", "position": "after_lessons",
              "source": "quizazz", "ref": "x.yml"},
@@ -687,9 +690,12 @@ class TestLockingResolution:
         assert result.modules[0].locked is False
         assert result.modules[0].lessons[0].unlock_module_on_complete is True
 
-    def test_quiz_pass_threshold_propagated(self, tmp_path: Path) -> None:
+    def test_assessment_pass_threshold_propagated(self, tmp_path: Path) -> None:
         mock_quiz = MagicMock()
-        mock_quiz.compile_assessment.return_value = {"quizName": "q", "questions": []}
+        mock_quiz.compile_assessment.return_value = {
+            "assessmentName": "q",
+            "questions": [],
+        }
         c = CurriculumV1.model_validate({
             "version": "1.0.0",
             "curriculum": {
@@ -701,7 +707,7 @@ class TestLockingResolution:
                         "id": "lesson-01",
                         "title": "L",
                         "content_blocks": [{
-                            "type": "quiz",
+                            "type": "assessment",
                             "source": "quizazz",
                             "ref": "q.yml",
                             "pass_threshold": 0.8,

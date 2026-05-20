@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.72.0] - 2026-05-19
+
+### Changed
+
+- **Pydantic `QuizBlock` → `AssessmentBlock`** (Story J.m.3). [`schema_v1.py`](src/learningfoundry/schema_v1.py) renames the content-block class and its discriminator literal from `type: Literal["quiz"]` → `type: Literal["assessment"]`. `ContentBlock` union updated. `resolver.py` imports, `isinstance` check, and emitted `ResolvedContentBlock.type` literal all updated.
+- **TypeScript manifest types renamed** in [`sveltekit_template/src/lib/types/index.ts`](src/learningfoundry/sveltekit_template/src/lib/types/index.ts): `QuizManifest` → `AssessmentManifest`, `QuizQuestion` → `AssessmentQuestion`, `QuizAnswer` → `AssessmentAnswer`. Field `quizName` inside the manifest renamed to `assessmentName`. `ContentBlockType` literal union: `'quiz'` → `'assessment'`. `AssessmentDefinition.content` type updated.
+- **`ContentBlock.svelte` discriminator branch:** `{:else if block.type === 'quiz'}` → `'assessment'`; `QuizManifest` casts → `AssessmentManifest`.
+- **Local adapter `QuizBlock.svelte`** updated: `manifest: QuizManifest` prop type → `AssessmentManifest`; comment refreshed to note the relabel handoff.
+- **`QuizazzProvider.compile_assessment()` now implements the RR-1a wire-format relabel** (`integrations/quizazz.py`): after calling `quizazz.compile_assessment`, rename `quizName` → `assessmentName` in-place before returning. Idempotent (if `assessmentName` is already present, leave it). Closes the latent bug where the contract was documented in three places but the code was a pass-through.
+- **Curriculum YAML fixture** `tests/fixtures/valid-curriculum.yml`: discriminator + ref filename updated.
+
+### Added
+
+- **Wire-format relabel tests** in [`tests/test_integrations/test_quizazz.py`](tests/test_integrations/test_quizazz.py): new `TestWireFormatRelabel` class (5 cases) pins the RR-1a contract — `quizName` → `assessmentName`, other fields pass through, idempotent when already relabeled, no-op when neither key is present, conservative when both are present.
+
+### Removed (BREAKING)
+
+- **YAML discriminator `type: quiz`** — fails to parse with a Pydantic `ValidationError`. Curricula authored against pre-v0.72.0 must update to `type: assessment`. No alias.
+- **`QuizBlock` Pydantic import** — `from learningfoundry.schema_v1 import QuizBlock` no longer resolves. Use `AssessmentBlock`.
+- **TypeScript exports** `QuizManifest`, `QuizQuestion`, `QuizAnswer` — replaced by `AssessmentManifest`, `AssessmentQuestion`, `AssessmentAnswer`.
+- **Wire-format field `quizName`** — emitted `curriculum.json` no longer contains this key; downstream consumers must read `assessmentName`. (Quizazz still emits `quizName` on its vendor wire format; the adapter relabels at the boundary.)
+
+### Notes
+
+- `QuizScore` TS type and the SQLite `quiz_scores` table remain unchanged in this release — those are J.m.4 (frontend persistence rename with data-loss DB migration).
+- The vendor surface is preserved per `project-essentials.md`: the local Svelte component file is still named `QuizBlock.svelte` (mirroring `@pointmatic/quizazz`'s `<QuizBlock>` export); the `quizRef` prop name on the vendor component stays; `QuizCompleteDetail.quizRef` event field stays (it mirrors the vendor event payload).
+- Internal helper `vi.hoisted` typing in `QuizBlock.test.ts` adjusted to bypass `svelte-check`'s strict indexed-access rule.
+
 ## [0.71.0] - 2026-05-19
 
 ### Changed

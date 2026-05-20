@@ -200,7 +200,7 @@ describe('LessonList mount — assessment rows (Story J.f)', () => {
 			source: 'quizazz',
 			ref: `a/${role}.yml`,
 			pass_threshold,
-			content: { quizName: role, tree: [], questions: [] }
+			content: { assessmentName: role, tree: [], questions: [] }
 		};
 	}
 

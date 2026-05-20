@@ -36,7 +36,7 @@ TEMPLATE_DIR = (
 
 def _stub_providers() -> tuple[MagicMock, MagicMock, MagicMock]:
     quiz = MagicMock()
-    quiz.compile_assessment.return_value = {"quizName": "q", "questions": []}
+    quiz.compile_assessment.return_value = {"assessmentName": "q", "questions": []}
     exercise = MagicMock()
     exercise.compile_exercise.return_value = {"status": "stub"}
     vis = MagicMock()
@@ -142,7 +142,7 @@ class TestAllBlockTypesTogether:
         c = _curriculum_with_blocks([
             {"type": "text", "ref": "lesson.md"},
             {"type": "video", "url": "https://www.youtube.com/watch?v=abc123"},
-            {"type": "quiz", "source": "quizazz", "ref": "q.yml"},
+            {"type": "assessment", "source": "quizazz", "ref": "q.yml"},
             {"type": "exercise", "source": "nbfoundry", "ref": "e.yml"},
             {"type": "visualization", "source": "d3foundry", "ref": "v.yml"},
         ])
@@ -155,7 +155,7 @@ class TestAllBlockTypesTogether:
         blocks = result.modules[0].lessons[0].content_blocks
         assert len(blocks) == 5
         types = [b.type for b in blocks]
-        assert types == ["text", "video", "quiz", "exercise", "visualization"]
+        assert types == ["text", "video", "assessment", "exercise", "visualization"]
 
     def test_all_block_types_are_resolved_content_blocks(self, tmp_path: Path) -> None:
         md = tmp_path / "lesson.md"
@@ -164,7 +164,7 @@ class TestAllBlockTypesTogether:
         c = _curriculum_with_blocks([
             {"type": "text", "ref": "lesson.md"},
             {"type": "video", "url": "https://www.youtube.com/watch?v=abc123"},
-            {"type": "quiz", "source": "quizazz", "ref": "q.yml"},
+            {"type": "assessment", "source": "quizazz", "ref": "q.yml"},
             {"type": "exercise", "source": "nbfoundry", "ref": "e.yml"},
             {"type": "visualization", "source": "d3foundry", "ref": "v.yml"},
         ])
@@ -203,8 +203,8 @@ class TestAllBlockTypesTogether:
                                     content={"url": "https://youtu.be/abc"},
                                 ),
                                 ResolvedContentBlock(
-                                    type="quiz", source="quizazz", ref="q.yml",
-                                    content={"quizName": "q", "questions": []},
+                                    type="assessment", source="quizazz", ref="q.yml",
+                                    content={"assessmentName": "q", "questions": []},
                                 ),
                                 ResolvedContentBlock(
                                     type="exercise", source="nbfoundry", ref="e.yml",
@@ -226,7 +226,7 @@ class TestAllBlockTypesTogether:
         blocks = data["modules"][0]["lessons"][0]["content_blocks"]
         assert len(blocks) == 5
         block_types = [b["type"] for b in blocks]
-        expected = {"text", "video", "quiz", "exercise", "visualization"}
+        expected = {"text", "video", "assessment", "exercise", "visualization"}
         assert set(block_types) == expected
 
 
@@ -370,7 +370,9 @@ class TestIntegrationRunBuild:
         data = json.loads((out / "static" / "curriculum.json").read_text())
         mod01_blocks = data["modules"][0]["lessons"][0]["content_blocks"]
         block_types = {b["type"] for b in mod01_blocks}
-        assert block_types == {"text", "video", "quiz", "exercise", "visualization"}
+        assert block_types == {
+            "text", "video", "assessment", "exercise", "visualization"
+        }
 
     def test_full_build_package_json_present(self, tmp_path: Path) -> None:
         quiz, exercise, vis = _stub_providers()

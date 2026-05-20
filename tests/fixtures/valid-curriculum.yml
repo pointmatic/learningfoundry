@@ -41,9 +41,9 @@ curriculum:
               ref: content/mod-01/lesson-01.md
             - type: video
               url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-            - type: quiz
+            - type: assessment
               source: quizazz
-              ref: assessments/mod-01-lesson-01-quiz.yml
+              ref: assessments/mod-01-lesson-01-assessment.yml
               pass_threshold: 0.5
             - type: exercise
               source: nbfoundry

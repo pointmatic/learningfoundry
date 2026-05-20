@@ -109,8 +109,8 @@ class VideoBlock(StrictModel):
         return self
 
 
-class QuizBlock(StrictModel):
-    type: Literal["quiz"]
+class AssessmentBlock(StrictModel):
+    type: Literal["assessment"]
     source: str
     ref: str
     pass_threshold: float = Field(0.0, ge=0.0, le=1.0)
@@ -129,7 +129,7 @@ class VisualizationBlock(StrictModel):
 
 
 ContentBlock = Annotated[
-    TextBlock | VideoBlock | QuizBlock | ExerciseBlock | VisualizationBlock,
+    TextBlock | VideoBlock | AssessmentBlock | ExerciseBlock | VisualizationBlock,
     ...,
 ]
 

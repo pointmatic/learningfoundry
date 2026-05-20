@@ -17,13 +17,13 @@ from learningfoundry.integrations.protocols import (
 )
 from learningfoundry.schema_v1 import (
     AfterLesson,
+    AssessmentBlock,
     AssessmentDefinition,
     BeforeLesson,
     CurriculumV1,
     ExerciseBlock,
     Lesson,
     Module,
-    QuizBlock,
     TextBlock,
     VideoBlock,
     VisualizationBlock,
@@ -318,7 +318,9 @@ def _resolve_lesson(
 
 
 def _resolve_block(
-    block: TextBlock | VideoBlock | QuizBlock | ExerciseBlock | VisualizationBlock,
+    block: (
+        TextBlock | VideoBlock | AssessmentBlock | ExerciseBlock | VisualizationBlock
+    ),
     base_dir: Path,
     assessment_provider: AssessmentProvider,
     exercise_provider: ExerciseProvider,
@@ -331,13 +333,13 @@ def _resolve_block(
             return _resolve_text(block, base_dir, location, assets_by_dest)
         if isinstance(block, VideoBlock):
             return _resolve_video(block, location)
-        if isinstance(block, QuizBlock):
+        if isinstance(block, AssessmentBlock):
             manifest = assessment_provider.compile_assessment(
                 Path(block.ref), base_dir
             )
             manifest["pass_threshold"] = block.pass_threshold
             return ResolvedContentBlock(
-                type="quiz", source=block.source, ref=block.ref, content=manifest
+                type="assessment", source=block.source, ref=block.ref, content=manifest
             )
         if isinstance(block, ExerciseBlock):
             content = exercise_provider.compile_exercise(Path(block.ref), base_dir)

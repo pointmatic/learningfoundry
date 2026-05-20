@@ -43,8 +43,19 @@ class QuizazzProvider:
             ) from exc
 
         try:
-            return compile_assessment(ref_path, base_dir)  # type: ignore[no-any-return]
+            manifest = compile_assessment(ref_path, base_dir)
         except Exception as exc:
             raise IntegrationError(
                 f"quizazz failed to compile assessment `{ref_path}`: {exc}"
             ) from exc
+
+        # Wire-format relabel (RR-1a in dependency-spec.md; project-essentials
+        # "Hidden Coupling"): quizazz emits `quizName` on the vendor wire
+        # format; learningfoundry's downstream AssessmentManifest TS type
+        # uses `assessmentName`. Translate at the adapter boundary so the
+        # vendor key never appears in `curriculum.json`. Idempotent: if the
+        # dict already has `assessmentName` (future-proofing), leave it
+        # alone.
+        if "quizName" in manifest and "assessmentName" not in manifest:
+            manifest["assessmentName"] = manifest.pop("quizName")
+        return manifest  # type: ignore[no-any-return]

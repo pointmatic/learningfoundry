@@ -132,7 +132,7 @@ function assessment(
 		source: 'quizazz',
 		ref: `a/${role}.yml`,
 		pass_threshold,
-		content: { quizName: role, tree: [], questions: [] }
+		content: { assessmentName: role, tree: [], questions: [] }
 	};
 }
 

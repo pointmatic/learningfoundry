@@ -6,8 +6,8 @@
 <script lang="ts">
 	import type { ContentBlock, QuizScore } from '$lib/types/index.js';
 	import type {
+		AssessmentManifest,
 		ExerciseContent,
-		QuizManifest,
 		TextContent,
 		VideoContent,
 		VisualizationContent
@@ -36,11 +36,11 @@
 	<TextBlock content={block.content as TextContent} ontextcomplete={handleBlockComplete} />
 {:else if block.type === 'video'}
 	<VideoBlock content={block.content as VideoContent} onvideocomplete={handleBlockComplete} />
-{:else if block.type === 'quiz'}
+{:else if block.type === 'assessment'}
 	<QuizBlock
-		manifest={block.content as QuizManifest}
+		manifest={block.content as AssessmentManifest}
 		quizRef={block.ref ?? ''}
-		passThreshold={(block.content as QuizManifest).passThreshold ?? 0.0}
+		passThreshold={(block.content as AssessmentManifest).passThreshold ?? 0.0}
 		oncomplete={onquizcomplete}
 		onquizcomplete={handleBlockComplete}
 	/>

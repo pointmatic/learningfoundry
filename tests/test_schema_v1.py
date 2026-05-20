@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from learningfoundry.schema_v1 import (
     AfterLesson,
+    AssessmentBlock,
     AssessmentDefinition,
     BeforeLesson,
     CurriculumDef,
@@ -21,7 +22,6 @@ from learningfoundry.schema_v1 import (
     LessonMeta,
     Module,
     ModuleMeta,
-    QuizBlock,
     TextBlock,
     VideoBlock,
     VisualizationBlock,
@@ -47,7 +47,7 @@ class TestValidCurriculum:
         curriculum = CurriculumV1.model_validate(data)
         blocks = curriculum.curriculum.modules[0].lessons[0].content_blocks
         types = [b.type for b in blocks]
-        assert types == ["text", "video", "quiz", "exercise", "visualization"]
+        assert types == ["text", "video", "assessment", "exercise", "visualization"]
 
     def test_assessments_parsed(self) -> None:
         data = load_fixture("valid-curriculum.yml")
@@ -112,9 +112,9 @@ class TestContentBlockTypes:
         )
         assert block.extensions["chapters"][0]["title"] == "A"
 
-    def test_quiz_block(self) -> None:
-        block = QuizBlock.model_validate(
-            {"type": "quiz", "source": "quizazz", "ref": "assessments/q.yml"}
+    def test_assessment_block(self) -> None:
+        block = AssessmentBlock.model_validate(
+            {"type": "assessment", "source": "quizazz", "ref": "assessments/q.yml"}
         )
         assert block.source == "quizazz"
 
@@ -284,28 +284,43 @@ class TestLockingConfig:
 
     def test_pass_threshold_validates_range(self) -> None:
         # Valid values
-        q = QuizBlock.model_validate(
-            {"type": "quiz", "source": "quizazz", "ref": "q.yml", "pass_threshold": 0.7}
+        q = AssessmentBlock.model_validate(
+            {
+                "type": "assessment",
+                "source": "quizazz",
+                "ref": "q.yml",
+                "pass_threshold": 0.7,
+            }
         )
         assert q.pass_threshold == 0.7
 
-        QuizBlock.model_validate(
-            {"type": "quiz", "source": "quizazz", "ref": "q.yml", "pass_threshold": 0.0}
+        AssessmentBlock.model_validate(
+            {
+                "type": "assessment",
+                "source": "quizazz",
+                "ref": "q.yml",
+                "pass_threshold": 0.0,
+            }
         )
-        QuizBlock.model_validate(
-            {"type": "quiz", "source": "quizazz", "ref": "q.yml", "pass_threshold": 1.0}
+        AssessmentBlock.model_validate(
+            {
+                "type": "assessment",
+                "source": "quizazz",
+                "ref": "q.yml",
+                "pass_threshold": 1.0,
+            }
         )
 
         # Invalid: above 1.0
         with pytest.raises(ValidationError):
-            QuizBlock.model_validate({
-                "type": "quiz", "source": "quizazz",
+            AssessmentBlock.model_validate({
+                "type": "assessment", "source": "quizazz",
                 "ref": "q.yml", "pass_threshold": 1.5,
             })
         # Invalid: below 0.0
         with pytest.raises(ValidationError):
-            QuizBlock.model_validate({
-                "type": "quiz", "source": "quizazz",
+            AssessmentBlock.model_validate({
+                "type": "assessment", "source": "quizazz",
                 "ref": "q.yml", "pass_threshold": -0.1,
             })
 
@@ -354,8 +369,8 @@ class TestLockingConfig:
         assert curriculum.curriculum.modules[0].locked is False
         lesson_0 = curriculum.curriculum.modules[0].lessons[0]
         assert lesson_0.unlock_module_on_complete is True
-        quiz_block = curriculum.curriculum.modules[0].lessons[0].content_blocks[2]
-        assert quiz_block.pass_threshold == 0.5  # type: ignore[union-attr]
+        assessment_block = curriculum.curriculum.modules[0].lessons[0].content_blocks[2]
+        assert assessment_block.pass_threshold == 0.5  # type: ignore[union-attr]
 
 
 # ---------------------------------------------------------------------------

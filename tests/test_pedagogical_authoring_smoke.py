@@ -30,7 +30,7 @@ CONTENT_DIR = FIXTURES_DIR / "pedagogical-authoring-content"
 def _stub_providers() -> tuple[MagicMock, MagicMock, MagicMock]:
     quiz = MagicMock()
     quiz.compile_assessment.side_effect = lambda ref, _base: {
-        "quizName": Path(ref).stem,
+        "assessmentName": Path(ref).stem,
         "questions": [],
     }
     exercise = MagicMock()
@@ -146,7 +146,7 @@ class TestPhaseJSmoke:
     def test_assessment_content_resolved(self, tmp_path: Path) -> None:
         data = _build(tmp_path)
         names = [
-            a["content"]["quizName"] for a in data["modules"][0]["assessments"]
+            a["content"]["assessmentName"] for a in data["modules"][0]["assessments"]
         ]
         # Each ref name is the YAML stem from the fixture.
         assert names == [

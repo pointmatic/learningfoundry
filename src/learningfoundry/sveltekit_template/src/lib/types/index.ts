@@ -21,22 +21,22 @@ export interface VideoContent {
 	extensions?: Record<string, unknown>;
 }
 
-export interface QuizManifest {
-	quizName: string;
+export interface AssessmentManifest {
+	assessmentName: string;
 	tree: unknown[];
-	questions: QuizQuestion[];
+	questions: AssessmentQuestion[];
 	passThreshold?: number;
 	[key: string]: unknown;
 }
 
-export interface QuizQuestion {
+export interface AssessmentQuestion {
 	id: string;
 	text: string;
-	answers: QuizAnswer[];
+	answers: AssessmentAnswer[];
 	[key: string]: unknown;
 }
 
-export interface QuizAnswer {
+export interface AssessmentAnswer {
 	id: string;
 	text: string;
 	weight: number;
@@ -69,13 +69,13 @@ export interface VisualizationContent {
 	alt_text: string;
 }
 
-export type ContentBlockType = 'text' | 'video' | 'quiz' | 'exercise' | 'visualization';
+export type ContentBlockType = 'text' | 'video' | 'assessment' | 'exercise' | 'visualization';
 
 export interface ContentBlock {
 	type: ContentBlockType;
 	source: string | null;
 	ref: string | null;
-	content: TextContent | VideoContent | QuizManifest | ExerciseContent | VisualizationContent | Record<string, unknown>;
+	content: TextContent | VideoContent | AssessmentManifest | ExerciseContent | VisualizationContent | Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -150,7 +150,7 @@ export interface AssessmentDefinition {
 	source: string;
 	ref: string;
 	pass_threshold: number | null;
-	content: QuizManifest;
+	content: AssessmentManifest;
 }
 
 export interface Module {

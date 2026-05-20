@@ -25,7 +25,7 @@ pytestmark = pytest.mark.smoke
 
 def _stub_providers() -> tuple[MagicMock, MagicMock, MagicMock]:
     quiz = MagicMock()
-    quiz.compile_assessment.return_value = {"quizName": "q", "questions": []}
+    quiz.compile_assessment.return_value = {"assessmentName": "q", "questions": []}
     exercise = MagicMock()
     exercise.compile_exercise.return_value = {"status": "stub"}
     vis = MagicMock()
@@ -226,11 +226,11 @@ class TestSvelteKitSmokeBuild:
         # Per-lesson unlock_module_on_complete
         lesson = data["modules"][0]["lessons"][0]
         assert lesson["unlock_module_on_complete"] is True
-        # Quiz pass_threshold in content
-        quiz_block = next(
-            b for b in lesson["content_blocks"] if b["type"] == "quiz"
+        # Assessment pass_threshold in content
+        assessment_block = next(
+            b for b in lesson["content_blocks"] if b["type"] == "assessment"
         )
-        assert quiz_block["content"]["pass_threshold"] == 0.5
+        assert assessment_block["content"]["pass_threshold"] == 0.5
 
     def test_pedagogical_meta_survives_build(self, compiled_app: Path) -> None:
         """Story J.b — `lesson.meta.role`, `lesson.meta.hook.tagline`, and
