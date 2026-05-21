@@ -195,7 +195,7 @@ nbfoundry errors must be catchable as `nbfoundry.ExerciseError` (or similar), ca
 
 ### BR-4: Submission Schema and Evaluation Contract
 
-`compile_exercise` may emit an optional `submission` block describing how the learner's outcome is captured and graded. This is the contract that lets `ExerciseBlock` produce a `score / maxScore` payload analogous to QuizBlock, with a configurable `pass_threshold` for completion.
+`compile_exercise` may emit an optional `submission` block describing how the learner's outcome is captured and graded. This is the contract that lets `ExerciseBlock` produce a `score / maxScore` payload analogous to `AssessmentBlock`, with a configurable `pass_threshold` for completion.
 
 **Forward-compat by design.** The `submission` schema is the *author's contract for what counts as success*, independent of *how* the values get captured. In v1 (Option B static display), the frontend renders typed input fields and the learner pastes their results from a local run. In the future Marimo WASM mode (Option A), the same `submission` schema is satisfied by cell outputs from the executing notebook — same comparison rules, same scoring formula, same `complete` event payload. **Existing exercises authored against v1's paste-in flow do not require YAML rewrites when WASM lands.**
 
@@ -234,7 +234,7 @@ maxScore = sum(rule.weight  for rule in submission.fields)
 passed   = (maxScore > 0) AND (score / maxScore >= pass_threshold)
 ```
 
-This is the same shape QuizBlock uses (see [features.md FR-4 quiz block](../features.md#fr-4-in-browser-progress-tracking) — "fires when `score / maxScore >= passThreshold`"). Reusing the formula keeps the recording schema in [`learningfoundry`'s `quiz_scores` table-shape mental model](../project-essentials.md#domain-conventions) consistent: `score` (points earned), `max_score` (total), with completion gated on a threshold.
+This is the same shape `AssessmentBlock` uses (see [features.md FR-4 assessment block](../features.md#fr-4-in-browser-progress-tracking) — "fires when `score / maxScore >= passThreshold`"). Reusing the formula keeps the recording schema in [`learningfoundry`'s `assessment_scores` table-shape mental model](../project-essentials.md#domain-conventions) consistent: `score` (points earned), `max_score` (total), with completion gated on a threshold.
 
 **When `submission` is absent (or `None`):** the exercise renders today's manual-completion UI ("Mark as Complete" button). No scoring; the `complete` event carries `status: "completed"` only. This is the default and lets authors opt into evaluation incrementally.
 
@@ -259,7 +259,7 @@ Image (and other binary) assets referenced by an exercise travel as **relative f
 | Stage asset files into the build output | learningfoundry pipeline | Copy `base_dir/<path>` → `output_dir/static/exercises/<exerciseRef>/<path>` |
 | Construct runtime URL for `<img src>` | `ExerciseBlock` (runtime) | `` `/exercises/${exerciseRef}/${output.path}` `` |
 
-**Why nbfoundry doesn't construct URLs:** the `exerciseRef` is a curriculum-level concern (set by learningfoundry's curriculum YAML, not by the exercise author), and the `static/exercises/` URL convention is a learningfoundry build-output choice. Pushing URL construction into nbfoundry would couple the library to a host-specific path layout. Relative paths in the dict + runtime URL composition is the loose-coupling design — the same as how QuizBlock manifests carry `quizRef` separately from the rendering host's URL scheme.
+**Why nbfoundry doesn't construct URLs:** the `exerciseRef` is a curriculum-level concern (set by learningfoundry's curriculum YAML, not by the exercise author), and the `static/exercises/` URL convention is a learningfoundry build-output choice. Pushing URL construction into nbfoundry would couple the library to a host-specific path layout. Relative paths in the dict + runtime URL composition is the loose-coupling design — the same as how `<QuizBlock>` is mounted with a `quizRef` prop separately from the manifest's URL fields.
 
 **Asset enumeration for the pipeline:** so learningfoundry doesn't have to traverse the dict hunting for paths, the compiled exercise SHOULD include a top-level `assets: list[str]` field enumerating every relative path the dict references. The pipeline iterates this list to do the copy step. Empty list when there are no binary assets.
 
@@ -433,7 +433,7 @@ All of the manual-completion rendering above, *plus*:
 11. Render an inline result panel:
     - **Pass** (`passed === true`): a green "Submission accepted" banner with `score / maxScore` shown, a list of which fields passed, and a Resubmit affordance for learners who want to improve.
     - **Fail** (`passed === false`): an amber "Submission below threshold" banner with the same per-field breakdown, the gap to threshold, and a Retry affordance that re-enables the inputs without clearing them.
-12. Fire the `complete` event with the full payload (including `score`, `maxScore`, `passed`, `submittedValues`). The event fires on **every** submit, not only on the first pass — the recording layer is responsible for "best score wins" semantics if it cares (mirrors the QuizBlock convention; see learningfoundry's [`saveQuizScore` upsert](../../src/learningfoundry/sveltekit_template/src/lib/db/progress.ts) for the prior-art pattern).
+12. Fire the `complete` event with the full payload (including `score`, `maxScore`, `passed`, `submittedValues`). The event fires on **every** submit, not only on the first pass — the recording layer is responsible for "best score wins" semantics if it cares (mirrors the `<QuizBlock>` convention; see learningfoundry's [`saveAssessmentScore` upsert](../../src/learningfoundry/sveltekit_template/src/lib/db/progress.ts) for the prior-art pattern).
 13. Comparison logic runs entirely in the browser. **The component does not POST submission values anywhere.** This preserves the v1 no-server constraint.
 
 **Future (Marimo WASM) Rendering Behavior:**

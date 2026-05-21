@@ -230,10 +230,10 @@ curriculum:
               # provider: youtube          # optional today; only youtube is implemented
               # extensions: {}            # optional; player-specific payload (see "Video blocks")
 
-            # Quiz block — requires learningfoundry[quizazz]
-            - type: quiz
+            # Assessment block — requires learningfoundry[quizazz]
+            - type: assessment
               source: quizazz
-              ref: assessments/mod-01-quiz.yml
+              ref: assessments/mod-01-assessment.yml
 
             # Exercise block — requires nbfoundry (stub included)
             - type: exercise
@@ -382,7 +382,7 @@ Phase J adds first-class authoring affordances for the worked-example → faded-
 
 1. **`meta` blocks** declare the *intent* of a module or lesson — its theme, role, opening hook, learning items, and time estimate.
 2. **Container directives** in lesson markdown style worked / faded / independent-practice cards inline.
-3. **`assessments[]`** on each module places quizzes at named positions (before all lessons, before/after a specific lesson, after all lessons) — replacing the legacy `pre_assessment` / `post_assessment` pair (see migration note below).
+3. **`assessments[]`** on each module places assessments at named positions (before all lessons, before/after a specific lesson, after all lessons) — replacing the legacy `pre_assessment` / `post_assessment` pair (see migration note below).
 
 A small worked example bringing the three together:
 
@@ -568,7 +568,7 @@ Each module declares an `assessments[]` array; each entry carries:
   - `after_lessons` — anchors at the end.
   - `{ before_lesson: <lesson-id> }` — anchors immediately before the named lesson.
   - `{ after_lesson: <lesson-id> }` — anchors immediately after.
-- `source`, `ref` — provider + path, same shape as `quiz` content blocks.
+- `source`, `ref` — provider + path, same shape as `assessment` content blocks.
 - `pass_threshold` — optional `0.0`–`1.0`. Recorded but not gating in v1; surfaces as a `"X% to pass"` annotation on the assessment row when set.
 
 Lesson-anchored refs (`before_lesson` / `after_lesson`) are validated against the module's `lessons` at build time — typing a wrong lesson id fails the build with the module id, role, and unknown lesson id.
@@ -623,9 +623,9 @@ curriculum:
         - id: lesson-01
           unlock_module_on_complete: true   # completing this unlocks siblings + next module
           content_blocks:
-            - type: quiz
+            - type: assessment
               source: quizazz
-              ref: assessments/quiz.yml
+              ref: assessments/assessment.yml
               pass_threshold: 0.7           # 70% required to count as passed
 ```
 
@@ -702,7 +702,7 @@ learningfoundry/
 │   ├── config.py           # Configuration loading
 │   ├── exceptions.py       # Exception hierarchy
 │   ├── generator.py        # SvelteKit project generator
-│   ├── integrations/       # Quiz / exercise / visualization providers
+│   ├── integrations/       # Assessment / exercise / visualization providers
 │   ├── logging_config.py   # Logging setup
 │   ├── parser.py           # YAML parser + version dispatch
 │   ├── pipeline.py         # run_build / run_validate / run_preview

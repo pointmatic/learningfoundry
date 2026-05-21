@@ -741,7 +741,7 @@ Apply the documentation-only recommendations from [vendor-pushback-recommendatio
 
 ---
 
-### Story J.m.7: Documentation Sweep for Residual `quiz...` References [Planned]
+### Story J.m.7: Documentation Sweep for Residual `quiz...` References [Done]
 
 Closes the J.m series. The code-side renames in J.m.2 / J.m.3 / J.m.4 / J.m.5 leave several documentation files citing identifiers that no longer exist (`QuizBlock`, `quiz_scores`, `saveQuizScore`, `quizRef` field, `type: quiz` YAML literal, prose like "quiz content blocks"). J.m.7 sweeps those, while preserving the vendor surface, the historical record, and J.i's deliberate problem-space prose decisions.
 
@@ -763,42 +763,42 @@ Closes the J.m series. The code-side renames in J.m.2 / J.m.3 / J.m.4 / J.m.5 le
 
 **`README.md` — 7 refs**
 
-- [ ] [README.md:234](../../README.md#L234): YAML example `- type: quiz` → `- type: assessment`.
-- [ ] [README.md:236](../../README.md#L236): ref filename `assessments/mod-01-quiz.yml` → `assessments/mod-01-assessment.yml`.
-- [ ] [README.md:385](../../README.md#L385): prose "places quizzes at named positions" → "places assessments at named positions".
-- [ ] [README.md:571](../../README.md#L571): "same shape as `quiz` content blocks" → "same shape as `assessment` content blocks".
-- [ ] [README.md:626](../../README.md#L626): YAML example `- type: quiz` → `- type: assessment`.
-- [ ] [README.md:628](../../README.md#L628): ref filename `assessments/quiz.yml` → `assessments/assessment.yml`.
-- [ ] [README.md:705](../../README.md#L705): file-tree comment `# Quiz / exercise / visualization providers` → `# Assessment / exercise / visualization providers`.
+- [x] [README.md:234](../../README.md#L234): YAML example `- type: quiz` → `- type: assessment`.
+- [x] [README.md:236](../../README.md#L236): ref filename `assessments/mod-01-quiz.yml` → `assessments/mod-01-assessment.yml`.
+- [x] [README.md:385](../../README.md#L385): prose "places quizzes at named positions" → "places assessments at named positions".
+- [x] [README.md:571](../../README.md#L571): "same shape as `quiz` content blocks" → "same shape as `assessment` content blocks".
+- [x] [README.md:626](../../README.md#L626): YAML example `- type: quiz` → `- type: assessment`.
+- [x] [README.md:628](../../README.md#L628): ref filename `assessments/quiz.yml` → `assessments/assessment.yml`.
+- [x] [README.md:705](../../README.md#L705): file-tree comment `# Quiz / exercise / visualization providers` → `# Assessment / exercise / visualization providers`.
 
 **`docs/specs/nbfoundry/dependency-spec.md` — 4 refs**
 
-- [ ] [line 198](../../docs/specs/nbfoundry/dependency-spec.md#L198): "analogous to QuizBlock" → "analogous to `AssessmentBlock`" (referring to learningfoundry's Pydantic content-block class, post-J.m.3).
-- [ ] [line 237](../../docs/specs/nbfoundry/dependency-spec.md#L237): two edits on this line — "the same shape QuizBlock uses" → "the same shape `AssessmentBlock` uses"; "learningfoundry's `quiz_scores` table-shape mental model" → "learningfoundry's `assessment_scores` table-shape mental model"; update the linked anchor to point at the post-J.m.3 FR-4 section name if it changed in features.md.
-- [ ] [line 262](../../docs/specs/nbfoundry/dependency-spec.md#L262): "the same as how QuizBlock manifests carry `quizRef` separately from the rendering host's URL scheme." — Judgment call on which side this refers to. The analogy bridges *the data shape* (post-J.m.3 `AssessmentBlock` / `AssessmentManifest`) *plus* the vendor component (`<QuizBlock>`) that consumes it with the `quizRef` prop. Rewrite as: "the same as how `<QuizBlock>` is mounted with a `quizRef` prop separately from the manifest's URL fields" — keeps the vendor prop name (correct) and removes the conflated "QuizBlock manifests" framing (was inaccurate even pre-rename — `<QuizBlock>` is the component; the manifest is its prop).
-- [ ] [line 436](../../docs/specs/nbfoundry/dependency-spec.md#L436): "mirrors the QuizBlock convention; see learningfoundry's `saveQuizScore` upsert" — the *convention* (event firing on every submit, "best score wins" on the recording side) belongs to the `<QuizBlock>` vendor component, so leave that side as `<QuizBlock>`. The repo-method reference renames per J.m.4: "see learningfoundry's `saveAssessmentScore` upsert". Update the linked file-line anchor accordingly.
+- [x] [line 198](../../docs/specs/nbfoundry/dependency-spec.md#L198): "analogous to QuizBlock" → "analogous to `AssessmentBlock`" (referring to learningfoundry's Pydantic content-block class, post-J.m.3).
+- [x] [line 237](../../docs/specs/nbfoundry/dependency-spec.md#L237): two edits on this line — "the same shape QuizBlock uses" → "the same shape `AssessmentBlock` uses"; "learningfoundry's `quiz_scores` table-shape mental model" → "learningfoundry's `assessment_scores` table-shape mental model"; update the linked anchor to point at the post-J.m.3 FR-4 section name if it changed in features.md.
+- [x] [line 262](../../docs/specs/nbfoundry/dependency-spec.md#L262): "the same as how QuizBlock manifests carry `quizRef` separately from the rendering host's URL scheme." — Judgment call on which side this refers to. The analogy bridges *the data shape* (post-J.m.3 `AssessmentBlock` / `AssessmentManifest`) *plus* the vendor component (`<QuizBlock>`) that consumes it with the `quizRef` prop. Rewrite as: "the same as how `<QuizBlock>` is mounted with a `quizRef` prop separately from the manifest's URL fields" — keeps the vendor prop name (correct) and removes the conflated "QuizBlock manifests" framing (was inaccurate even pre-rename — `<QuizBlock>` is the component; the manifest is its prop).
+- [x] [line 436](../../docs/specs/nbfoundry/dependency-spec.md#L436): "mirrors the QuizBlock convention; see learningfoundry's `saveQuizScore` upsert" — the *convention* (event firing on every submit, "best score wins" on the recording side) belongs to the `<QuizBlock>` vendor component, so leave that side as `<QuizBlock>`. The repo-method reference renames per J.m.4: "see learningfoundry's `saveAssessmentScore` upsert". Update the linked file-line anchor accordingly.
 
 **`docs/specs/phase-j-pedagogical-authoring-plan.md` — 1 ref**
 
-- [ ] [line 13](../../docs/specs/phase-j-pedagogical-authoring-plan.md#L13): "content blocks (`text`, `video`, `quiz`, `exercise`, `visualization`)" → "content blocks (`text`, `video`, `assessment`, `exercise`, `visualization`)".
+- [x] [line 13](../../docs/specs/phase-j-pedagogical-authoring-plan.md#L13): "content blocks (`text`, `video`, `quiz`, `exercise`, `visualization`)" → "content blocks (`text`, `video`, `assessment`, `exercise`, `visualization`)".
 
 **`docs/specs/concept.md` — 4 refs (the J.i-missed capability-list bucket)**
 
-- [ ] [line 34](../../docs/specs/concept.md#L34): "across text, video, quizzes, and hands-on exercises" → "across text, video, assessments, and hands-on exercises".
-- [ ] [line 68](../../docs/specs/concept.md#L68): "Text, video (YouTube embeds), quizzes, notebooks, and visualizations are presented" → "Text, video (YouTube embeds), assessments, notebooks, and visualizations are presented".
-- [ ] [line 71](../../docs/specs/concept.md#L71): "(LLM access, quizzes, model training, notebooks, visualizations)" → "(LLM access, assessments, model training, notebooks, visualizations)".
-- [ ] [line 119](../../docs/specs/concept.md#L119): "didactic text, YouTube videos, quizzes, notebooks, and visualizations" → "didactic text, YouTube videos, assessments, notebooks, and visualizations".
-- [ ] Confirm: lines 14, 20, 23, 29 (problem-space "quiz platforms" mentions) **not** touched — J.i's deliberate preservation per its task notes.
+- [x] [line 34](../../docs/specs/concept.md#L34): "across text, video, quizzes, and hands-on exercises" → "across text, video, assessments, and hands-on exercises".
+- [x] [line 68](../../docs/specs/concept.md#L68): "Text, video (YouTube embeds), quizzes, notebooks, and visualizations are presented" → "Text, video (YouTube embeds), assessments, notebooks, and visualizations are presented".
+- [x] [line 71](../../docs/specs/concept.md#L71): "(LLM access, quizzes, model training, notebooks, visualizations)" → "(LLM access, assessments, model training, notebooks, visualizations)".
+- [x] [line 119](../../docs/specs/concept.md#L119): "didactic text, YouTube videos, quizzes, notebooks, and visualizations" → "didactic text, YouTube videos, assessments, notebooks, and visualizations".
+- [x] Confirm: lines 14, 20, 23, 29 (problem-space "quiz platforms" mentions) **not** touched — J.i's deliberate preservation per its task notes.
 
 **Verification**
 
-- [ ] `grep -rn -i "quiz" README.md docs/specs/concept.md docs/specs/phase-j-pedagogical-authoring-plan.md docs/specs/nbfoundry/dependency-spec.md 2>/dev/null | grep -v "quizazz\|Quizazz\|<QuizBlock>"` returns only the 4 J.i-preserved problem-space lines in `concept.md` and nothing else.
-- [ ] No `pyve test` / `pnpm test` runs needed (no code touched), but render-check README in a markdown preview to confirm the YAML examples are still well-formed (indentation, fence markers untouched).
+- [x] `grep -rn -i "quiz" README.md docs/specs/concept.md docs/specs/phase-j-pedagogical-authoring-plan.md docs/specs/nbfoundry/dependency-spec.md 2>/dev/null | grep -v "quizazz\|Quizazz\|<QuizBlock>"` returns only the 4 J.i-preserved problem-space lines in `concept.md` and nothing else.
+- [x] No `pyve test` / `pnpm test` runs needed (no code touched), but render-check README in a markdown preview to confirm the YAML examples are still well-formed (indentation, fence markers untouched).
 
 **Versioning + changelog**
 
-- [ ] No version bump (unversioned per the Phase-bundled-release rule; doc-only follow-up to the J.m series, mirroring the J.i / J.k / J.l pattern).
-- [ ] No `CHANGELOG.md` entry (docs-only; not user-visible behavior change).
+- [x] No version bump (unversioned per the Phase-bundled-release rule; doc-only follow-up to the J.m series, mirroring the J.i / J.k / J.l pattern).
+- [x] No `CHANGELOG.md` entry (docs-only; not user-visible behavior change).
 
 ---
 

@@ -10,7 +10,7 @@ This plan formalizes [phase-j-improvement-idea.md](phase-j-improvement-idea.md) 
 
 ### What exists today (post-Phase I, v0.63.0)
 
-- `CurriculumV1` / `Module` / `Lesson` schema in [schema_v1.py](../../src/learningfoundry/schema_v1.py) supports content blocks (`text`, `video`, `quiz`, `exercise`, `visualization`).
+- `CurriculumV1` / `Module` / `Lesson` schema in [schema_v1.py](../../src/learningfoundry/schema_v1.py) supports content blocks (`text`, `video`, `assessment`, `exercise`, `visualization`).
 - `Module` has exactly two assessment slots: `pre_assessment` and `post_assessment` (each an `AssessmentRef`). No third position; no positional flexibility.
 - Lessons and modules carry only `id`, `title`, `description` and content. Nothing pedagogical (no `role`, `hook`, `objectives`, `introduces`, `duration_minutes`).
 - The SvelteKit template renders content blocks straight through — no role chips, no hook taglines, no aggregate time estimates, no tutorial-scaffold styling.

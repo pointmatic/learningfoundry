@@ -31,7 +31,7 @@ This problem is acute for individual educators, graduate students, and small tea
 - **Assessment disconnect**: Assessment tools operate independently from the curriculum structure, with no built-in mechanism for pre/post-module gating or adaptive sequencing.
 - **Experiential learning gap**: Embedding executable, interactive coding exercises (notebooks, model training) into a curriculum requires custom infrastructure that most educators cannot build.
 - **Visualization isolation**: Data visualizations live in separate tools or notebooks rather than being integrated into the learning flow where the learner encounters the relevant concept.
-- **Progress opacity**: There is no unified way to track a learner's progress across text, video, quizzes, and hands-on exercises within a single curriculum.
+- **Progress opacity**: There is no unified way to track a learner's progress across text, video, assessments, and hands-on exercises within a single curriculum.
 - **Repetitive infrastructure**: Each new curriculum repeats the same infrastructure work (frontend scaffolding, database setup, deployment pipeline) with no economies of scale.
 
 ### Target Users
@@ -65,10 +65,10 @@ For v1, the focus is on delivering a working end-to-end pipeline for a single re
 ### Goals
 
 - **Rapid curriculum delivery**: An author with a topic outline and YAML templates can produce a deployable learning app without building custom infrastructure.
-- **Unified learner experience**: Text, video (YouTube embeds), quizzes, notebooks, and visualizations are presented in a single SvelteKit application with shared navigation and progress tracking via in-browser SQLite.
+- **Unified learner experience**: Text, video (YouTube embeds), assessments, notebooks, and visualizations are presented in a single SvelteKit application with shared navigation and progress tracking via in-browser SQLite.
 - **Reusable engine**: The same learningfoundry package and pipeline templates can produce curricula on different topics — the D802 deep learning curriculum is the first instance, not a one-off.
 - **Content ownership**: All curriculum content lives in YAML and markdown under version control. The compiled SvelteKit app is a static artifact with no external service dependency at runtime.
-- **Pluggable library architecture**: Each capability (LLM access, quizzes, model training, notebooks, visualizations) is encapsulated in an independent library with a clear interface, allowing any component to be replaced or upgraded without rewriting the engine.
+- **Pluggable library architecture**: Each capability (LLM access, assessments, model training, notebooks, visualizations) is encapsulated in an independent library with a clear interface, allowing any component to be replaced or upgraded without rewriting the engine.
 - **Velocity-first v1**: Deliver a working end-to-end artifact before optimizing any single component. Mock, stub, and hack beneath the abstraction boundaries to prove the pipeline, then iterate.
 
 ### Scope
@@ -116,7 +116,7 @@ For v1, the focus is on delivering a working end-to-end pipeline for a single re
   - Each library integration (lmentry, quizazz, nbfoundry, d3foundry) is invoked by the orchestrator — the author defines *what* content to produce, not *how* to wire tools together. (Note: modelfoundry is a dependency of nbfoundry and is not invoked directly.)
 
 **No unified delivery surface**:
-  - The SvelteKit frontend shell presents all content types — didactic text, YouTube videos, quizzes, notebooks, and visualizations — in a single application with shared navigation.
+  - The SvelteKit frontend shell presents all content types — didactic text, YouTube videos, assessments, notebooks, and visualizations — in a single application with shared navigation.
   - In-browser SQLite tracks progress across all content types in one database, eliminating the need for learners to context-switch between separate apps.
 
 **Content format lock-in**:
