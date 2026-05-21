@@ -32,7 +32,7 @@ A curriculum engine that turns a YAML curriculum definition into a deployable Sv
 
 - **Text** — Markdown content rendered in the browser
 - **Video** — YouTube embeds
-- **Quiz** — Interactive assessments via [quizazz](https://github.com/pointmatic/quizazz) (optional)
+- **Assessment** — Interactive assessments via [quizazz](https://github.com/pointmatic/quizazz) (optional)
 - **Exercise** — Executable notebooks via nbfoundry (stub provided)
 - **Visualization** — D3-based charts via d3foundry (stub provided)
 
@@ -230,7 +230,8 @@ curriculum:
               # provider: youtube          # optional today; only youtube is implemented
               # extensions: {}            # optional; player-specific payload (see "Video blocks")
 
-            # Assessment block — requires learningfoundry[quizazz]
+            # Assessment block — requires learningfoundry[quizazz];
+            # see "Embedding a quizazz assessment" below for the full author flow
             - type: assessment
               source: quizazz
               ref: assessments/mod-01-assessment.yml
@@ -383,6 +384,8 @@ Phase J adds first-class authoring affordances for the worked-example → faded-
 1. **`meta` blocks** declare the *intent* of a module or lesson — its theme, role, opening hook, learning items, and time estimate.
 2. **Container directives** in lesson markdown style worked / faded / independent-practice cards inline.
 3. **`assessments[]`** on each module places assessments at named positions (before all lessons, before/after a specific lesson, after all lessons) — replacing the legacy `pre_assessment` / `post_assessment` pair (see migration note below).
+
+The subsections below cover each in detail — the [`meta` reference](#meta-reference) and [custom `meta` fields](#custom-meta-fields), the [tutorial scaffold directives](#tutorial-scaffold-directives), [embedding a quizazz assessment](#embedding-a-quizazz-assessment) (full author flow for the assessment content-block type), the module-level [`Assessments`](#assessments) model, and the [migration path](#migrating-from-pre_assessment--post_assessment-pre-v0680) from the legacy `pre_assessment` / `post_assessment` pair.
 
 A small worked example bringing the three together:
 
@@ -558,6 +561,73 @@ Three named container directives:
 
 Inner markdown (headings, lists, math, emphasis) renders normally inside each directive. Unknown directive names pass through untouched at render time. Static styling only — no progressive-reveal interactivity in v1. An unbalanced known-name block (open with no `:::` close on its own line) fails the build with the lesson location, so the failure mode is loud rather than rendered as silent prose.
 
+### Embedding a quizazz assessment
+
+[quizazz](https://github.com/pointmatic/quizazz) is the default assessment provider — interactive question/answer blocks with scoring, review, and progress persistence. This subsection walks the full author flow once; cross-links point at the canonical sources for the parts owned by quizazz (assessment-YAML schema, vendor component behavior).
+
+**What you need.** `pip install learningfoundry[quizazz]` installs the Python builder side (the [`quizazz` PyPI package](https://pypi.org/project/quizazz/)) so `learningfoundry build` can compile assessment YAML at build time. The SvelteKit template already declares [`@pointmatic/quizazz`](https://www.npmjs.com/package/@pointmatic/quizazz) as a runtime dependency, so the vendor component is wired into the generated app automatically — no separate `npm` / `pnpm install` step for the author.
+
+**Where the assessment content lives.** One `*.yml` file per assessment, conventionally under an `assessments/` directory inside your curriculum source tree. **The assessment-YAML schema is owned by quizazz** — for the authoritative format (question types, answer counts, weighted scoring rules, review options), see [quizazz README](docs/specs/quizazz/README.md) and [quizazz features.md](docs/specs/quizazz/features.md). Do not consult learningfoundry's docs for the schema; this README only covers how learningfoundry **references** quizazz YAML files.
+
+**Two ways to embed.** Pick based on the pedagogical role:
+
+1. **Inline in a lesson** — add a `type: assessment` entry to a lesson's `content_blocks`. Use this for in-lesson knowledge checks that interrupt the reading flow at a specific point.
+2. **At module level** — add an entry to the module's `assessments[]` array with a `position`. Use this for module-level pre / practice / post placements that bracket multiple lessons. See the [Assessments](#assessments) subsection below for the full positional vocabulary.
+
+Both shapes select quizazz via `source: quizazz`; both accept an optional `pass_threshold`. The schema of the *referenced YAML files* is identical regardless of which embedding shape points at them — quizazz doesn't know or care which one called.
+
+**Worked example.** A `curriculum.yml` snippet using both shapes against the same provider:
+
+```yaml
+modules:
+  - id: mod-01
+
+    # Module-level: opens the module with a pre-assessment, closes with a graded post
+    assessments:
+      - role: pre
+        position: before_lessons
+        source: quizazz
+        ref: assessments/mod-01-pre.yml
+      - role: post
+        position: after_lessons
+        source: quizazz
+        ref: assessments/mod-01-post.yml
+        pass_threshold: 0.8
+
+    lessons:
+      - id: lesson-02
+        content_blocks:
+          - type: text
+            ref: content/mod-01/lesson-02.md
+          # Content-block-level: a quick check inside lesson 2
+          - type: assessment
+            source: quizazz
+            ref: assessments/lesson-02-check.yml
+            pass_threshold: 0.6
+```
+
+The referenced file (`assessments/lesson-02-check.yml`) is a standalone quizazz YAML file — its schema is described in [quizazz README](docs/specs/quizazz/README.md). A minimal one looks like:
+
+```yaml
+# See quizazz docs for the full schema (question types, answer counts, scoring rules).
+quizName: "Lesson 2 — knowledge check"
+questions:
+  - question: "Which kernel produces a vertical-edge detector?"
+    correct: "[[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]"
+    ridiculous: "[[1, 1, 1], [1, 1, 1], [1, 1, 1]]"
+    # ...remaining answer slots per quizazz's schema
+```
+
+**What the learner sees.** At build time, learningfoundry's `QuizazzProvider` invokes quizazz's `compile_assessment` API on each referenced YAML, embeds the compiled manifest into the generated SvelteKit app's `curriculum.json`, and the frontend mounts the vendor `<QuizBlock>` component to render the assessment inline. Each completed assessment fires a score event; learningfoundry persists `{assessmentRef, score, maxScore}` to the in-browser SQLite `assessment_scores` table. quizazz manages its own per-assessment IndexedDB database for per-question detail — the two storage layers are separate by design (see [quizazz consumer-dependency-spec.md](docs/specs/quizazz/consumer-dependency-spec.md) RR-1, RR-1a, RR-1b for the full contract).
+
+**Pass-threshold gating.** Optional `pass_threshold: 0.0–1.0` on either embedding shape. When set, the assessment block fires its completion event upward only when the learner's `score / maxScore` clears the threshold, which is what gates lesson-completion progression in the sidebar. When omitted (the default), every completion attempt counts as "complete" regardless of score — useful for self-paced check-yourself assessments where the goal is exposure to the questions rather than gating.
+
+**Common gotchas:**
+
+- **Refs resolve relative to `--base-dir`.** The `ref:` path is *not* relative to the lesson markdown or to `curriculum.yml`; it resolves under whatever directory `learningfoundry build --base-dir <path>` was given. The default `--base-dir` is the directory containing `curriculum.yml`.
+- **`learningfoundry[quizazz]` is an optional extra.** Plain `pip install learningfoundry` does not pull in quizazz; running `learningfoundry build` on a curriculum that references `source: quizazz` will fail with an `ImportError`. Install the extra explicitly.
+- **`<QuizBlock>` is a vendor component name** — preserved at the vendor boundary. A future "consistency rename" pass that tried to rename it to `<AssessmentBlock>` (learningfoundry's wrapper component) would break the integration silently. See the "Vendor terminology stops at the vendor boundary" note in [project-essentials.md](docs/specs/project-essentials.md).
+
 ### Assessments
 
 Each module declares an `assessments[]` array; each entry carries:
@@ -623,6 +693,7 @@ curriculum:
         - id: lesson-01
           unlock_module_on_complete: true   # completing this unlocks siblings + next module
           content_blocks:
+            # See "Embedding a quizazz assessment" above for the full author flow
             - type: assessment
               source: quizazz
               ref: assessments/assessment.yml

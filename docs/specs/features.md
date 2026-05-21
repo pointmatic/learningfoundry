@@ -369,7 +369,7 @@ When the sql.js WASM asset (`/sql-wasm.wasm`) cannot be fetched at runtime — a
 
 ### FR-5: quizazz Integration
 
-Consume assessment content produced by quizazz and render it in the SvelteKit frontend.
+Consume assessment content produced by quizazz and render it in the SvelteKit frontend. For the author-facing how-to (install, embedding shapes, worked example, gotchas), see README's [Embedding a quizazz assessment](../../README.md#embedding-a-quizazz-assessment) walkthrough.
 
 **Behavior:**
 1. During content resolution, invoke quizazz to parse assessment YAML files referenced by `assessment` content blocks and entries in the module's `assessments` array (Story J.e — replaces the legacy two-slot `pre_assessment`/`post_assessment` fields).

@@ -802,7 +802,7 @@ Closes the J.m series. The code-side renames in J.m.2 / J.m.3 / J.m.4 / J.m.5 le
 
 ---
 
-### Story J.m.8: Author Guide — "Embedding a quizazz Assessment" Walkthrough [Planned]
+### Story J.m.8: Author Guide — "Embedding a quizazz Assessment" Walkthrough [Done]
 
 The J.m series renames identifiers and wires up the published vendor, but it does not produce a single end-to-end author-facing walkthrough for *embedding a quizazz assessment into a learningfoundry curriculum*. The information today is correct but **fragmented across five documents**, and a curriculum author starting from zero has to piece together: README's content-block syntax → quizazz's own README for the assessment-YAML schema → an implicit understanding that `pip install learningfoundry[quizazz]` covers the Python build path while `pnpm install` (run by `learningfoundry build`) handles the npm side → `dependency-spec.md`'s host-setup requirements → how the SvelteKit frontend renders the result.
 
@@ -823,7 +823,7 @@ J.m.8 collapses that into a single README subsection — "Embedding a quizazz as
 
 **Tasks:**
 
-- [ ] `README.md`: under the existing **Pedagogical authoring** section ([line 379](../../README.md#L379)), add a new subsection `### Embedding a quizazz assessment` positioned **before** the existing `### Assessments` subsection (to flow: content-block-level → module-level). Cover the following beats:
+- [x] `README.md`: under the existing **Pedagogical authoring** section ([line 379](../../README.md#L379)), add a new subsection `### Embedding a quizazz assessment` positioned **before** the existing `### Assessments` subsection (to flow: content-block-level → module-level). Cover the following beats:
   - **What you need.** `pip install learningfoundry[quizazz]` adds the Python builder side; the SvelteKit template includes `@pointmatic/quizazz` as a runtime dep so `learningfoundry build` wires the vendor component automatically — no separate npm install step for the author.
   - **Where the assessment content lives.** A `*.yml` file under your curriculum source tree (conventionally `assessments/`). The schema is owned by **quizazz**; link to [quizazz README](docs/specs/quizazz/README.md) and [quizazz features](docs/specs/quizazz/features.md) for the authoritative format. Do not restate the schema here.
   - **Two ways to embed.** (a) Inline in a lesson's `content_blocks` as `type: assessment` — for in-lesson knowledge checks. (b) At module level via `assessments[]` with a `position` — for pre / practice / post placement (cross-link to README's existing "Assessments" subsection).
@@ -831,12 +831,12 @@ J.m.8 collapses that into a single README subsection — "Embedding a quizazz as
   - **What the learner sees.** The SvelteKit app renders the quizazz `<QuizBlock>` inline (vendor component name preserved). Score events fire on completion and persist to in-browser IndexedDB via the `assessment_scores` table (cross-link to quizazz's `dependency-spec.md` RR-1 / RR-1a for the contract).
   - **Pass-threshold gating.** Optional `pass_threshold: 0.0–1.0` on the content block (and on `assessments[]` entries); when set, the block fires `assessmentcomplete` only when the score ratio clears the threshold, contributing to lesson-completion gating.
   - **Common gotchas.** (a) Refs are resolved relative to `--base-dir`, not relative to the lesson markdown. (b) `learningfoundry[quizazz]` is an optional extra — installing plain `learningfoundry` and then referencing `source: quizazz` fails with `ImportError`. (c) The `<QuizBlock>` is a vendor component name — do not rename it in any future "consistency" pass (point to project-essentials' "Vendor terminology stops at the vendor boundary" guidance for context).
-- [ ] `README.md`: update the existing **Pedagogical authoring** section's introductory paragraph to mention the new subsection (`Embedding a quizazz assessment`) alongside the existing `Assessments` and `Migrating from pre_assessment / post_assessment` subsection names. Update the table of contents at the top of `README.md` if it lists subsections.
-- [ ] `README.md`: update the existing content-block YAML example around [line 234](../../README.md#L234) and [line 626](../../README.md#L626) to **cross-link** to the new "Embedding a quizazz assessment" subsection — one inline parenthetical at each site (e.g., "Assessment block — see **Embedding a quizazz assessment** below"). Keeps the walkthrough discoverable from the natural author-flow entry point.
-- [ ] `docs/specs/features.md` FR-2 (Content Resolution) / FR-5 (Assessments): if either section's narrative reads as the author's first stop today, add a short pointer to README's new walkthrough as the suggested starting point (one sentence each, at most). features.md is a behavior spec; it should not absorb the walkthrough content, but it should signal where authors go for the practical "how do I do this" flow.
-- [ ] Verify: `pyve test` / `pnpm test` not needed (no code touched). Render-check README in a markdown preview to confirm fence markers, anchor links, and section nesting are well-formed; verify the cross-links to quizazz docs resolve to the expected files.
-- [ ] No version bump (unversioned per the Phase-bundled-release rule; doc-only authoring guide).
-- [ ] No `CHANGELOG.md` entry beyond a single line under `### Documentation` (if such a section exists at landing time; otherwise omit). The walkthrough adds no user-visible runtime behavior — only describes existing behavior in one place.
+- [x] `README.md`: update the existing **Pedagogical authoring** section's introductory paragraph to mention the new subsection (`Embedding a quizazz assessment`) alongside the existing `Assessments` and `Migrating from pre_assessment / post_assessment` subsection names. Update the table of contents at the top of `README.md` if it lists subsections.
+- [x] `README.md`: update the existing content-block YAML example around [line 234](../../README.md#L234) and [line 626](../../README.md#L626) to **cross-link** to the new "Embedding a quizazz assessment" subsection — one inline parenthetical at each site (e.g., "Assessment block — see **Embedding a quizazz assessment** below"). Keeps the walkthrough discoverable from the natural author-flow entry point.
+- [x] `docs/specs/features.md` FR-2 (Content Resolution) / FR-5 (Assessments): if either section's narrative reads as the author's first stop today, add a short pointer to README's new walkthrough as the suggested starting point (one sentence each, at most). features.md is a behavior spec; it should not absorb the walkthrough content, but it should signal where authors go for the practical "how do I do this" flow.
+- [x] Verify: `pyve test` / `pnpm test` not needed (no code touched). Render-check README in a markdown preview to confirm fence markers, anchor links, and section nesting are well-formed; verify the cross-links to quizazz docs resolve to the expected files.
+- [x] No version bump (unversioned per the Phase-bundled-release rule; doc-only authoring guide).
+- [x] No `CHANGELOG.md` entry beyond a single line under `### Documentation` (if such a section exists at landing time; otherwise omit). The walkthrough adds no user-visible runtime behavior — only describes existing behavior in one place.
 
 ---
 
