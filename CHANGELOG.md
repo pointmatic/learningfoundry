@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.72.2] - 2026-05-21
+
+### Changed
+
+- **Local `<QuizBlock>` adapter renamed to `<AssessmentBlock>`** (Story J.m.5). [`src/learningfoundry/sveltekit_template/src/lib/components/QuizBlock.svelte`](src/learningfoundry/sveltekit_template/src/lib/components/QuizBlock.svelte) → `AssessmentBlock.svelte` (via `git mv`, history preserved); same for the colocated test file `QuizBlock.test.ts` → `AssessmentBlock.test.ts`. Component header comment refreshed to describe the post-rename role ("learningfoundry's `<AssessmentBlock>` wrapper around the vendor `<QuizBlock>` from `@pointmatic/quizazz`").
+- **Wrapper prop `quizRef` → `assessmentRef`** on the local `<AssessmentBlock>`. The wrapper forwards the value to the vendor as `quizRef={assessmentRef}` so the vendor surface stays in vendor terminology while LF callers use LF terminology. `ContentBlock.svelte` updated accordingly: `<QuizBlock ... quizRef={block.ref ?? ''} ... />` → `<AssessmentBlock ... assessmentRef={block.ref ?? ''} ... />`.
+- **`LessonView.svelte` comment** updated: "Score already persisted by QuizBlock" → "Score already persisted by AssessmentBlock".
+- **Test suite renames** in [`AssessmentBlock.test.ts`](src/learningfoundry/sveltekit_template/src/lib/components/AssessmentBlock.test.ts): `import QuizBlock from './QuizBlock.svelte'` → `import AssessmentBlock from './AssessmentBlock.svelte'`; the four `render(QuizBlock, ...)` calls → `render(AssessmentBlock, ...)`; the four test props `quizRef:` → `assessmentRef:`; `describe('QuizBlock adapter — vendor integration boundary', ...)` → `describe('AssessmentBlock adapter — vendor integration boundary', ...)`. Docblock extended with J.m.5 note.
+
+### Notes
+
+- **Vendor surface preserved** per `project-essentials.md`: the vendor import `import { QuizBlock as VendorQuizBlock } from '@pointmatic/quizazz'` is unchanged; the vendor's `quizRef` prop on `<VendorQuizBlock>` is unchanged (the wrapper forwards `assessmentRef` to it under the vendor's name); the `QuizCompleteDetail` interface mirroring the vendor's event shape (including its `quizRef` field) is unchanged; the vendor-stub mock-object key `{ QuizBlock: VendorQuizBlockStub }` is unchanged (matches the vendor's literal export name).
+- Final code-side rename in the J.m cluster. The doc sweep for residual `quiz...` prose references follows in J.m.7; quizazz vendor-pushback recommendations apply in J.m.6.
+- No Python changes; no JSON-contract changes; no DDL changes; test count unchanged (4 wrapper tests pass with renamed identifiers).
+
 ## [0.72.1] - 2026-05-20
 
 ### Changed

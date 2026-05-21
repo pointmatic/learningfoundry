@@ -1,13 +1,14 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <!--
-  Adapter between the vendor `<QuizBlock>` from `@pointmatic/quizazz` and
-  learningfoundry's score-persistence + pass-threshold event protocol.
-  Renders the vendor component, translates its `complete` event payload
+  learningfoundry's `<AssessmentBlock>` wrapper around the vendor `<QuizBlock>`
+  from `@pointmatic/quizazz`. Translates between LF-domain props/events and
+  the vendor's surface: accepts `assessmentRef` from callers and forwards it
+  to the vendor as `quizRef`; receives the vendor's `complete` event payload
   (whose `quizRef` field mirrors the vendor's identifier name — preserved
-  per project-essentials' vendor-boundary rule) into a learningfoundry
-  `AssessmentScore` with `assessmentRef`, persists via
-  `progressRepo.saveAssessmentScore`, and fires the consumer-facing
-  `oncomplete` / `onassessmentcomplete` callbacks.
+  per project-essentials' vendor-boundary rule) and translates `quizRef` →
+  `assessmentRef` at the assignment site when building an
+  `AssessmentScore`, persists via `progressRepo.saveAssessmentScore`, and
+  fires the consumer-facing `oncomplete` / `onassessmentcomplete` callbacks.
 -->
 <script lang="ts">
 	import { QuizBlock as VendorQuizBlock } from '@pointmatic/quizazz';
@@ -23,14 +24,14 @@
 
 	interface Props {
 		manifest: AssessmentManifest;
-		quizRef: string;
+		assessmentRef: string;
 		passThreshold?: number;
 		oncomplete?: (score: AssessmentScore) => void;
 		onassessmentcomplete?: () => void;
 	}
 	let {
 		manifest,
-		quizRef,
+		assessmentRef,
 		passThreshold = 0.0,
 		oncomplete,
 		onassessmentcomplete
@@ -63,4 +64,4 @@
   relabeled to `assessmentName` by `QuizazzProvider`); the cast bridges the
   TS declarations.
 -->
-<VendorQuizBlock manifest={manifest as never} {quizRef} oncomplete={(detail) => handleComplete(detail)} />
+<VendorQuizBlock manifest={manifest as never} quizRef={assessmentRef} oncomplete={(detail) => handleComplete(detail)} />

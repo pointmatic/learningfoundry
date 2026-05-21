@@ -1,19 +1,24 @@
 // Copyright 2026 Pointmatic
 // SPDX-License-Identifier: Apache-2.0
 //
-// J.m.1 — adapter contract between vendor `<QuizBlock>` from
-// `@pointmatic/quizazz` and learningfoundry's score-persistence + pass-
-// threshold event protocol. The vendor component is replaced with a stub
-// so the test exercises the adapter's translation logic without booting
-// quizazz's real SvelteKit + sql.js + IndexedDB machinery.
+// J.m.1 + J.m.5 — adapter contract between vendor `<QuizBlock>` from
+// `@pointmatic/quizazz` and learningfoundry's `<AssessmentBlock>` wrapper
+// (score-persistence + pass-threshold event protocol). The vendor component
+// is replaced with a stub so the test exercises the wrapper's translation
+// logic without booting quizazz's real SvelteKit + sql.js + IndexedDB
+// machinery.
 //
-// J.m.4 — adapter now constructs an `AssessmentScore` (with
+// J.m.4 — wrapper now constructs an `AssessmentScore` (with
 // `assessmentRef`) from the vendor event's `quizRef` field, persists via
 // `progressRepo.saveAssessmentScore`, and fires the renamed
 // `onassessmentcomplete` callback.
+//
+// J.m.5 — wrapper's local prop renamed `quizRef` → `assessmentRef`; the
+// wrapper forwards it to the vendor as `quizRef={assessmentRef}` so the
+// vendor surface stays in vendor terminology.
 import { describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/svelte';
-import QuizBlock from './QuizBlock.svelte';
+import AssessmentBlock from './AssessmentBlock.svelte';
 import type { AssessmentManifest, AssessmentScore } from '$lib/types/index.js';
 
 // `capturedProps.current` is a runtime-only mutable slot that the stub
@@ -52,15 +57,16 @@ const manifest: AssessmentManifest = {
 	questions: []
 };
 
-describe('QuizBlock adapter — vendor integration boundary', () => {
-	it('forwards manifest and quizRef props to the vendor component', () => {
+describe('AssessmentBlock adapter — vendor integration boundary', () => {
+	it('forwards manifest and assessmentRef → quizRef to the vendor component', () => {
 		capturedProps.current = null;
-		render(QuizBlock, {
-			props: { manifest, quizRef: 'mod-01-pre' }
+		render(AssessmentBlock, {
+			props: { manifest, assessmentRef: 'mod-01-pre' }
 		});
 		expect(capturedProps.current).not.toBeNull();
 		expect(capturedProps.current?.manifest).toBe(manifest);
-		// `quizRef` is preserved as the vendor's prop name.
+		// `quizRef` is preserved as the vendor's prop name; the wrapper
+		// forwards `assessmentRef` to the vendor under its vendor name.
 		expect(capturedProps.current?.quizRef).toBe('mod-01-pre');
 		expect(typeof capturedProps.current?.oncomplete).toBe('function');
 	});
@@ -69,8 +75,8 @@ describe('QuizBlock adapter — vendor integration boundary', () => {
 		saveAssessmentScoreMock.mockClear();
 		capturedProps.current = null;
 		const oncomplete = vi.fn();
-		render(QuizBlock, {
-			props: { manifest, quizRef: 'mod-01-pre', oncomplete }
+		render(AssessmentBlock, {
+			props: { manifest, assessmentRef: 'mod-01-pre', oncomplete }
 		});
 		const vendorOncomplete = capturedProps.current?.oncomplete as (d: unknown) => Promise<void>;
 		await vendorOncomplete({ quizRef: 'mod-01-pre', score: 3, maxScore: 5, questionCount: 5 });
@@ -92,10 +98,10 @@ describe('QuizBlock adapter — vendor integration boundary', () => {
 		saveAssessmentScoreMock.mockClear();
 		capturedProps.current = null;
 		const onassessmentcomplete = vi.fn();
-		render(QuizBlock, {
+		render(AssessmentBlock, {
 			props: {
 				manifest,
-				quizRef: 'mod-01-pre',
+				assessmentRef: 'mod-01-pre',
 				passThreshold: 0.6,
 				onassessmentcomplete
 			}
@@ -113,10 +119,10 @@ describe('QuizBlock adapter — vendor integration boundary', () => {
 		saveAssessmentScoreMock.mockClear();
 		capturedProps.current = null;
 		const onassessmentcomplete = vi.fn();
-		render(QuizBlock, {
+		render(AssessmentBlock, {
 			props: {
 				manifest,
-				quizRef: 'mod-01-empty',
+				assessmentRef: 'mod-01-empty',
 				passThreshold: 0.5,
 				onassessmentcomplete
 			}

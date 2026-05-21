@@ -114,7 +114,7 @@
 	}
 
 	function handleAssessmentComplete(_score: AssessmentScore) {
-		// Score already persisted by QuizBlock; could trigger further logic here
+		// Score already persisted by AssessmentBlock; could trigger further logic here
 	}
 </script>
 

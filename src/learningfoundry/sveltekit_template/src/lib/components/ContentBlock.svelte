@@ -14,7 +14,7 @@
 	} from '$lib/types/index.js';
 	import ExerciseBlock from './ExerciseBlock.svelte';
 	import PlaceholderBlock from './PlaceholderBlock.svelte';
-	import QuizBlock from './QuizBlock.svelte';
+	import AssessmentBlock from './AssessmentBlock.svelte';
 	import TextBlock from './TextBlock.svelte';
 	import VideoBlock from './VideoBlock.svelte';
 	import VisualizationBlock from './VisualizationBlock.svelte';
@@ -37,9 +37,9 @@
 {:else if block.type === 'video'}
 	<VideoBlock content={block.content as VideoContent} onvideocomplete={handleBlockComplete} />
 {:else if block.type === 'assessment'}
-	<QuizBlock
+	<AssessmentBlock
 		manifest={block.content as AssessmentManifest}
-		quizRef={block.ref ?? ''}
+		assessmentRef={block.ref ?? ''}
 		passThreshold={(block.content as AssessmentManifest).passThreshold ?? 0.0}
 		oncomplete={onassessmentcomplete}
 		onassessmentcomplete={handleBlockComplete}
