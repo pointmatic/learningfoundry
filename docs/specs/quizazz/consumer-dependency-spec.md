@@ -36,8 +36,8 @@ def compile_assessment(yaml_path: Path, base_dir: Path) -> dict:
         base_dir: Root directory for resolving relative paths within the YAML.
 
     Returns:
-        A dict representing the compiled quiz manifest, suitable for JSON
-        serialization and consumption by the quizazz frontend component.
+        A dict representing the compiled assessment manifest, suitable for
+        JSON serialization and consumption by the quizazz frontend component.
 
     Raises:
         quizazz.ValidationError: If the YAML file fails validation (missing
@@ -112,7 +112,7 @@ quizazz must provide a SvelteKit component (or set of components) that learningf
 
 ```typescript
 interface AssessmentCompleteEvent {
-  quizRef: string;        // The ref path passed in (vendor prop name preserved)
+  assessmentRef: string;  // LF-domain; <AssessmentBlock> rewrites quizRef → assessmentRef at the wrapper boundary
   score: number;          // Points earned (sum of correct answers)
   maxScore: number;       // Maximum possible score (number of questions)
   questionCount: number;  // Total questions in the assessment
@@ -138,6 +138,23 @@ quizazz emits a manifest whose top-level identifier key is `quizName: string` �
 The single point of translation is **`QuizazzProvider.compile_assessment()`** in [`src/learningfoundry/integrations/quizazz.py`](../../../src/learningfoundry/integrations/quizazz.py): it calls `quizazz.compile_assessment(...)`, then relabels `quizName` → `assessmentName` in the returned dict before learningfoundry serializes it into `curriculum.json`. quizazz itself does **not** need to rename anything — the relabel is learningfoundry's responsibility.
 
 Downstream consumers (TypeScript types, SvelteKit components, `curriculum.json`) must never see `quizName`. If they do, the relabel layer regressed.
+
+#### RR-1b: Prop and Event Relabel
+
+`<AssessmentBlock>` is the **single TypeScript-side translation surface** between learningfoundry-domain props/events and quizazz's vendor surface — symmetric to `QuizazzProvider.compile_assessment()` on the Python side (RR-1a).
+
+Current translation behavior in [`src/learningfoundry/sveltekit_template/src/lib/components/AssessmentBlock.svelte`](../../../src/learningfoundry/sveltekit_template/src/lib/components/AssessmentBlock.svelte):
+
+1. **Inbound prop translation.** The wrapper accepts `assessmentRef: string` from LF callers and passes it through to `<QuizBlock>` as `quizRef={assessmentRef}`. The vendor prop name `quizRef` is preserved at the vendor mount point; LF callers see only `assessmentRef`.
+2. **Outbound event translation.** The wrapper receives `<QuizBlock>`'s `complete` event whose detail object contains the vendor field `quizRef`. It translates `detail.quizRef → assessmentRef` at the assignment site when building the `AssessmentScore` for persistence — no LF code outside this file references `quizRef`.
+3. **Persistence and consumer signaling.** The wrapper currently persists the translated `AssessmentScore` internally via `progressRepo.saveAssessmentScore(...)` and fires a no-arg `onassessmentcomplete?.()` callback upward to signal completion to the host (`<ContentBlock>` → `<LessonView>`).
+
+**Invariant:** downstream LF code (`LessonView`, `ContentBlock`, the progress dashboard, the `assessment_scores` repo, the `AssessmentScore` TS interface) must never reference `quizRef`. If it does, RR-1b regressed and a vendor identifier has leaked past the wrapper.
+
+**Forward notes (deferred items — see [`stories.md ## Future`](../stories.md)):**
+
+- `<AssessmentBlock>` is currently a direct wrapper around `<QuizBlock>`. Once a second `AssessmentProvider` materializes, dispatch will key off `manifest.source` (or an equivalent discriminator) and select the concrete vendor component; the current direct-import design is forward-compatible with that addition.
+- `<AssessmentBlock>` currently persists internally and fires a no-arg `onassessmentcomplete?.()`. If a future consumer needs to opt out of default persistence (preview, authoring sandbox, alternate backend), RR-1b can be extended by adding a typed `AssessmentCompleteEvent` payload to that callback; the no-arg shape is forward-compatible with that addition without breaking existing call sites.
 
 ### RR-2: Database Isolation
 
@@ -180,17 +197,24 @@ Build time (Python):
     → serializes to JSON in generated SvelteKit project
 
 Runtime (SvelteKit):
-  LessonView renders QuizBlock component with manifest + quizRef
-    → quizazz component handles assessment delivery, scoring, review
+  LessonView renders <AssessmentBlock> with manifest + assessmentRef
+    → <AssessmentBlock> mounts the vendor <QuizBlock> with
+      quizRef={assessmentRef}, forwarding the manifest (already relabeled
+      quizName → assessmentName by QuizazzProvider)
+    → vendor <QuizBlock> handles assessment delivery, scoring, review
     → quizazz manages its own IndexedDB for per-question scores
-    → on assessment completion, fires `complete` event
-    → learningfoundry writes {quizRef, score, maxScore} to its assessment_scores table
+    → on assessment completion, vendor <QuizBlock> fires `complete` with
+      detail.quizRef
+    → <AssessmentBlock> translates detail.quizRef → assessmentRef and
+      writes {assessmentRef, score, maxScore} to its assessment_scores table
     → progress dashboard reads assessment_scores for module-level display
 ```
 
 ---
 
-## Package Distribution
+## Package Distribution (quizazz provider)
+
+The table below describes the `quizazz` provider's packaging specifically; the same three-row structure (Python package, SvelteKit component, optional-dep extras key) is the expected shape for any future `AssessmentProvider` learningfoundry hosts.
 
 | Concern | Value |
 |---------|-------|
@@ -202,9 +226,11 @@ Runtime (SvelteKit):
 
 ## Versioning and Compatibility
 
-- learningfoundry pins `quizazz>=0.1` as an optional dependency.
-- The manifest dict schema is the versioning boundary. Breaking changes to the manifest structure require a major version bump in `quizazz` and a corresponding update in learningfoundry's `QuizazzProvider`.
-- The SvelteKit component and the Python builder must agree on the manifest schema. learningfoundry does not interpret the manifest contents — it passes the dict through opaquely.
+The general rule for every `AssessmentProvider` learningfoundry hosts: **the provider's compiled-manifest schema is the versioning boundary between that provider and learningfoundry.** The bullets below are the `quizazz` provider's specific application of that rule.
+
+- learningfoundry pins `quizazz>=0.1` as an optional dependency (the `quizazz` provider's pinned range).
+- For the `quizazz` provider, the manifest dict schema is the versioning boundary. Breaking changes to the manifest structure require a major version bump in `quizazz` and a corresponding update in learningfoundry's `QuizazzProvider`.
+- The SvelteKit component and the Python builder must agree on the manifest schema. learningfoundry does not interpret the manifest contents — it passes the dict through opaquely (after `QuizazzProvider`'s RR-1a relabel).
 
 ---
 
