@@ -541,7 +541,37 @@ meta:
 
 `learningfoundry validate` exits non-zero with a message naming the offending field (the Pydantic `ValidationError` puts `prequisites` directly in the output). Without the extensions file, the same typo silently passes — the original `extra="allow"` posture is preserved.
 
-**Supported field types:** `str`, `int`, `bool`, `list[str]`, `enum` (with `values:` list). Each field accepts `required: bool` (default `true`) and `default:` (presence makes the field optional). Per-model `extra: allow` overrides the default `extra: forbid` if you want one meta layer tight and another loose during a staged rollout.
+**Supported field types:** `str`, `int`, `bool`, `list[str]`, `enum` (with `values:` list), `object` (single nested object), `list[object]` (list of nested objects). Each scalar field accepts `required: bool` (default `true`) and `default:` (presence makes the field optional). Per-model `extra: allow` overrides the default `extra: forbid` if you want one meta layer tight and another loose during a staged rollout.
+
+**Nested objects** — declare a structured dict by giving it `type: object` and its own inner `fields:` block. Authors recurse to arbitrary depth: an `object` field inside an `object` field works without further ceremony. `extra: forbid` is the default at every nesting level (a typo three layers deep still fails the build); per-object `extra: allow` opts that one layer back into the permissive posture.
+
+```yaml
+version: "1"
+curriculum_meta:
+  fields:
+    citations:
+      type: list[object]
+      default: []                        # the only valid default — non-empty lists are rejected at load time
+      fields:
+        key:      { type: str }
+        apa:      { type: str }
+        doi:      { type: str, required: false }
+        verified: { type: bool }
+        role:     { type: str, required: false }
+        note:     { type: str, required: false }
+lesson_meta:
+  fields:
+    provenance:
+      type: object
+      required: false                    # whole object is optional; `default:` is not supported on `object` — use `required: false`
+      fields:
+        author:  { type: str }
+        license: { type: str }
+```
+
+With those declarations, a lesson that writes `provanance:` (instead of `provenance:`) at the lesson level — or `verfied:` (instead of `verified:`) inside a citation entry — fails the build with the field path in the error (e.g. `citations.0.verfied`). Mistyped *nested* fields are caught with the same strictness as mistyped top-level ones.
+
+For `object`, only `required: false` makes the whole object optional; declaring `default:` on an `object` is rejected at load time (object literal defaults are a footgun — they share mutable state across instances and silently desynchronize from inner schema changes). For `list[object]`, only `default: []` is meaningful; any non-empty list default is rejected at load time.
 
 **File-path resolution order** (highest precedence first):
 

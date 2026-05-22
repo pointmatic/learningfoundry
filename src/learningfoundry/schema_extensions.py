@@ -95,10 +95,73 @@ class EnumFieldDef(_StrictExtModel):
         return self
 
 
+class ObjectFieldDef(_StrictExtModel):
+    """Declares a single nested object — a structured dict with known
+    field names. Authors recurse via ``fields:`` using the full
+    ``FieldDef`` grammar (including nested ``object`` / ``list[object]``).
+
+    No ``default:`` field is declared: a default object literal would be
+    a footgun (mutable shared state, mismatched schema if fields change).
+    Use ``required: false`` to make the whole object optional instead.
+    Writing ``default: ...`` in the extension YAML is rejected by the
+    ``extra="forbid"`` of ``_StrictExtModel``.
+    """
+
+    type: Literal["object"]
+    fields: dict[str, FieldDef]
+    required: bool = True
+    extra: Literal["allow", "forbid"] = "forbid"
+
+
+class ListObjectFieldDef(_StrictExtModel):
+    """Declares a list of nested objects. The element type is built from
+    ``fields:`` and named ``<parent>__<field>__Item`` so Pydantic error
+    paths stay readable.
+
+    Only ``default: []`` is meaningful — non-empty list defaults are
+    rejected at load time (defaulting a list of structured objects would
+    duplicate schema declarations and silently drift from the inline
+    declaration). Use ``required: false`` if the field is optional.
+    """
+
+    type: Literal["list[object]"]
+    fields: dict[str, FieldDef]
+    required: bool = True
+    extra: Literal["allow", "forbid"] = "forbid"
+    default: list[Any] | None = None
+
+    @model_validator(mode="after")
+    def default_must_be_empty(self) -> ListObjectFieldDef:
+        if self.default is not None and self.default != []:
+            raise ValueError(
+                f"list[object] default must be [] (empty list); "
+                f"got {self.default!r}"
+            )
+        return self
+
+
 FieldDef = Annotated[
-    StrFieldDef | IntFieldDef | BoolFieldDef | ListStrFieldDef | EnumFieldDef,
+    StrFieldDef
+    | IntFieldDef
+    | BoolFieldDef
+    | ListStrFieldDef
+    | EnumFieldDef
+    | ObjectFieldDef
+    | ListObjectFieldDef,
     Field(discriminator="type"),
 ]
+
+
+# `ObjectFieldDef` and `ListObjectFieldDef` are declared before the
+# `FieldDef` alias they reference inside `fields: dict[str, FieldDef]`.
+# With `from __future__ import annotations` enabled at the top of this
+# module, those annotations are strings until pydantic resolves them on
+# first model use — `model_rebuild()` forces resolution now so any
+# misuse (e.g. importing a stale model class before the alias exists)
+# surfaces here rather than in user code with a confusing forward-ref
+# error.
+ObjectFieldDef.model_rebuild()
+ListObjectFieldDef.model_rebuild()
 
 
 SUPPORTED_FIELD_TYPES: tuple[str, ...] = (
@@ -107,6 +170,8 @@ SUPPORTED_FIELD_TYPES: tuple[str, ...] = (
     "bool",
     "list[str]",
     "enum",
+    "object",
+    "list[object]",
 )
 
 
@@ -152,14 +217,21 @@ def _python_type_for(defn: FieldDef) -> Any:
         return list[str]
     if isinstance(defn, EnumFieldDef):
         return Literal[tuple(defn.values)]
-    # Unreachable — discriminated union enforces one of the above.
+    # `ObjectFieldDef` / `ListObjectFieldDef` are dispatched upstream in
+    # `_object_field_entry`; they never reach this scalar-only resolver.
     raise SchemaExtensionError(  # pragma: no cover
-        f"Internal error: unknown FieldDef subtype {type(defn).__name__}"
+        f"Internal error: _python_type_for called with "
+        f"{type(defn).__name__}; object/list[object] dispatch must "
+        "route through _object_field_entry."
     )
 
 
 def _field_for(defn: FieldDef) -> tuple[Any, Any]:
     """Return ``(annotation, default)`` for ``pydantic.create_model``.
+
+    Object variants (``ObjectFieldDef`` / ``ListObjectFieldDef``) are
+    dispatched upstream in ``_object_field_entry``; reaching this scalar
+    resolver with one indicates a routing bug and is raised loudly.
 
     Default resolution rules:
       * ``default:`` present → optional with that default (``required:``
@@ -169,12 +241,79 @@ def _field_for(defn: FieldDef) -> tuple[Any, Any]:
       * ``default:`` absent and ``required: false`` → optional, defaults
         to ``None`` (annotation widened to ``T | None``).
     """
+    if isinstance(defn, ObjectFieldDef | ListObjectFieldDef):
+        raise SchemaExtensionError(  # pragma: no cover
+            f"Internal error: _field_for called with "
+            f"{type(defn).__name__}; object/list[object] dispatch must "
+            "route through _object_field_entry."
+        )
     py_type = _python_type_for(defn)
     if defn.default is not None:
         return (py_type, defn.default)
     if defn.required:
         return (py_type, ...)
     return (py_type | None, None)
+
+
+def _build_object_model(
+    name: str,
+    fields_def: dict[str, FieldDef],
+    extra_mode: Literal["allow", "forbid"],
+) -> type[BaseModel]:
+    """Build a fresh Pydantic model from a YAML-declared ``object``
+    schema. Nested ``object`` / ``list[object]`` fields recurse with
+    deterministic names: ``<name>__<field>`` for nested objects and
+    ``<name>__<field>__Item`` for the element type of nested lists.
+
+    ``extra_mode`` is the synthesized model's ``model_config["extra"]``
+    — ``"forbid"`` by default, ``"allow"`` when the YAML opts out.
+    """
+    field_defs: dict[str, tuple[Any, Any]] = {
+        fname: _object_field_entry(name, fname, defn)
+        for fname, defn in fields_def.items()
+    }
+
+    # `create_model` cannot take both `__base__` and `__config__`, so
+    # synthesize a base with the desired `model_config` via `type()`
+    # first, then layer fields on with `create_model`.
+    intermediate = type(
+        f"_{name}_Base",
+        (BaseModel,),
+        {"model_config": ConfigDict(extra=extra_mode)},
+    )
+    model: type[BaseModel] = create_model(  # type: ignore[call-overload]
+        name,
+        __base__=intermediate,
+        **field_defs,
+    )
+    return model
+
+
+def _object_field_entry(
+    parent_name: str, field_name: str, defn: FieldDef
+) -> tuple[Any, Any]:
+    """Return ``(annotation, default)`` for one field, handling the
+    recursive ``object`` / ``list[object]`` cases by delegating to
+    ``_build_object_model`` and falling through to ``_field_for`` for
+    every scalar variant.
+    """
+    if isinstance(defn, ObjectFieldDef):
+        nested = _build_object_model(
+            f"{parent_name}__{field_name}", defn.fields, defn.extra
+        )
+        if defn.required:
+            return (nested, ...)
+        return (nested | None, None)
+    if isinstance(defn, ListObjectFieldDef):
+        item = _build_object_model(
+            f"{parent_name}__{field_name}__Item", defn.fields, defn.extra
+        )
+        if defn.default == []:
+            return (list[item], [])  # type: ignore[valid-type]
+        if defn.required:
+            return (list[item], ...)  # type: ignore[valid-type]
+        return (list[item] | None, None)  # type: ignore[valid-type]
+    return _field_for(defn)
 
 
 def _extend_one(
@@ -197,7 +336,8 @@ def _extend_one(
     )
 
     field_defs: dict[str, tuple[Any, Any]] = {
-        name: _field_for(defn) for name, defn in ext.fields.items()
+        name: _object_field_entry(base.__name__, name, defn)
+        for name, defn in ext.fields.items()
     }
     extended: type[BaseModel] = create_model(  # type: ignore[call-overload]
         f"_Extended{base.__name__}",

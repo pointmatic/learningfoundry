@@ -668,3 +668,247 @@ class TestLoadSchemaExtensions:
         with pytest.raises(SchemaExtensionError) as exc:
             load_schema_extensions(f)
         assert str(f) in str(exc.value)
+
+
+class TestObjectFieldType:
+    """Story J.q: nested ``object`` field — strict whitelist over a
+    declared inner ``fields:`` map."""
+
+    def _lesson_meta_with_provenance(self) -> type[BaseModel]:
+        ext = _ext(lesson_meta={"fields": {
+            "provenance": {
+                "type": "object",
+                "required": False,
+                "fields": {
+                    "author":  {"type": "str"},
+                    "license": {"type": "str"},
+                },
+            },
+        }})
+        _, _, les_cls = build_extended_meta_models(ext)
+        return les_cls
+
+    def test_valid_nested_dict_accepted(self) -> None:
+        les_cls = self._lesson_meta_with_provenance()
+        m = les_cls.model_validate({
+            "provenance": {"author": "Ada", "license": "CC-BY-4.0"},
+        })
+        prov = m.provenance  # type: ignore[attr-defined]
+        assert prov.author == "Ada"
+        assert prov.license == "CC-BY-4.0"
+
+    def test_unknown_nested_key_rejected_with_field_path(self) -> None:
+        les_cls = self._lesson_meta_with_provenance()
+        with pytest.raises(ValidationError) as exc:
+            les_cls.model_validate({
+                "provenance": {"author": "Ada", "licens": "CC-BY-4.0"},
+            })
+        msg = str(exc.value)
+        assert "licens" in msg
+        assert "provenance" in msg
+
+    def test_required_false_allows_omission(self) -> None:
+        les_cls = self._lesson_meta_with_provenance()
+        m = les_cls.model_validate({})
+        assert m.provenance is None  # type: ignore[attr-defined]
+
+    def test_default_field_on_object_rejected_at_load_time(self) -> None:
+        # `_StrictExtModel` extra='forbid' makes any `default:` written
+        # alongside `type: object` blow up before the parser ever sees a
+        # curriculum.
+        with pytest.raises(ValidationError) as exc:
+            _ext(lesson_meta={"fields": {
+                "provenance": {
+                    "type": "object",
+                    "default": {"author": "Ada"},
+                    "fields": {"author": {"type": "str"}},
+                },
+            }})
+        assert "default" in str(exc.value)
+
+    def test_extra_allow_opt_out_restores_permissive_behaviour(self) -> None:
+        # Per-object `extra: allow` lets a single object inside an
+        # otherwise-strict extension keep today's escape hatch.
+        ext = _ext(lesson_meta={"fields": {
+            "provenance": {
+                "type": "object",
+                "extra": "allow",
+                "fields": {"author": {"type": "str"}},
+            },
+        }})
+        _, _, les_cls = build_extended_meta_models(ext)
+        m = les_cls.model_validate({
+            "provenance": {"author": "Ada", "uncharted": "tolerated"},
+        })
+        # Pydantic stashes allow-mode extras on the model instance.
+        prov = m.provenance  # type: ignore[attr-defined]
+        assert prov.author == "Ada"
+        assert prov.model_extra == {"uncharted": "tolerated"}
+
+    def test_nested_object_inside_object(self) -> None:
+        # Depth 2: `provenance` → `attribution` → `name/role` — error
+        # path should be readable end-to-end.
+        ext = _ext(lesson_meta={"fields": {
+            "provenance": {
+                "type": "object",
+                "required": False,
+                "fields": {
+                    "attribution": {
+                        "type": "object",
+                        "fields": {
+                            "name": {"type": "str"},
+                            "role": {"type": "str"},
+                        },
+                    },
+                },
+            },
+        }})
+        _, _, les_cls = build_extended_meta_models(ext)
+        with pytest.raises(ValidationError) as exc:
+            les_cls.model_validate({
+                "provenance": {"attribution": {"name": "Ada", "role": 42}},
+            })
+        msg = str(exc.value)
+        # The nested field path is reported, not flattened.
+        assert "role" in msg
+        assert "attribution" in msg
+
+
+class TestListObjectFieldType:
+    """Story J.q: ``list[object]`` field — element type is built from
+    the declared inner ``fields:`` map."""
+
+    def _curriculum_meta_with_citations(self) -> type[BaseModel]:
+        ext = _ext(curriculum_meta={"fields": {
+            "citations": {
+                "type": "list[object]",
+                "default": [],
+                "fields": {
+                    "key":      {"type": "str"},
+                    "apa":      {"type": "str"},
+                    "doi":      {"type": "str", "required": False},
+                    "verified": {"type": "bool"},
+                },
+            },
+        }})
+        cur_cls, _, _ = build_extended_meta_models(ext)
+        return cur_cls
+
+    def test_valid_list_of_dicts_accepted(self) -> None:
+        cur_cls = self._curriculum_meta_with_citations()
+        m = cur_cls.model_validate({
+            "citations": [
+                {"key": "lecun-1998", "apa": "LeCun…", "verified": True},
+                {"key": "ioffe-2015", "apa": "Ioffe…", "verified": False},
+            ],
+        })
+        cits = m.citations  # type: ignore[attr-defined]
+        assert len(cits) == 2
+        assert cits[0].key == "lecun-1998"
+        assert cits[1].verified is False
+
+    def test_element_wrong_type_rejected_with_index_path(self) -> None:
+        cur_cls = self._curriculum_meta_with_citations()
+        with pytest.raises(ValidationError) as exc:
+            cur_cls.model_validate({
+                "citations": [
+                    {"key": "ok", "apa": "ok", "verified": True},
+                    {"key": "bad", "apa": "bad", "verified": "notabool!"},
+                ],
+            })
+        errs = exc.value.errors()
+        # Pydantic v2 emits a structured `loc` tuple — confirm the
+        # element index and field name both show up.
+        locs = [tuple(e["loc"]) for e in errs]
+        assert any(
+            "citations" in loc and 1 in loc and "verified" in loc
+            for loc in locs
+        ), locs
+
+    def test_default_empty_list_accepts_omission(self) -> None:
+        cur_cls = self._curriculum_meta_with_citations()
+        m = cur_cls.model_validate({})
+        assert m.citations == []  # type: ignore[attr-defined]
+
+    def test_non_empty_list_default_rejected_at_load_time(self) -> None:
+        with pytest.raises(ValidationError) as exc:
+            _ext(curriculum_meta={"fields": {
+                "citations": {
+                    "type": "list[object]",
+                    "default": [{"key": "lecun-1998"}],
+                    "fields": {"key": {"type": "str"}},
+                },
+            }})
+        assert "list[object] default must be []" in str(exc.value)
+
+    def test_deterministic_nested_model_class_name(self) -> None:
+        # Synthesized element model carries the deterministic name
+        # `CurriculumMeta__citations__Item` so Pydantic error paths and
+        # repr surfaces stay readable. (Pydantic v2 omits the class name
+        # from the structured `errors()` dict by default, so we inspect
+        # the field annotation directly rather than the error payload.)
+        cur_cls = self._curriculum_meta_with_citations()
+        annotation = cur_cls.model_fields["citations"].annotation
+        # `list[<item_model>]` — extract the item type via __args__.
+        assert getattr(annotation, "__origin__", None) is list, annotation
+        (item_cls,) = annotation.__args__  # type: ignore[union-attr]
+        assert item_cls.__name__ == "CurriculumMeta__citations__Item"
+
+        # Also verify the loc path on a real validation error gives the
+        # `citations[0].field` shape callers will see.
+        with pytest.raises(ValidationError) as exc:
+            cur_cls.model_validate({
+                "citations": [
+                    {"key": "k", "apa": "a", "verified": True, "stray": "x"},
+                ],
+            })
+        locs = [tuple(e["loc"]) for e in exc.value.errors()]
+        assert ("citations", 0, "stray") in locs, locs
+
+
+class TestRecursiveForwardReferenceResolution:
+    """Story J.q: ``ObjectFieldDef.fields: dict[str, FieldDef]`` is a
+    forward reference into the same discriminated union. The explicit
+    ``model_rebuild()`` calls at module load time must keep this working
+    for arbitrary-depth declarations."""
+
+    def test_deeply_nested_declaration_loads_without_forward_ref_error(
+        self,
+    ) -> None:
+        # Build a 3-deep declaration: list[object] → object → object.
+        ext = _ext(curriculum_meta={"fields": {
+            "phases": {
+                "type": "list[object]",
+                "default": [],
+                "fields": {
+                    "id":    {"type": "str"},
+                    "title": {"type": "str"},
+                    "policy": {
+                        "type": "object",
+                        "required": False,
+                        "fields": {
+                            "owner": {
+                                "type": "object",
+                                "fields": {
+                                    "name": {"type": "str"},
+                                    "email": {"type": "str"},
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }})
+        cur_cls, _, _ = build_extended_meta_models(ext)
+        m = cur_cls.model_validate({
+            "phases": [
+                {
+                    "id": "p1",
+                    "title": "Foundations",
+                    "policy": {"owner": {"name": "Ada", "email": "a@x"}},
+                },
+            ],
+        })
+        phase = m.phases[0]  # type: ignore[attr-defined]
+        assert phase.id == "p1"
+        assert phase.policy.owner.name == "Ada"

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.74.0] - 2026-05-21
+
+Schema-extensions grammar extension (Story J.q) — adds two new discriminated-union variants on top of the J.h foundation so authors can declare structured nested data instead of smuggling it through `extra="allow"` or flattening it into string conventions.
+
+### Added
+
+- **`object` field type** in [`learningfoundry-schema-extensions.yml`](src/learningfoundry/schema_extensions.py) — declares a single nested object via an inner `fields:` block that reuses the full grammar (including further-nested `object` / `list[object]`). `extra: forbid` by default at every nesting level, per-object `extra: allow` opt-out for staged tightening. No `default:` field is declared on `ObjectFieldDef`; writing `default:` next to `type: object` is rejected at load time by the strict `extra="forbid"` of the extension-file model — use `required: false` to make the whole object optional instead.
+- **`list[object]` field type** in the same file — declares a list of nested objects with the element type built from the inner `fields:` block. Only `default: []` is meaningful; a `model_validator(mode="after")` rejects any non-empty list default at load time. Synthesized element-model names follow the deterministic scheme `<parent>__<field>__Item` (e.g. `CurriculumMeta__citations__Item`) so Pydantic `loc` paths in error messages stay readable.
+- **Forward-reference resolution** — `ObjectFieldDef.fields` and `ListObjectFieldDef.fields` are forward references into the same `FieldDef` discriminated union that lists them. Explicit `ObjectFieldDef.model_rebuild()` / `ListObjectFieldDef.model_rebuild()` calls at module import time force resolution then rather than failing in user code with a confusing Pydantic forward-ref error.
+- **Recursive nested-model builder** — new `_build_object_model(name, fields_def, extra_mode)` walks the declared inner `fields:` map and recursively synthesizes Pydantic models for every nested `object` / `list[object]` via `_object_field_entry`. The same name scheme applies at arbitrary depth.
+- **README** "Strict project-specific extensions" subsection extended with a worked `object` / `list[object]` example (`citations` + `provenance` from a real CNN-curriculum authoring case) and a sentence on the `default:` rejection rules.
+- 17 new test cases in [`tests/test_schema_extensions.py`](tests/test_schema_extensions.py) covering valid round-trips, unknown-key rejection at depth, `required: false` omission, `default:` rejection on both variants, `extra: allow` opt-out, deeply nested (depth-3) declarations, forward-ref resolution, and the deterministic-name invariant.
+
+### Notes
+
+- No change to the runtime API of generated curricula. The base `CurriculumMeta` / `ModuleMeta` / `LessonMeta` models are unchanged; the new variants are only reachable through a project-supplied `learningfoundry-schema-extensions.yml`.
+- TypeScript-side type generation for the extended object shapes remains out of scope (matches J.h's posture — frontend consumes extras as untyped JSON).
+- Cross-field validators inside an object (e.g. "if `verified` is false, `doi` must be empty") remain deferred; would require the Python-hook escape that J.h already left for a future story.
+
 ## [0.73.0] - 2026-05-21
 
 Phase-J close-out release bundling J.m.6, J.m.7, J.m.8, J.n, and J.o. Highest-impact change is J.o (new Dependabot automation), an improvement; the rest are documentation, a template-internal dependency rebrand, and architectural-principle additions to the canonical quizazz consumer spec.

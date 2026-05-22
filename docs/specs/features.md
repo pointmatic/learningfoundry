@@ -261,7 +261,7 @@ The schema-extensions mechanism is an opt-in tightening:
 
 - A project drops `learningfoundry-schema-extensions.yml` next to its `curriculum.yml`. When present, learningfoundry synthesizes strict subclasses of `CurriculumMeta` / `ModuleMeta` / `LessonMeta` with the project-declared fields appended and `extra` flipped from `allow` to `forbid` (default; opt-out per model via `extra: allow`).
 - File-path resolution order: `--schema-extensions PATH` CLI flag > `[tool.learningfoundry] schema_extensions` in `pyproject.toml` next to the curriculum > auto-discovery of `learningfoundry-schema-extensions.yml` next to the curriculum > none (base `extra="allow"` preserved).
-- Supported field types: `str`, `int`, `bool`, `list[str]`, `enum` (with `values:` list). Per-field `required: bool` (default `true`) and `default:` (optional — presence makes the field optional regardless of `required`).
+- Supported field types: `str`, `int`, `bool`, `list[str]`, `enum` (with `values:` list), `object` (single nested object — `fields:` recurses, no `default:`, use `required: false`), `list[object]` (list of nested objects — `fields:` declares the element shape; only `default: []` allowed). Per-field `required: bool` (default `true`) and `default:` (optional — presence makes the field optional regardless of `required`). See the README "Strict project-specific extensions" subsection for the worked `object` / `list[object]` example.
 - Worked example:
 
 ```yaml
