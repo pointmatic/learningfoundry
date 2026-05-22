@@ -15,7 +15,7 @@
     "@lucide/svelte": "^1.16.0",
     "@pointmatic/quizazz": "^1.4.0",
     "@sveltejs/kit": "^2.0.0",
-    "katex": "^0.16.47",
+    "katex": "^0.17.0",
     "marked": "^18.0.0",
     "marked-katex-extension": "^5.1.4",
     "sql.js": "^1.12.0",
