@@ -916,19 +916,97 @@ This story wires up GitHub Dependabot via `.github/dependabot.yml` to open weekl
 
 ---
 
-### Story J.p: GitHub-side enablement for Dependabot [Planned]
+### Story J.p: GitHub-side enablement for Dependabot [Done]
 
 (post-merge, manual — to be completed on the GitHub repo by the developer) 
 
 Repo artifact alone doesn't activate Dependabot — committing `dependabot.yml` to the default branch is necessary but not sufficient. The toggles below must be flipped on at the repository level for Dependabot to actually read the file. One-time setup; afterwards the YAML is the canonical source.
 
-- [ ] **Settings → Code security → Dependency graph:** enable if not already on. (Public repos typically have this on by default; private repos may need explicit enable.)
-- [ ] **Settings → Code security → Dependabot alerts:** enable. Surfaces security advisories against any dependency in the graph.
-- [ ] **Settings → Code security → Dependabot security updates:** enable. Auto-opens PRs against the default branch when an alert has a fix available.
-- [ ] **Settings → Code security → Dependabot version updates:** enable. **This is the toggle that makes Dependabot read `.github/dependabot.yml`** — without it the YAML sits inert. Confirm GitHub shows the file as detected after enabling.
-- [ ] **Verify:** navigate to **Insights → Dependency graph → Dependabot** and confirm all three ecosystems (`pip`, `npm`, `github-actions`) are listed with no YAML parse errors. Errors here are the GitHub-side validator catching schema issues the local `yaml.safe_load` doesn't.
-- [ ] **Verify first PR wave:** within ~24 hours of enabling version updates, Dependabot opens its initial backlog of grouped patch+minor PRs per ecosystem (one PR per ecosystem if the group has updates; nothing if everything is already current). Confirm the grouping and the `@types/node` major-bump ignore both behave as intended. If the initial wave is unexpectedly large or noisy, revisit grouping config — but the documented intent is that the first wave reflects the existing backlog, then steady state is much quieter.
-- [ ] When all of the above are confirmed working on GitHub, flip this story's suffix back to **[Done]**.
+- [x] **Settings → Code security → Dependency graph:** enable if not already on. (Public repos typically have this on by default; private repos may need explicit enable.)
+- [x] **Settings → Code security → Dependabot alerts:** enable. Surfaces security advisories against any dependency in the graph.
+- [x] **Settings → Code security → Dependabot security updates:** enable. Auto-opens PRs against the default branch when an alert has a fix available.
+- [x] **Settings → Code security → Dependabot version updates:** enable. **This is the toggle that makes Dependabot read `.github/dependabot.yml`** — without it the YAML sits inert. Confirm GitHub shows the file as detected after enabling.
+- [x] **Verify:** navigate to **Insights → Dependency graph → Dependabot** and confirm all three ecosystems (`pip`, `npm`, `github-actions`) are listed with no YAML parse errors. Errors here are the GitHub-side validator catching schema issues the local `yaml.safe_load` doesn't.
+- [x] **Verify first PR wave:** within ~24 hours of enabling version updates, Dependabot opens its initial backlog of grouped patch+minor PRs per ecosystem (one PR per ecosystem if the group has updates; nothing if everything is already current). Confirm the grouping and the `@types/node` major-bump ignore both behave as intended. If the initial wave is unexpectedly large or noisy, revisit grouping config — but the documented intent is that the first wave reflects the existing backlog, then steady state is much quieter.
+- [x] When all of the above are confirmed working on GitHub, flip this story's suffix back to **[Done]**.
+
+---
+
+### Story J.q: v0.74.0 — Schema Extensions: `object` and `list[object]` Field Types [Done]
+
+J.h added a project-specific schema-extensions grammar supporting `str`, `int`, `bool`, `list[str]`, and `enum` field types ([schema_extensions.py](../../src/learningfoundry/schema_extensions.py)). Authoring the CNN curriculum surfaced two missing shapes: a single nested object (`provenance: {author, license}` on a lesson) and a list of nested objects (`citations: [{key, apa, doi, verified, role?, note?}]` and `phases: [{id, title, description, modules}]` at the curriculum level). Today those have to be smuggled into `extra="allow"` or flattened into ad-hoc string conventions, which defeats J.h's whole point. See [d802-deep-learning-dictionary-spec.md](d802-deep-learning-dictionary-spec.md) for the source spec.
+
+J.q adds `object` and `list[object]` as two new discriminated-union variants in the extensions grammar. Names match JSON-Schema parlance — `dict` would imply arbitrary keys (`Mapping[str, V]`), and `nested_object` is redundant since every extension-declared object is nested by definition. The recursive `fields:` map reuses the full `FieldDef` grammar (including nested `object` types), so authors get arbitrary tree-shaped data without further schema churn.
+
+Key design decisions:
+- **`extra: forbid` by default at every nesting level**, matching the top-level extension contract from J.h. Per-object `extra: allow` opt-out for staged tightening — same posture as the J.h meta-model knobs.
+- **`required: bool` and `default:` semantics.** For `list[object]`, only `default: []` is meaningful; non-empty list defaults rejected at load time. For `object`, `default:` is unsupported — use `required: false` instead. Both restrictions are loud errors at load time, not silent acceptance.
+- **Deterministic nested-model naming** so Pydantic error paths stay readable: `CurriculumMeta__citations__Item`, `CurriculumMeta__phases__Item`, `LessonMeta__provenance`.
+
+**Implementation note — Pydantic v2 forward references.** The existing `FieldDef` is a flat discriminated union (`Annotated[StrFieldDef | IntFieldDef | ..., Field(discriminator="type")]`). Adding recursion means `ObjectFieldDef.fields: dict[str, FieldDef]` is a forward reference into the same union, which requires `model_rebuild()` after the union alias is declared. The failure mode for forgetting this — "forward ref not resolved" — is a confusing error, so the test suite asserts a recursive declaration loads cleanly.
+
+**Worked example** (the CNN curriculum that motivates this story):
+
+```yaml
+curriculum_meta:
+  fields:
+    citations:
+      type: list[object]
+      fields:
+        key:      { type: str }
+        apa:      { type: str }
+        doi:      { type: str, required: false }
+        verified: { type: bool }
+        role:     { type: str, required: false }
+        note:     { type: str, required: false }
+    phases:
+      type: list[object]
+      fields:
+        id:          { type: str }
+        title:       { type: str }
+        description: { type: str }
+        modules:     { type: list[str] }
+
+lesson_meta:
+  fields:
+    provenance:
+      type: object
+      required: false
+      fields:
+        author:  { type: str }
+        license: { type: str }
+```
+
+**Out of scope:**
+- New scalar field types beyond `object` / `list[object]` (`list[int]`, `list[bool]`, `datetime`, etc.) — add only when an author surfaces an actual gap, not preemptively.
+- Cross-field validators inside an object (e.g., "if `verified` is false, `doi` must be empty") — would require the Python-hook escape that J.h already deferred; defer again here.
+- TypeScript-side type generation for the extended object shapes — the SvelteKit frontend continues to consume the extra fields as untyped JSON, matching J.h's posture.
+
+**Tasks:**
+
+- [x] `src/learningfoundry/schema_extensions.py`:
+  - [x] Add `ObjectFieldDef(_StrictExtModel)`: `type: Literal["object"]`, `fields: dict[str, FieldDef]`, `required: bool = True`, `extra: Literal["allow", "forbid"] = "forbid"`. Reject `default:` declared on this variant at load time.
+  - [x] Add `ListObjectFieldDef(_StrictExtModel)`: `type: Literal["list[object]"]`, `fields: dict[str, FieldDef]`, `required: bool = True`, `extra: Literal["allow", "forbid"] = "forbid"`, `default: list | None = None`. Reject any non-`[]` list default at load time.
+  - [x] Extend the discriminated `FieldDef` union to include both new variants. Call `model_rebuild()` on the affected models after the union alias is declared so forward references inside `ObjectFieldDef.fields` and `ListObjectFieldDef.fields` resolve.
+  - [x] Add a recursive `_build_object_model(name: str, fields: dict[str, FieldDef], extra: str) -> type[BaseModel]` helper that calls `create_model` and recurses into nested `object` / `list[object]` field types.
+  - [x] Extend the existing field-type dispatch (`_python_type_for` or equivalent) to handle the two new variants by invoking `_build_object_model` with deterministic names: `<ParentModel>__<field>__Item` for `list[object]` element types, `<ParentModel>__<field>` for `object` types. Implementation lifts the dispatch into a new `_object_field_entry` helper called from both `_extend_one` and `_build_object_model` so the deterministic-name scheme applies at arbitrary depth.
+  - [x] Add `"object"` and `"list[object]"` to `SUPPORTED_FIELD_TYPES` (drives the unknown-type error message).
+- [x] `tests/test_schema_extensions.py` additions (17 cases across `TestObjectFieldType`, `TestListObjectFieldType`, `TestRecursiveForwardReferenceResolution`):
+  - [x] `object` field accepts valid nested dict; rejects unknown nested key with field path in error.
+  - [x] `object` with `required: false` allows omission; `object` with `default:` declared in the extension file is rejected at load time with a clear message.
+  - [x] `list[object]` accepts list of valid dicts; rejects an element with a wrong-type field; error names the index and field path.
+  - [x] `list[object]` with `default: []` accepts omission and yields `[]`; `default: [{...}]` is rejected at load time.
+  - [x] Nested `object` inside `object` (depth ≥ 2) validates and produces a readable Pydantic error path on failure.
+  - [x] `object` with `extra: allow` opt-out accepts arbitrary nested keys (regression guard on the existing J.h escape semantics, now at nested level).
+  - [x] Deterministic nested-model names appear on the synthesized field annotation (smoke check that the element type for `citations` is named `CurriculumMeta__citations__Item`, not opaque `Model1`).
+  - [x] Forward-reference resolution: a depth-3 declaration (`list[object]` → `object` → `object`) loads without `PydanticUserError: ... forward reference ...`.
+- [x] `tests/test_schema_extensions.py`: existing J.h test cases for `str` / `int` / `bool` / `list[str]` / `enum` continue to pass unchanged (regression guard) — full file is 57 tests, all green.
+- [x] `README.md`: extend the "Strict project-specific extensions" subsection (added in J.h) with the `object` / `list[object]` worked example. Shows one `object` declaration (`provenance`) and one `list[object]` declaration (`citations`); calls out the `default:` rejection rules for both variants.
+- [x] `docs/specs/features.md`: under the "Project-specific `meta` schema extensions" subsection (FR-3, added in J.h), `object` and `list[object]` appended to the supported `type:` list with one-line descriptions and a pointer to the README example.
+- [x] `docs/specs/tech-spec.md`: in the `schema_extensions.py` subsection (added in J.h), the two new discriminated-union variants, the recursive `_build_object_model` helper, the deterministic nested-model naming convention, and the `model_rebuild()` requirement for forward references are now documented.
+- [x] Bump version to v0.74.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Update `CHANGELOG.md` with a v0.74.0 Added entry naming both new field types.
+- [x] Verify: `pyve test` passes (403 total, all green; +17 new cases in `test_schema_extensions.py`), `ruff` and `mypy` clean.
 
 ---
 
