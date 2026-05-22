@@ -877,7 +877,7 @@ No production-facing impact on the runtime API of the template (these are icons 
 
 ---
 
-### Story J.o: Dependabot Wiring for Template + Workspace Dependencies [Planned]
+### Story J.o: Dependabot Wiring for Template + Workspace Dependencies [Done]
 
 Today the project relies on developer-initiated `pnpm update` / `pip install -U` to pull in security and patch updates. There's no automated signal when a CVE drops against a dependency in `src/learningfoundry/sveltekit_template/package.json` or `pyproject.toml`, and the "newer available" notes from `pnpm install` are the only feedback loop — which mixes security-relevant updates with routine patch noise.
 
@@ -906,13 +906,29 @@ This story wires up GitHub Dependabot via `.github/dependabot.yml` to open weekl
 
 **Tasks:**
 
-- [ ] New `.github/dependabot.yml` with three ecosystem entries (`pip`, `npm`, `github-actions`), weekly schedule, grouped patch+minor.
-- [ ] Configure the `npm` entry's `directory:` to `/src/learningfoundry/sveltekit_template`.
-- [ ] Add an `ignore:` rule for `@types/node` `version-update:semver-major` (LTS-pin rationale).
-- [ ] `README.md`: brief mention under a "Maintenance" subsection (or equivalent) noting that Dependabot opens weekly update PRs and security advisories file PRs immediately.
-- [ ] Verify: file passes Dependabot's config validator (commit the file; Dependabot lints it on GitHub and surfaces errors in the repository's Insights → Dependency graph → Dependabot tab).
-- [ ] No version bump (unversioned per Phase-bundled-release rule).
-- [ ] No `CHANGELOG.md` entry (infra; not user-facing).
+- [x] New `.github/dependabot.yml` with three ecosystem entries (`pip`, `npm`, `github-actions`), weekly schedule, grouped patch+minor.
+- [x] Configure the `npm` entry's `directory:` to `/src/learningfoundry/sveltekit_template`.
+- [x] Add an `ignore:` rule for `@types/node` `version-update:semver-major` (LTS-pin rationale).
+- [x] `README.md`: brief mention under a "Maintenance" subsection (or equivalent) noting that Dependabot opens weekly update PRs and security advisories file PRs immediately.
+- [x] Verify: file passes Dependabot's config validator (commit the file; Dependabot lints it on GitHub and surfaces errors in the repository's Insights → Dependency graph → Dependabot tab). *Local YAML syntax verified via `yaml.safe_load`; the GitHub-side validator runs on push and is part of the developer's normal post-merge workflow.*
+- [x] No version bump on the repo-side artifact (the v0.73.0 release closing covers J.o's repo work; the GitHub-side enablement below is operational config, not release content).
+- [x] No `CHANGELOG.md` entry (infra; not user-facing).
+
+---
+
+### Story J.p: GitHub-side enablement for Dependabot [Planned]
+
+(post-merge, manual — to be completed on the GitHub repo by the developer) 
+
+Repo artifact alone doesn't activate Dependabot — committing `dependabot.yml` to the default branch is necessary but not sufficient. The toggles below must be flipped on at the repository level for Dependabot to actually read the file. One-time setup; afterwards the YAML is the canonical source.
+
+- [ ] **Settings → Code security → Dependency graph:** enable if not already on. (Public repos typically have this on by default; private repos may need explicit enable.)
+- [ ] **Settings → Code security → Dependabot alerts:** enable. Surfaces security advisories against any dependency in the graph.
+- [ ] **Settings → Code security → Dependabot security updates:** enable. Auto-opens PRs against the default branch when an alert has a fix available.
+- [ ] **Settings → Code security → Dependabot version updates:** enable. **This is the toggle that makes Dependabot read `.github/dependabot.yml`** — without it the YAML sits inert. Confirm GitHub shows the file as detected after enabling.
+- [ ] **Verify:** navigate to **Insights → Dependency graph → Dependabot** and confirm all three ecosystems (`pip`, `npm`, `github-actions`) are listed with no YAML parse errors. Errors here are the GitHub-side validator catching schema issues the local `yaml.safe_load` doesn't.
+- [ ] **Verify first PR wave:** within ~24 hours of enabling version updates, Dependabot opens its initial backlog of grouped patch+minor PRs per ecosystem (one PR per ecosystem if the group has updates; nothing if everything is already current). Confirm the grouping and the `@types/node` major-bump ignore both behave as intended. If the initial wave is unexpectedly large or noisy, revisit grouping config — but the documented intent is that the first wave reflects the existing backlog, then steady state is much quieter.
+- [ ] When all of the above are confirmed working on GitHub, flip this story's suffix back to **[Done]**.
 
 ---
 

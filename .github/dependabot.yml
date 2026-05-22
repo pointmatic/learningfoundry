@@ -1,0 +1,48 @@
+# Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0
+#
+# Dependabot configuration. Opens weekly update PRs for each declared
+# dependency surface; security advisories file PRs immediately,
+# independent of the weekly cadence.
+#
+# Schema reference: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+version: 2
+updates:
+  # Python — pyproject.toml + requirements-dev.txt at repo root
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      patch-and-minor:
+        update-types:
+          - "patch"
+          - "minor"
+
+  # SvelteKit template — package.json + pnpm-lock.yaml under the template directory
+  - package-ecosystem: "npm"
+    directory: "/src/learningfoundry/sveltekit_template"
+    schedule:
+      interval: "weekly"
+    groups:
+      patch-and-minor:
+        update-types:
+          - "patch"
+          - "minor"
+    ignore:
+      # @types/node is deliberately pinned to the active LTS major
+      # (currently 24). Odd-numbered "Current" releases (25, 27, …) are
+      # not LTS and should not be auto-bumped.
+      - dependency-name: "@types/node"
+        update-types:
+          - "version-update:semver-major"
+
+  # GitHub Actions — pins inside .github/workflows/*.yml
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      patch-and-minor:
+        update-types:
+          - "patch"
+          - "minor"

@@ -23,6 +23,7 @@ A curriculum engine that turns a YAML curriculum definition into a deployable Sv
 - [Content locking](#content-locking)
 - [Configuration File](#configuration-file)
 - [Development Setup](#development-setup)
+- [Maintenance](#maintenance)
 
 ---
 
@@ -784,6 +785,16 @@ learningfoundry/
 ├── requirements-dev.txt    # Dev dependencies
 └── pyproject.toml          # Build config, ruff, mypy, pytest settings
 ```
+
+---
+
+## Maintenance
+
+Dependency updates are tracked by [GitHub Dependabot](https://docs.github.com/en/code-security/dependabot) via [.github/dependabot.yml](.github/dependabot.yml):
+
+- **Weekly grouped PRs** for patch and minor updates across three ecosystems — `pip` (Python: `pyproject.toml`, `requirements-dev.txt`), `npm` (SvelteKit template at `src/learningfoundry/sveltekit_template/`), and `github-actions` (`.github/workflows/`). Patch+minor updates are bundled per ecosystem into a single PR to keep noise manageable; major updates land as individual PRs for deliberate review.
+- **Security advisories file PRs immediately**, independent of the weekly schedule — the security signal is what we actually want from this wiring.
+- `@types/node` major bumps are explicitly ignored: we pin to the active LTS major; odd-numbered "Current" releases are not appropriate auto-bump targets.
 
 ---
 
