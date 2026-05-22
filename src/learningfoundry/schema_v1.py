@@ -72,8 +72,19 @@ class AssessmentDefinition(StrictModel):
     ``practice``, ``post``, ``checkpoint`` — used as a UI label and a
     tag for downstream consumers; the schema does not constrain the
     vocabulary.
+
+    ``id`` is an optional stable identifier used by the route layer
+    (Story J.s) and the progress store (Story J.u). If omitted, an id
+    is auto-generated from ``role``: the first assessment with a given
+    role takes the bare role as id (``pre``, ``post``, ``practice``),
+    and subsequent assessments with the same role append a 1-based
+    counter (``practice-2``, ``practice-3``). Authors override by
+    supplying an explicit ``id:`` in YAML. After auto-gen,
+    ``Module`` validates intra-module uniqueness of the final id set,
+    so duplicate explicit ids fail loud at parse time (Story J.r).
     """
 
+    id: str | None = None
     role: str
     position: AssessmentPosition
     source: str
@@ -226,6 +237,41 @@ class Module(StrictModel):
     def check_has_lessons(self) -> "Module":
         if not self.lessons:
             raise ValueError(f"Module `{self.id}` must contain at least one lesson.")
+        return self
+
+    @model_validator(mode="after")
+    def autogen_assessment_ids(self) -> "Module":
+        """Fill in ``id`` for assessments that omit it, then assert
+        intra-module uniqueness of the final id set (Story J.r).
+
+        Auto-gen uses the assessment's role-order within the module:
+        the Nth assessment carrying role ``R`` (N is 1-based) gets id
+        ``R`` if N == 1, else ``R-{N}``. Explicit ids are honoured
+        verbatim — auto-gen does **not** skip over them when counting,
+        so an explicit id chosen to look like an auto-gen value will
+        collide and fail uniqueness validation here.
+        """
+        role_counts: dict[str, int] = {}
+        for assessment in self.assessments:
+            role_counts[assessment.role] = role_counts.get(assessment.role, 0) + 1
+            if assessment.id is None:
+                n = role_counts[assessment.role]
+                assessment.id = (
+                    assessment.role if n == 1 else f"{assessment.role}-{n}"
+                )
+
+        seen: set[str] = set()
+        for assessment in self.assessments:
+            assert assessment.id is not None  # auto-gen guarantees this
+            if assessment.id in seen:
+                raise ValueError(
+                    f"Module `{self.id}` has duplicate assessment id "
+                    f"`{assessment.id}`. Assessment ids must be unique "
+                    "within a module; check explicit `id:` values and "
+                    "any collisions with role-based auto-gen "
+                    "(`pre`, `practice-2`, ...)."
+                )
+            seen.add(assessment.id)
         return self
 
     @model_validator(mode="after")

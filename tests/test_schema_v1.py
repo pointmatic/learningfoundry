@@ -776,3 +776,83 @@ class TestAssessmentDefinition:
                 ],
             })
         assert "pre_assessment" in str(exc.value)
+
+
+class TestAssessmentIdAutoGen:
+    """Story J.r — optional `id` field on `AssessmentDefinition` plus
+    role-based auto-gen and intra-module uniqueness validation."""
+
+    def _module(self, assessments: list[dict]) -> dict:  # type: ignore[type-arg]
+        return {
+            "id": "mod-01",
+            "title": "M",
+            "assessments": assessments,
+            "lessons": [
+                {"id": "lesson-01", "title": "L1", "content_blocks": []},
+                {"id": "lesson-02", "title": "L2", "content_blocks": []},
+            ],
+        }
+
+    def test_autogen_all_omitted(self) -> None:
+        mod = Module.model_validate(self._module([
+            {"role": "pre", "position": "before_lessons",
+             "source": "quizazz", "ref": "p.yml"},
+            {"role": "post", "position": "after_lessons",
+             "source": "quizazz", "ref": "po.yml"},
+            {"role": "practice", "position": {"before_lesson": "lesson-01"},
+             "source": "quizazz", "ref": "pr1.yml"},
+            {"role": "practice", "position": {"before_lesson": "lesson-02"},
+             "source": "quizazz", "ref": "pr2.yml"},
+        ]))
+        assert [a.id for a in mod.assessments] == [
+            "pre", "post", "practice", "practice-2",
+        ]
+
+    def test_autogen_mixed_with_explicit(self) -> None:
+        mod = Module.model_validate(self._module([
+            {"id": "diagnostic",
+             "role": "pre", "position": "before_lessons",
+             "source": "quizazz", "ref": "p.yml"},
+            {"role": "practice", "position": {"before_lesson": "lesson-01"},
+             "source": "quizazz", "ref": "pr1.yml"},
+            {"id": "final",
+             "role": "post", "position": "after_lessons",
+             "source": "quizazz", "ref": "po.yml"},
+            {"role": "practice", "position": {"before_lesson": "lesson-02"},
+             "source": "quizazz", "ref": "pr2.yml"},
+        ]))
+        assert [a.id for a in mod.assessments] == [
+            "diagnostic", "practice", "final", "practice-2",
+        ]
+
+    def test_duplicate_explicit_ids_rejected(self) -> None:
+        with pytest.raises(ValidationError) as exc:
+            Module.model_validate(self._module([
+                {"id": "pre", "role": "pre", "position": "before_lessons",
+                 "source": "quizazz", "ref": "a.yml"},
+                {"id": "pre", "role": "pre",
+                 "position": {"before_lesson": "lesson-01"},
+                 "source": "quizazz", "ref": "b.yml"},
+            ]))
+        msg = str(exc.value)
+        assert "mod-01" in msg
+        assert "pre" in msg
+
+    def test_explicit_collides_with_autogen_rejected(self) -> None:
+        # Three `practice` roles; explicit `practice-2` collides with
+        # the auto-gen result for the second practice in author order.
+        with pytest.raises(ValidationError) as exc:
+            Module.model_validate(self._module([
+                {"role": "practice",
+                 "position": {"before_lesson": "lesson-01"},
+                 "source": "quizazz", "ref": "a.yml"},
+                {"role": "practice",
+                 "position": {"before_lesson": "lesson-02"},
+                 "source": "quizazz", "ref": "b.yml"},
+                {"id": "practice-2", "role": "practice",
+                 "position": {"after_lesson": "lesson-02"},
+                 "source": "quizazz", "ref": "c.yml"},
+            ]))
+        msg = str(exc.value)
+        assert "mod-01" in msg
+        assert "practice-2" in msg

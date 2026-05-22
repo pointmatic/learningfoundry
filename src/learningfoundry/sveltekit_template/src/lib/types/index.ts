@@ -145,6 +145,14 @@ export type AssessmentPosition =
  * canonical iteration order resolved at build time.
  */
 export interface AssessmentDefinition {
+	/**
+	 * Stable per-assessment identifier within the module (Story J.r).
+	 * Always populated in resolved curriculum.json — author-supplied
+	 * `id:` is honoured verbatim, otherwise auto-generated from `role`
+	 * (`pre`, `post`, `practice`, `practice-2`, ...). Used as the
+	 * route-segment key by the assessment route layer (Story J.s).
+	 */
+	id: string;
 	role: string;
 	position: AssessmentPosition;
 	source: string;

@@ -665,6 +665,7 @@ questions:
 
 Each module declares an `assessments[]` array; each entry carries:
 
+- `id` — **optional** (Story J.r, v0.75.0+). A stable per-assessment identifier within the module, used by the route layer and the progress store. **When omitted, learningfoundry auto-generates it from `role`:** the first assessment with a given role takes the bare role (`pre`, `post`, `practice`), and subsequent same-role entries append a 1-based counter (`practice-2`, `practice-3`). Explicit ids are honoured verbatim — typical reasons to set one are to opt into a more descriptive URL segment (`diagnostic` instead of `pre`) or to lock the id against author-order shuffles. Intra-module uniqueness is enforced at build time, so duplicate explicit ids — or an explicit id that happens to collide with an auto-gen result — fail loudly with the module id and offending id.
 - `role` — open string. Conventional values: `pre`, `practice`, `post`, `checkpoint`. Surfaces as a capitalized label in the sidebar (`Pre Assessment`, `Practice Assessment`, …).
 - `position` — discriminated union:
   - `before_lessons` — anchors at the start of the module flow.
@@ -675,6 +676,30 @@ Each module declares an `assessments[]` array; each entry carries:
 - `pass_threshold` — optional `0.0`–`1.0`. Recorded but not gating in v1; surfaces as a `"X% to pass"` annotation on the assessment row when set.
 
 Lesson-anchored refs (`before_lesson` / `after_lesson`) are validated against the module's `lessons` at build time — typing a wrong lesson id fails the build with the module id, role, and unknown lesson id.
+
+**Worked example — `id` auto-gen vs. explicit:**
+
+```yaml
+assessments:
+  - role: pre               # auto-gen id = "pre"
+    position: before_lessons
+    source: quizazz
+    ref: assessments/mod-01-diag.yml
+  - role: practice          # auto-gen id = "practice"
+    position: { before_lesson: lesson-02 }
+    source: quizazz
+    ref: assessments/mod-01-warmup.yml
+  - role: practice          # auto-gen id = "practice-2"
+    position: { after_lesson: lesson-03 }
+    source: quizazz
+    ref: assessments/mod-01-checkpoint.yml
+  - id: final               # explicit id overrides auto-gen
+    role: post
+    position: after_lessons
+    pass_threshold: 0.8
+    source: quizazz
+    ref: assessments/mod-01-final.yml
+```
 
 ### Migrating from `pre_assessment` / `post_assessment` (pre-v0.68.0)
 

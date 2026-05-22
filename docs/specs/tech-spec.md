@@ -318,6 +318,9 @@ AssessmentPosition = (
 class AssessmentDefinition(BaseModel):
     """A single assessment bound to a module at a declared position.
     Replaces legacy `pre_assessment` / `post_assessment` fields (Story J.e)."""
+    id: str | None = None           # Story J.r — auto-gen from role if omitted:
+                                    #   1st of role R → "R"; Nth (N>1) → "R-N"
+                                    #   (e.g. pre, post, practice, practice-2)
     role: str                       # Open string: pre|practice|post|checkpoint|...
     position: AssessmentPosition
     source: str                     # "quizazz"
@@ -413,6 +416,13 @@ class Module(BaseModel):
         ...
 
     @model_validator(mode="after")
+    def autogen_assessment_ids(self) -> "Module":
+        """Story J.r — fill in `id` for assessments that omit it
+        (role-based, 1-based counter per role), then assert intra-module
+        uniqueness of the final id set."""
+        ...
+
+    @model_validator(mode="after")
     def validate_assessment_lesson_refs(self) -> "Module":
         """Every BeforeLesson / AfterLesson ref must name a lesson that
         exists in self.lessons (Story J.e)."""
@@ -465,6 +475,7 @@ class ResolvedAssessment:
     """One resolved assessment, ready for emission (Story J.e). Order in
     `ResolvedModule.assessments` is canonical iteration order materialized
     by the resolver."""
+    id: str                          # Story J.r — always populated after parse (auto-gen if omitted in YAML)
     role: str
     position: str | dict             # "before_lessons"|"after_lessons" | {"before_lesson": ...} | {"after_lesson": ...}
     source: str
@@ -954,6 +965,7 @@ In addition to the module/lesson/content tree, `ResolvedCurriculum` carries an `
       "description": "...",
       "assessments": [
         {
+          "id": "pre",
           "role": "pre",
           "position": "before_lessons",
           "source": "quizazz",
@@ -962,6 +974,7 @@ In addition to the module/lesson/content tree, `ResolvedCurriculum` carries an `
           "content": { "...quizazz manifest..." }
         },
         {
+          "id": "post",
           "role": "post",
           "position": "after_lessons",
           "source": "quizazz",
@@ -1040,6 +1053,7 @@ export type AssessmentPosition =
   | { after_lesson: string };
 
 export interface AssessmentDefinition {
+  id: string;                        // Story J.r — always populated in resolved curriculum.json
   role: string;
   position: AssessmentPosition;
   source: string;

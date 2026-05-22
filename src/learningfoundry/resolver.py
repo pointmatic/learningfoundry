@@ -61,6 +61,7 @@ class ResolvedAssessment:
     (Story J.e).
     """
 
+    id: str
     role: str
     position: str | dict[str, str]
     source: str
@@ -262,8 +263,10 @@ def _resolve_assessments(
         content = _resolve_assessment(
             assessment.ref, base_dir, assessment_provider, location
         )
+        assert assessment.id is not None  # auto-gen guarantees this
         resolved.append(
             ResolvedAssessment(
+                id=assessment.id,
                 role=assessment.role,
                 position=_position_to_jsonable(assessment.position),
                 source=assessment.source,

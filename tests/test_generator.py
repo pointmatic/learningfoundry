@@ -473,6 +473,7 @@ class TestAssessmentsArrayInCurriculumJson:
                     locked=None,
                     assessments=[
                         ResolvedAssessment(
+                            id="pre",
                             role="pre",
                             position="before_lessons",
                             source="quizazz",
@@ -481,6 +482,7 @@ class TestAssessmentsArrayInCurriculumJson:
                             content={"quizName": "pre"},
                         ),
                         ResolvedAssessment(
+                            id="practice",
                             role="practice",
                             position={"before_lesson": "lesson-01"},
                             source="quizazz",
@@ -489,6 +491,7 @@ class TestAssessmentsArrayInCurriculumJson:
                             content={"quizName": "practice"},
                         ),
                         ResolvedAssessment(
+                            id="post",
                             role="post",
                             position="after_lessons",
                             source="quizazz",

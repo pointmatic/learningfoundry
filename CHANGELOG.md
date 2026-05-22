@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.75.0] - 2026-05-22
+
+Stable per-assessment identifier for module-level assessments (Story J.r). Foundation for the upcoming assessment route layer (J.s) and the progress-store write path (J.u): both need to address a single assessment within a module by something that survives author-order edits. Without an id, the route layer would have to fall back to array indices, and URLs would shift every time an author inserts or reorders an entry.
+
+### Added
+
+- **`AssessmentDefinition.id` field** in [schema_v1.py](src/learningfoundry/schema_v1.py) — optional `str | None`, defaults to `None`. When omitted, a new `Module.autogen_assessment_ids` `model_validator(mode="after")` fills it in from `role`: the first assessment with a given role gets the bare role as id (`pre`, `post`, `practice`), the Nth (N>1) appends a 1-based counter (`practice-2`, `practice-3`). Explicit ids are honoured verbatim. A second pass over the populated id set raises `ValidationError` on any duplicate, naming the module id and offending id — so explicit duplicates **and** explicit ids colliding with auto-gen results both fail loud at parse time.
+- **`ResolvedAssessment.id`** in [resolver.py](src/learningfoundry/resolver.py) — non-optional `str`, threaded verbatim from the parsed `AssessmentDefinition` (auto-gen guarantees a value by the time the resolver runs). Serialized into `curriculum.json` via the existing `dataclasses.asdict` path; no generator changes required.
+- **`AssessmentDefinition.id` in TS types** in [lib/types/index.ts](src/learningfoundry/sveltekit_template/src/lib/types/index.ts) — non-optional `string` in the resolved JSON, matching the auto-gen guarantee.
+- **README "Assessments" subsection** ([README.md](README.md)) — documents the `id` field, the auto-gen rule, and a worked example mixing auto-gen and explicit ids.
+- **4 new test cases** in [tests/test_schema_v1.py](tests/test_schema_v1.py) under `TestAssessmentIdAutoGen` — covering all-omitted auto-gen, mixed explicit + omitted, duplicate explicit rejection, and explicit-colliding-with-auto-gen rejection.
+
+### Changed
+
+- **[tech-spec.md](docs/specs/tech-spec.md)** — `AssessmentDefinition` model block shows the new `id` field; new `Module.autogen_assessment_ids` validator listed; `ResolvedAssessment` dataclass and curriculum.json example both include the `id` field; SvelteKit TS `AssessmentDefinition` interface updated.
+- **[features.md](docs/specs/features.md)** — FR-2 "Module assessments — generalized array" subsection has a new `id` bullet covering the auto-gen rule and uniqueness enforcement.
+
+### Notes
+
+- No CLI migration tool — existing curricula continue to parse unchanged because auto-gen fills in every omitted id. Authors opt into explicit ids when they want stable URLs (e.g. `diagnostic` instead of `pre`) or to lock the id against future reorderings.
+- Format constraints on `id` are intentionally limited to uniqueness — no kebab-case enforcement, matching the `Lesson.id` / `Module.id` convention where format is author responsibility (those enforce kebab-case at the schema level via `_validate_id`, but assessment ids are addressed in URLs and may want author-chosen forms; revisit if a real failure mode surfaces).
+
 ## [0.74.1] - 2026-05-22
 
 PyYAML flow-context gotcha surfaced by downstream authoring against the J.h/J.q schema-extensions grammar. The J.h worked example used a YAML form that fails to parse — copy-paste authors hit `expected ',' or '}', but got '['` from PyYAML with no indication of the fix. Story J.q.1: docs fix + targeted validator hint, scoped to the one quirk that reproduces against the declared dependency floor.

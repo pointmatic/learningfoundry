@@ -108,6 +108,12 @@ top-level `#` title — the wrapper provides it.
 - **Wrong-but-plausible move to avoid:** a future LLM seeing `AssessmentProvider` and `QuizazzProvider` side by side could "consistency-rename" `QuizazzProvider` or change the `quizazz` extras to `assessment`. That breaks the integration silently — the PyPI install will fail, or worse, succeed against a stale name.
 - The asymmetry is intentional: a future `KahootProvider` or `CanvasProvider` would also implement `AssessmentProvider` and keep its own vendor name.
 
+**Pre-assessments are a non-locking soft-gate by convention (Story J.v):**
+- In `locking.ts`, an assessment with `role: pre` never gates subsequent items in the module flow, regardless of whether `pass_threshold` is set. Post-assessments and practice-assessments with `pass_threshold` *do* gate subsequent items.
+- The locking logic skips `role: pre` deliberately — the pedagogical intent of a pre-assessment is "diagnose where the learner is," and locking lesson 1 behind a pre-assessment the learner hasn't seen yet defeats that purpose. Scores are still recorded for pre-assessments; they just don't block progression.
+- **Wrong-but-plausible move to avoid:** a future LLM working in `locking.ts` who sees the post-assessment threshold gating and the `role !== "pre"` guard may try to "fix" the apparent inconsistency by routing `pre` through the same gate. Don't. This would silently break diagnostic pre-assessments — learners would be locked out of the first lesson by a test they haven't earned the right to skip yet.
+- Authors who *do* want hard pre-gating use `role: practice` with `position: { before_lesson: <lesson-id> }` — same gating effect, more honest naming, and the locking logic needs no special case for that path.
+
 ### Testing
 
 **Svelte 5 component mounts in vitest require `resolve.conditions: ['browser']` (Story I.q):**

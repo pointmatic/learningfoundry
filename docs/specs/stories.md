@@ -1045,6 +1045,179 @@ A second reported quirk — nested flow sequence inside a flow mapping, `{ type:
 
 ---
 
+### Story J.r: v0.75.0 — `AssessmentDefinition.id` Field + Auto-Gen Rule [Done]
+
+Module-level assessments today have no stable, schema-level identifier. `AssessmentDefinition` carries `role`, `position`, `source`, `ref`, and `pass_threshold` — but `role` is an open string with no uniqueness guarantee (two `practice` entries in the same module are legal), and `ref` is a file-path that can change as authors reorganize. Without a per-assessment id, the upcoming route layer would have to address assessments by **array index**, which makes URLs fragile under YAML edits (insertions and reorderings shift every following index) and forfeits the cheap migration path to author-supplied pretty URLs later.
+
+This story adds an optional `id: str | None` field on `AssessmentDefinition` and an auto-generation rule for when authors don't supply one: the first assessment with a given role uses the bare role as id (`pre`, `post`, `practice`), and subsequent assessments with the same role append a 1-based counter (`practice-2`, `practice-3`). Authors can override at any time by supplying an explicit `id:` in YAML — the auto-gen rule only fires for omitted ids. An intra-module uniqueness validator runs after auto-gen, so explicit duplicates fail loud at parse time. The field passes through `parser` → `resolver` → `generator.py` into `curriculum.json` verbatim.
+
+This is the standalone foundation for J.s (route addressing) and J.u (progress-store key). Authors can start adding explicit ids to their YAML as soon as v0.75.0 ships, before any of the downstream interactivity lands.
+
+**Out of scope:**
+- CLI migration tool to backfill ids into existing curricula — the auto-gen rule means existing YAML continues to work without edits; explicit ids are opt-in.
+- Format constraints on `id` beyond uniqueness (e.g., kebab-case enforcement) — matches `Lesson.id` / `Module.id` convention where format is author responsibility.
+- Pretty-URL behaviour, route handling, or any frontend visibility of the id — those land in J.s.
+
+**Tasks:**
+
+- [x] `src/learningfoundry/schema_v1.py`: add `id: str | None = None` to `AssessmentDefinition`. Document the auto-gen rule in the docstring.
+- [x] `src/learningfoundry/schema_v1.py`: add a `model_validator(mode="after")` on `Module` that fills in auto-generated ids for `AssessmentDefinition` entries with `id is None`, then asserts intra-module uniqueness of the final id set. Duplicate explicit ids raise `ValidationError` naming the module id and the duplicate value.
+- [x] `src/learningfoundry/resolver.py`: `ResolvedAssessment` carries the resolved `id` field; canonical-order materialization preserves it.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts`: add `id: string` to the `AssessmentDefinition` TS interface (non-optional in the resolved JSON since auto-gen guarantees it).
+- [x] `tests/test_schema_v1.py`: new cases —
+  - All assessments omit `id`: auto-gen produces `pre`, `post`, `practice`, `practice-2` matching role-and-order.
+  - Mix of explicit and omitted ids: explicit ids are honoured, auto-gen fills the rest without colliding.
+  - Two explicit `id: pre` entries in one module: `ValidationError` raised with module id and `pre` in the message.
+  - An explicit id and an auto-gen result colliding (`id: practice-2` declared while there are three `practice` roles): `ValidationError` raised.
+- [x] `docs/specs/tech-spec.md`: update the `schema_v1.py` `AssessmentDefinition` block to show the new `id` field; update the `curriculum.json` example so the two assessment entries show `"id": "pre"` and `"id": "post"`.
+- [x] `docs/specs/features.md`: in the FR-2 "Module assessments — generalized array (Phase J / Story J.e)" subsection, add an `id` bullet to the field list with the auto-gen rule.
+- [x] `README.md`: in the "Assessments" subsection, document the `id` field and auto-gen rule with a short worked example.
+- [x] Bump version to v0.75.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Update `CHANGELOG.md` with a v0.75.0 Added entry for `AssessmentDefinition.id`.
+- [x] Verify: `pyve test` passes, `ruff` and `mypy` clean.
+
+---
+
+### Story J.s: v0.76.0 — Assessment Route Page + Page Test [Planned]
+
+`AssessmentBlock.svelte` → `<QuizBlock>` is wired and works — but the `<AssessmentBlock>` chain is only invoked when a *lesson content block* has `type: assessment`. Module-level assessments (the `assessments[]` array from Story J.e) have nowhere to render. The sidebar shows the row, but clicking is a no-op; the route layer simply doesn't exist for `[module]/assessment/...`.
+
+This story adds the route: a new `+page.svelte` at `[module]/assessment/[id]/` that derives `moduleId` and `id` from `$page.params`, looks up the assessment in the curriculum store (`module.assessments.find(a => a.id === id)`), and mounts `<AssessmentBlock>` with `assessmentRef` and `manifest` from the matched entry. Completion callback persists score via `progressRepo.markAssessmentComplete(moduleId, id, score)` — that method doesn't exist yet (it lands in J.u), so this story uses a no-op stub callback in the route page and the page test asserts the callback signature is correct without exercising the persistence layer. Unknown `id` renders "Assessment not found." (parallels existing lesson 404 handling).
+
+Page structure mirrors `[module]/[lesson]/+page.svelte`. The page test mirrors `[lesson]/page.test.ts` — mock `@pointmatic/quizazz`, assert `<AssessmentBlock>` receives correct props, assert the completion callback fires with the expected shape.
+
+**Out of scope:**
+- The progress-store write path (`markAssessmentComplete`) — the route uses a no-op stub; the real wiring lands in J.u.
+- Sidebar interactivity (the row is still a static `<li>` after this story) — that's J.t. The route is reachable today only by typing the URL directly; J.t makes it clickable.
+- Locking enforcement on the route — that's J.v. This story renders the assessment regardless of whether the learner has met any prerequisites.
+
+**Tasks:**
+
+- [ ] `src/learningfoundry/sveltekit_template/src/routes/[module]/assessment/[id]/+page.svelte`: new file. Derive `moduleId` / `id` from params, look up `module.assessments.find(a => a.id === id)`, mount `<AssessmentBlock>` with `assessmentRef={assessment.ref}` and `manifest={assessment.manifest}`. Completion callback is a no-op stub: `async function handleComplete(score) { /* J.u wires the persistence */ }`. Unknown id branches to "Assessment not found." Header shows `{capitalizeRole(assessment.role)} Assessment` matching the spec.
+- [ ] `src/learningfoundry/sveltekit_template/src/routes/[module]/assessment/[id]/page.test.ts`: new file. Mock `@pointmatic/quizazz`. Assert: page mounts when given a valid `moduleId` + `id`; `<AssessmentBlock>` receives correct `assessmentRef`; unknown `id` renders the not-found copy; completion callback signature accepts `(score: AssessmentScore)` (existing TS shape — J.u may extend it).
+- [ ] `docs/specs/tech-spec.md`: extend the Package Structure tree to list `routes/[module]/assessment/[id]/`. No other doc updates in this story — the broader user-facing language ("assessment-specific routes are deferred" in features.md) is J.w's sweep.
+- [ ] Bump version to v0.76.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [ ] Update `CHANGELOG.md` with a v0.76.0 Added entry for the assessment route page.
+- [ ] Verify: `pyve test` passes, vitest passes (new page test), `ruff` and `mypy` clean.
+
+---
+
+### Story J.t: v0.77.0 — Clickable Sidebar Assessment Row [Planned]
+
+`LessonList.svelte` already interleaves assessment rows at the correct positions (Story J.f), but each row is a static `<li>` chip — no `<button>`, no `onclick`, no navigation target. With the route from J.s in place, the row needs to become an interactive navigation control matching the lesson rows' idioms.
+
+This story replaces the static chip with a `<button>` that navigates to `/{moduleId}/assessment/{assessmentId}`. Active state lights up when `$currentPosition.moduleId === moduleId && $currentPosition.assessmentId === id` — that store extension is part of this story since the route lookup needs to know "the current spot in the curriculum is an assessment, not a lesson." Active styling uses an **amber palette** (`bg-amber-100`, `text-amber-800`, `text-amber-600` for the ◆ icon) to visually distinguish assessment-in-progress from lesson-in-progress (blue) at a glance. Locked state renders `cursor-not-allowed text-gray-300` with `aria-disabled` — the actual lock determination is J.v's job; this story exposes the `locked: boolean` prop wiring and renders the locked appearance when set, with `lockedAssessments` defaulting to an empty Set so nothing is locked until J.v ships.
+
+**Out of scope:**
+- The lock determination itself — `lockedAssessments` is fed by `locking.ts`, which J.v extends. This story renders the locked appearance only.
+- Mid-lesson placement of assessment rows or any visual treatment beyond the amber active state and locked grey state — the broader features.md "per-role styling" deferred list is still deferred.
+- Keyboard navigation refinements beyond the native `<button>` focus behaviour.
+
+**Tasks:**
+
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/stores/curriculum.ts` (or wherever `currentPosition` lives): extend `Position` / `currentPosition` to include an optional `assessmentId: string | null` field alongside the existing `moduleId` / `lessonId`. Setting `assessmentId` clears `lessonId` and vice versa — they're mutually exclusive.
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/components/LessonList.svelte`: replace the static `<li>` chip in the assessment branch with a `<button>` matching the spec ([assessment-route-spec.md](assessment-route-spec.md) "Sidebar nav" subsection). `onclick` navigates via `goto(...)` to `/{moduleId}/assessment/{assessmentId}`. Active state: amber palette when `$currentPosition.moduleId === moduleId && $currentPosition.assessmentId === id`. Locked state: grey + `aria-disabled` driven by a `lockedAssessments: Set<string>` prop (defaulting to empty in this story).
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/components/LessonList.test.ts`: flip the existing "assessment row renders" test from asserting a chip to asserting a `<button>` with the correct click target. Add cases: active state highlights when `currentPosition.assessmentId` matches; locked appearance renders when the id is in `lockedAssessments`.
+- [ ] No `features.md` / `tech-spec.md` / `README.md` updates in this story — the "Rows are non-interactive in v1" sentence in features.md needs revision *after* J.v's locking also lands, so it's J.w's job.
+- [ ] Bump version to v0.77.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [ ] Update `CHANGELOG.md` with a v0.77.0 Changed entry for the sidebar assessment row going clickable.
+- [ ] Verify: vitest passes, `pyve test` passes (regression guard on the Python side), `ruff` and `mypy` clean.
+
+---
+
+### Story J.u: v0.78.0 — Progress Store: Per-Module-Assessment Write Path [Planned]
+
+`progressRepo` tracks lesson-content-block assessment scores today via the `assessment_scores` table (renamed from `quiz_scores` in J.m.4). The current schema PK is `assessment_ref` with `assessment_type: "pre" | "post" | "inline"` and `assessment_ref` doubling as the natural key. That shape was designed for content-block-level assessments where each `ref` is globally unique. The new write path needs to persist scores keyed by `(moduleId, assessmentId)` — distinct from the content-block path because two modules' assessments can legitimately share a `ref` (the same quizazz YAML used as both module-01's pre-test and module-02's review).
+
+This story starts with an **investigation task**: read the current `AssessmentScore` TS interface, the `assessment_scores` table schema, and the existing `markAssessmentComplete` (if it exists post-J.m.4) to determine the cleanest reconciliation path. Two candidate shapes — (a) add `assessment_id: TEXT NULL` and `module_id: TEXT NULL` columns and key new rows on `(module_id, assessment_id)`, leaving old `assessment_ref`-keyed rows untouched; (b) introduce a separate `module_assessment_scores` table. The story body documents whichever path the investigation picks; the choice is design work that lands at the story's approval gate alongside the implementation.
+
+The route's no-op stub callback from J.s gets replaced with `progressRepo.markAssessmentComplete(moduleId, assessmentId, score)`. `getAssessmentScore(moduleId, assessmentId)` reads back. `$progressStore` extends to include the assessment scores map (key shape depends on investigation outcome). `passed: boolean` semantics: `score.raw >= assessment.pass_threshold` when threshold is set; `true` when threshold is null (informational assessment doesn't gate, so "passed" is vacuously true).
+
+**Out of scope:**
+- Locking integration consuming the persisted score — that's J.v.
+- Score-history retention (re-attempts overwriting vs. appending) — current behaviour persists the latest score; multi-attempt history is a deferred OOS item from the source spec.
+- Per-question detail persistence — quizazz handles that in its own IndexedDB databases per the J.i terminology contract.
+
+**Tasks:**
+
+- [ ] **Investigation task (do this first):** read [progress.ts](../../src/learningfoundry/sveltekit_template/src/lib/db/progress.ts), the `AssessmentScore` TS interface in [types/index.ts](../../src/learningfoundry/sveltekit_template/src/lib/types/index.ts), and the `assessment_scores` table DDL in [database.ts](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts). Document the current shape and the chosen reconciliation path (option a "add columns" vs. option b "new table") in the story body before writing code.
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/database.ts`: schema migration matching the chosen path. Migration is forward-only (pre-1.0, no rollback contract).
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/progress.ts`: add `markAssessmentComplete(moduleId, assessmentId, score)` and `getAssessmentScore(moduleId, assessmentId)`. Extend the in-memory `progressStore` to include `assessmentScores` keyed on the chosen scheme.
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts`: reconcile the `AssessmentScore` interface with the new write path. If the existing shape is reusable as-is, document why; if it needs extending, add the new fields (likely `assessmentId: string`, possibly `passed: boolean` if computed at write time vs. read time).
+- [ ] `src/learningfoundry/sveltekit_template/src/routes/[module]/assessment/[id]/+page.svelte`: replace the J.s no-op stub callback with the real `progressRepo.markAssessmentComplete(moduleId, id, score)` invocation.
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/stores/progress.test.ts` (or equivalent): cases — write then read returns the same score; write under one `(moduleId, assessmentId)` does not collide with a write under a different `(moduleId, assessmentId)` even if they share a ref; `passed` resolves correctly for thresholded and threshold-null cases.
+- [ ] `docs/specs/tech-spec.md`: update the `AssessmentScore` TS interface and the `assessment_scores` SQLite DDL to reflect the chosen reconciliation. Note in prose which option was chosen and why.
+- [ ] `docs/specs/features.md`: if a new sub-bullet under FR-4 is warranted (per-module-assessment write path distinct from lesson-content-block path), add it. If the existing language covers both paths without revision, skip.
+- [ ] Bump version to v0.78.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [ ] Update `CHANGELOG.md` with a v0.78.0 Added entry for the per-module-assessment progress write path.
+- [ ] Verify: vitest passes (new + existing progress tests), `pyve test` passes, `ruff` and `mypy` clean.
+
+---
+
+### Story J.v: v0.79.0 — Locking: Post-Assessment Threshold Gate + Soft Pre-Assessment [Planned]
+
+`locking.ts` already plumbs `assessments[]` through `interleaveModuleFlow` for sidebar ordering (Story J.f) but doesn't gate progression on assessment completion or threshold. With J.u's write path in place, locking can read assessment scores from `progressRepo` and treat an assessment with `pass_threshold` set as a hard gate on subsequent items in the flow.
+
+This story extends `locking.ts` so that an assessment with `pass_threshold` acts as a gate: any item appearing **after** it in the `interleaveModuleFlow` output is locked until that assessment has a recorded score with `passed === true`. Assessments without `pass_threshold` are informational and never gate.
+
+The `role: pre` case is the sharp edge: a pre-assessment with `pass_threshold` is semantically weird — locking a learner out of the first lesson they haven't seen yet doesn't match the pedagogical intent of "diagnose where the learner is." This story implements the **soft-gate** convention agreed at planning time: `role: pre` is non-blocking regardless of `pass_threshold`. Scores are still recorded; failing the pre-assessment just means "you have prerequisite gaps to be aware of." Authors who want hard pre-gating use `role: practice` with `position: { before_lesson: ... }` — same gating effect, more honest naming, no special case needed in the locking logic for that path.
+
+The `lockedAssessments: Set<string>` prop on `<LessonList>` (J.t) is fed by the locking function's output starting in this story.
+
+**Out of scope:**
+- Cross-module assessment dependencies (M3 post gates M5 pre) — substantial new locking concept, no current driver, deferred per planning OOS walkthrough.
+- Explicit "skip" UI affordance on pre-assessments — soft-gate makes skip the default; an explicit button is redundant cosmetic UX, deferred.
+- Score-driven gating that combines threshold with re-attempt count (e.g., "pass on first try unlocks bonus content") — not in scope; latest-score gating is the only rule.
+
+**Tasks:**
+
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/utils/locking.ts`: extend the lock-determination logic to consume `progressRepo.getAssessmentScore(moduleId, assessmentId)` (or read the relevant slice of `$progressStore.assessmentScores`). For each assessment with `pass_threshold != null` and `role != "pre"`, items appearing after it in the flow lock until the recorded score has `passed === true`. Build and return a `lockedAssessments: Set<string>` of assessment ids that should themselves render locked (e.g., a post-assessment after an earlier unpassed gate).
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/components/LessonList.svelte`: wire the locking-function output into the `lockedAssessments` prop introduced in J.t (which until now defaulted to empty).
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/utils/locking.test.ts`: new cases per the spec —
+  - Post-assessment with `pass_threshold: 0.7`, no recorded score: next module is locked.
+  - Post-assessment with recorded score below threshold: next module is locked.
+  - Post-assessment with recorded score above threshold: next module unlocked.
+  - Pre-assessment with `pass_threshold: 0.7`, no recorded score: lesson 1 is **not** locked (soft-gate convention).
+  - Two post-assessments in sequence; passing the first but not the second locks the second module's content.
+  - Assessment without `pass_threshold` (informational): nothing locks regardless of recorded score.
+- [ ] No `features.md` / `tech-spec.md` / `README.md` updates in this story — the cross-cutting language ("recorded but not gating in v1", Non-goal #6, the README "Content locking" section) is J.w's sweep.
+- [ ] Bump version to v0.79.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [ ] Update `CHANGELOG.md` with a v0.79.0 Added entry for post-assessment threshold gating.
+- [ ] Verify: vitest passes, `pyve test` passes, `ruff` and `mypy` clean.
+
+---
+
+### Story J.w: Phase J Sub-Phase Doc Sweep [Planned]
+
+Closing doc-sweep story for the assessment-routes sub-phase. Code stories J.r–J.v each updated the doc surfaces they directly introduced (the `id` field references, the route directory in tech-spec's Package Structure, the TS types and SQLite schema for the new write path). What remains is the cross-cutting language that spans multiple stories and reads cleanly only as a single coherent revision rather than five partial edits.
+
+Specifically:
+
+- `features.md` FR-2 currently ends with *"Rows are non-interactive in v1 — gating, per-role styling beyond the label, mid-lesson placement, and assessment-specific routes are deferred."* That sentence is partly stale: routes landed (J.s), interactivity landed (J.t), post-assessment threshold gating landed (J.v). Per-role styling beyond the label and mid-lesson placement *are* still deferred. The sentence needs surgical rewriting, not deletion.
+- `features.md` Non-goal #6 ("Content locking/gating (v1) — Pre/post assessments are present but do not gate access to modules in v1.") needs softening to acknowledge that post-assessment threshold gating now exists. Pre-assessment soft-gate is also relevant to mention.
+- `README.md` "Assessments" subsection currently says of `pass_threshold`: *"Recorded but not gating in v1; surfaces as a `"X% to pass"` annotation on the assessment row when set."* The "not gating in v1" half is now wrong for post-assessments.
+- `README.md` "Embedding a quizazz assessment" walkthrough doesn't yet mention that module-level assessments navigate to dedicated routes. Add a paragraph noting the route shape and the sidebar's clickable behaviour.
+- `README.md` "Content locking" section lists `sequential` and per-module `locked` as the two gating mechanisms. Assessment-threshold gating is a third mechanism that belongs alongside them.
+
+No code, no version bump (per Version Cadence — doc-only stories share the closing version of the sub-phase, here v0.79.0 with J.v). Matches the Story J.g precedent for cross-cutting README sweeps at sub-phase close.
+
+**Out of scope:**
+- Any functional change.
+- Refactor of the per-story doc edits J.r–J.v already made.
+- A new integration-test fixture exercising the sub-phase end-to-end — covered by the per-story tests (page test, locking tests, progress tests) and the existing `test_pedagogical_authoring_smoke.py` which the J.r schema change extends transparently.
+
+**Tasks:**
+
+- [ ] `docs/specs/features.md`: rewrite the FR-2 "Rows are non-interactive in v1 ..." sentence to reflect what actually shipped. Suggested form: *"Assessment rows are clickable and navigate to `/{moduleId}/assessment/{id}`; post-assessment `pass_threshold` gates progression on subsequent items (`role: pre` is non-blocking by convention). Per-role styling beyond the label and mid-lesson placement remain deferred."* Final wording subject to review.
+- [ ] `docs/specs/features.md`: soften Non-goal #6 to read along the lines of *"Pre-assessment gating and cross-module dependency gating remain out of scope. Post-assessment `pass_threshold` gates progression on subsequent items in the module flow (Phase J / Story J.v)."* Final wording subject to review.
+- [ ] `README.md` "Assessments" subsection: rewrite the `pass_threshold` paragraph to distinguish gating (`post`) from non-gating (`pre`, informational) cases.
+- [ ] `README.md` "Embedding a quizazz assessment" walkthrough: add a "Module-level assessment routes" paragraph noting that module-level entries become `/{moduleId}/assessment/{id}` routes reachable from the sidebar.
+- [ ] `README.md` "Content locking" section: list assessment-threshold gating as the third mechanism alongside `sequential` and per-module `locked`. Worked example showing a `post` with `pass_threshold: 0.7` gating the next module.
+- [ ] No version bump (shares v0.79.0 with J.v). No `CHANGELOG.md` entry (doc-only).
+- [ ] Verify: prose review against features.md and README.md; `markdown-lint` (or equivalent) clean if part of CI; no test re-runs (no code touched).
+
+---
+
 ## Future
 
 <!--
@@ -1056,6 +1229,7 @@ The `archive_stories` mode preserves this section verbatim when archiving storie
 -->
 
 - **Cross-tab anti-clobber for the same `userId`.** Two tabs of the same browser, same user, can still last-writer-wins on the IDB blob — Web Locks `+` reload-on-write or BroadcastChannel-based leader election would solve it. Latent issue, distinct from this story; revisit when there's evidence of multi-tab learner workflows or sync work makes it forced. (Same scoping note as I.v.)
+- **`AssessmentScore` shape + `assessment_scores` table reconciliation — capture in `project-essentials.md` once J.u lands.** Story J.u's investigation task picks between "add `(module_id, assessment_id)` columns to the existing `assessment_scores` table" and "introduce a separate `module_assessment_scores` table." Whichever path lands, the rationale and the why-not of the rejected alternative belong in [project-essentials.md](project-essentials.md) under "Domain Conventions" alongside the existing "Assessment scores — aggregate only in learningfoundry" entry. Deferred from the J sub-phase project-essentials sweep because the choice isn't concrete yet; capture it as part of J.u's wrap-up or a follow-up cleanup story rather than letting it slip.
 - **lmentry integration** — Direct LLM invocation for content generation (currently done externally)
 - **nbfoundry real integration** — Replace `NbfoundryStub` with Marimo notebook generation when nbfoundry is published
 - **d3foundry real integration** — Replace `D3foundryStub` with D3.js visualization generation when d3foundry is published

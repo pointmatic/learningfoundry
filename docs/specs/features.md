@@ -221,6 +221,7 @@ The remaining subsections under FR-2 — `meta` blocks, the generalized `assessm
 
 Each module declares assessments as a list of `AssessmentDefinition` entries — one entry per assessment — replacing the legacy two-slot `pre_assessment` / `post_assessment` fields (removed outright; pre-1.0 makes the breakage acceptable).
 
+- `id` is optional (Story J.r) — a stable per-assessment identifier within the module, used by the route layer (Story J.s) and the progress store (Story J.u). When omitted, the parser auto-generates: the first assessment with a given role takes the bare role (`pre`, `post`, `practice`), and subsequent same-role entries append a 1-based counter (`practice-2`, `practice-3`). Explicit ids are honoured verbatim; intra-module uniqueness is enforced at parse time, so duplicate explicit ids — or an explicit id colliding with an auto-gen result — fail loud.
 - `role` is an open string. Conventional values: `pre`, `practice`, `post`, `checkpoint`. Used as a UI label and a tag for downstream consumers; the schema does not constrain the vocabulary.
 - `position` is a discriminated union:
   - `before_lessons` — anchors the assessment at the start of the module flow.

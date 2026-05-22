@@ -86,10 +86,18 @@ The trigger is a consumer-repo end-to-end demo blocked on assessment interactivi
 
 ### Files touched
 
+**Python (parser / schema):**
+
 ```
 EDIT   src/learningfoundry/schema_v1.py                          (id field + uniqueness validator)
 EDIT   src/learningfoundry/parser.py                             (auto-gen id during resolution, if not done in schema)
-EDIT   docs/specs/schema-spec.md                                 (document id field + auto-gen rule)
+EDIT   src/learningfoundry/resolver.py                           (ResolvedAssessment.id pass-through)
+EDIT   tests/test_schema_v1.py                                   (id field + uniqueness tests)
+```
+
+**SvelteKit template:**
+
+```
 EDIT   src/learningfoundry/sveltekit_template/src/lib/types/index.ts   (AssessmentDefinition.id; reconcile AssessmentScore)
 NEW    src/learningfoundry/sveltekit_template/src/routes/[module]/assessment/[id]/+page.svelte
 NEW    src/learningfoundry/sveltekit_template/src/routes/[module]/assessment/[id]/page.test.ts
@@ -99,7 +107,14 @@ EDIT   src/learningfoundry/sveltekit_template/src/lib/stores/progress.ts
 EDIT   src/learningfoundry/sveltekit_template/src/lib/stores/progress.test.ts
 EDIT   src/learningfoundry/sveltekit_template/src/lib/utils/locking.ts
 EDIT   src/learningfoundry/sveltekit_template/src/lib/utils/locking.test.ts
-EDIT   tests/test_schema_v1.py                                   (id field + uniqueness tests)
+```
+
+**Documentation (per-story + closing sweep, see Story Breakdown):**
+
+```
+EDIT   docs/specs/features.md          (assessments[] id field; route + gating language; FR-4 per-assessment write path; non-goal #6 softening)
+EDIT   docs/specs/tech-spec.md         (AssessmentDefinition.id; curriculum.json example; TS types; assessment_scores schema; package structure tree)
+EDIT   README.md                       (Assessments id field; route note in quizazz walkthrough; pass-threshold gating revision; Content locking expansion)
 ```
 
 ### Dependencies
@@ -125,15 +140,29 @@ Walked through with developer at planning approval. Decisions:
 
 ## Story Breakdown (Preview)
 
-Five stories, appended after `J.q.1` under the existing `## Phase J:` heading. Each one ships code and takes its own Version Cadence bump.
+Six stories, appended after `J.q.1` under the existing `## Phase J:` heading. Each story owns the doc surfaces it directly introduces; cross-cutting doc reconciliation is the closing J.w sweep. Each story that ships code takes its own Version Cadence bump.
 
-- **J.r — `AssessmentDefinition.id`: optional field, auto-gen rule, uniqueness validation.** Pydantic + parser + schema docs + tests. Standalone — authors can start using it before the route exists.
+- **J.r — `AssessmentDefinition.id`: optional field, auto-gen rule, uniqueness validation.** Pydantic + parser + resolver pass-through + tests. Standalone — authors can start using it before the route exists.
+  - *Docs in this story:* `tech-spec.md` `AssessmentDefinition` block + `curriculum.json` example; `features.md` FR-2 "Module assessments — generalized array" bullet list; `README.md` "Assessments" subsection.
+
 - **J.s — Assessment route page + page test.** `[module]/assessment/[id]/+page.svelte` plus its sibling test mirroring `[lesson]/page.test.ts`. Depends on J.r.
-- **J.t — Clickable sidebar assessment row.** `LessonList.svelte` button replacement + active/locked palettes + test flip. Depends on J.s for the navigation target.
-- **J.u — Progress store: per-module-assessment write path.** Reconcile existing `AssessmentScore` shape, add `markAssessmentComplete` / `getAssessmentScore`, extend `$progressStore`. Includes an investigation task to inspect what J.m.4 actually landed before adding the new methods.
-- **J.v — Locking: post-assessment threshold gate + soft pre-assessment.** `locking.ts` + tests covering the four cases in the spec (no score / below threshold / above threshold / pre-with-threshold).
+  - *Docs in this story:* `tech-spec.md` Package Structure tree (add the new route directory); `features.md` FR-3 SvelteKit generation note if a per-assessment route surface needs explicit mention.
 
-Story dependencies form a partial order — J.r before J.s before J.t; J.u and J.v can be developed in parallel with J.t once J.r/J.s land. The Version Cadence rule applies per story.
+- **J.t — Clickable sidebar assessment row.** `LessonList.svelte` button replacement + active/locked palettes + test flip. Depends on J.s for the navigation target.
+  - *Docs in this story:* none beyond inline component-level — the cross-cutting "Rows are non-interactive in v1" sentence in `features.md` is owned by the J.w sweep, not this story (because it also depends on J.v's gating landing).
+
+- **J.u — Progress store: per-module-assessment write path.** Investigate the existing `AssessmentScore` shape landed by J.m.4 before designing. Add `markAssessmentComplete` / `getAssessmentScore`, extend `$progressStore`, decide whether the SQLite `assessment_scores` table needs a new column or a new table for module-level assessments (the current PK is `assessment_ref` keyed off content-block-level assessments).
+  - *Docs in this story:* `tech-spec.md` TS types (`AssessmentScore` interface) + SQLite `assessment_scores` schema. `features.md` FR-4 if a new write path subsection lands.
+
+- **J.v — Locking: post-assessment threshold gate + soft pre-assessment.** `locking.ts` + tests covering the four cases in the spec (no score / below threshold / above threshold / pre-with-threshold). Soft-gate for `role: pre` is implemented as a design constant, not an authoring opt-in.
+  - *Docs in this story:* none in this story — the gating language touches features.md FR-2 + Non-goal #6 + README.md "Content locking" + "Pass-threshold gating" all at once. Owned by J.w.
+
+- **J.w — Phase J Sub-Phase Doc Sweep.** Cross-cutting documentation reconciliation after J.r–J.v ship. Touches:
+  - `features.md`: revise the FR-2 "Rows are non-interactive in v1 — gating, per-role styling beyond the label, mid-lesson placement, and assessment-specific routes are deferred." sentence to reflect what actually shipped (routes and post-threshold gating landed; mid-lesson placement and per-role styling still deferred). Soften Non-goal #6 ("Content locking/gating (v1)") to acknowledge post-assessment threshold gating now exists.
+  - `README.md`: revise the "Assessments" subsection's `pass_threshold` note (currently "recorded but not gating in v1") and the "Embedding a quizazz assessment" walkthrough to mention module-level navigation; extend "Content locking" to list assessment threshold as a third gating mechanism alongside `sequential` and per-module `locked`.
+  - Ship as a doc-only story; no code, no version bump (per Version Cadence — only code-shipping stories bump). Matches the Story J.g precedent (Phase J Close cross-cutting README sweep).
+
+Story dependencies form a partial order — J.r before J.s before J.t; J.u and J.v can be developed in parallel with J.t once J.r/J.s land; J.w runs after J.r–J.v are all done.
 
 ---
 
