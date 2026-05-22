@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.74.1] - 2026-05-22
+
+PyYAML flow-context gotcha surfaced by downstream authoring against the J.h/J.q schema-extensions grammar. The J.h worked example used a YAML form that fails to parse — copy-paste authors hit `expected ',' or '}', but got '['` from PyYAML with no indication of the fix. Story J.q.1: docs fix + targeted validator hint, scoped to the one quirk that reproduces against the declared dependency floor.
+
+### Added
+
+- **Validator hint for `list[T]`-in-flow-mapping PyYAML quirk** — `load_schema_extensions` ([schema_extensions.py](src/learningfoundry/schema_extensions.py)) now recognises the failure signature (`expected ',' or '}'` + `got '['` in the PyYAML error) and appends a hint to the wrapped `SchemaExtensionError` naming the two safe forms (quoted-flow `{ type: "list[str]" }` or block style). The hint matcher is brittle-by-design (fails open → no hint, never worse error) — a companion robustness test in `tests/test_schema_extensions.py::TestPyYamlFlowContextHint::test_pyyaml_wording_unchanged` reproduces the raw PyYAML failure and asserts the matcher's keyed substrings are still present, so a future PyYAML wording drift surfaces as a test failure first.
+- **Project-essentials Architecture Quirks entry** — new "Schema-extensions YAML — PyYAML `list[T]` in flow mapping quirk" subsection in [project-essentials.md](docs/specs/project-essentials.md) documenting the signature, both safe forms, and the matcher's brittleness-by-design posture so future LLMs editing extension files default to a safe form and don't go hunting for a phantom learningfoundry bug.
+
+### Changed
+
+- **README J.h worked example fixed** — [README.md:528, 530](README.md) — the two `{ type: list[str], default: [] }` lines now use the quoted-flow form (`{ type: "list[str]", default: [] }`). A "YAML gotcha" callout below the example names the PyYAML signature and the two safe forms.
+- **PyYAML floor pinned to `>=6.0.3`** — [pyproject.toml:28](pyproject.toml#L28). The previous `>=6.0` was open-ended; pinning to a version definitively-known-to-handle the matcher contract removes one variable from the dependency surface.
+
+### Notes
+
+- The reported "nested flow sequence inside flow mapping" quirk (`{ type: enum, values: [a, b, c] }`) does **not** reproduce against PyYAML 6.0.3. Six minimal variants and a full schema-extensions-context reproduction all parsed cleanly. Documenting a quirk that does not reproduce in the declared dependency floor would confuse future readers; J.q.1 scopes to the verified `list[T]` quirk only and parks the nested-flow-sequence report for a future story if a concrete reproducer surfaces (older PyYAML, more exotic construct).
+- 4 new test cases in [tests/test_schema_extensions.py](tests/test_schema_extensions.py) covering both happy paths (`list[str]` and `list[object]`), the unrelated-YAML-error guard (signature-specific matcher, not blanket-on), and the PyYAML wording robustness assertion.
+
 ## [0.74.0] - 2026-05-21
 
 Schema-extensions grammar extension (Story J.q) — adds two new discriminated-union variants on top of the J.h foundation so authors can declare structured nested data instead of smuggling it through `extra="allow"` or flattening it into string conventions.

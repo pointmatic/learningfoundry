@@ -1010,6 +1010,41 @@ lesson_meta:
 
 ---
 
+### Story J.q.1: v0.74.1 — PyYAML flow-context quirk: docs fix + validator hint [Done]
+
+Authoring against the J.h/J.q schema-extensions grammar in a downstream project surfaced a PyYAML quirk that the existing J.h worked example walks into directly: inside a flow mapping (`{ ... }`), `list[str]` and `list[object]` are parsed as the scalar `list` followed by a flow sequence `[str]` / `[object]`, which fails with `expected ',' or '}', but got '['`. Two safe forms: quote the scalar (`{ type: "list[str]" }`) or use block style (`type: list[str]` on its own line). The J.h README example at [README.md:528-531](../../README.md#L528-L531) uses the broken form on two lines (`{ type: list[str], default: [] }` × 2), so a copy-paste author hits the friction immediately.
+
+A second reported quirk — nested flow sequence inside a flow mapping, `{ type: enum, values: [a, b, c] }` — does **not** reproduce against PyYAML 6.0.3 (the version installed against today's `pyyaml>=6.0` floor). Six minimal variants and a full schema-extensions-context reproduction all parse cleanly. Documenting a quirk that doesn't reproduce in the codebase's dependency floor risks confusing future readers, so J.q.1 scopes to the verified `list[T]` quirk only. If the nested-flow-sequence quirk resurfaces with a concrete reproducer (older PyYAML, more exotic construct), extend the matcher in a follow-up story.
+
+**Scope:**
+
+1. **Docs fix.** Rewrite the two broken `{ type: list[str], default: [] }` lines in the J.h README example to the quoted-flow form (`{ type: "list[str]", default: [] }`). Add a brief "YAML flow-context gotcha" callout below the example naming the failure signature and both safe forms. Append an Architecture Quirks entry to [project-essentials.md](../../docs/specs/project-essentials.md) so future LLMs writing extension files default to a safe form.
+2. **Validator hint.** Decorate the `except yaml.YAMLError` block in `load_schema_extensions` ([schema_extensions.py:308](../../src/learningfoundry/schema_extensions.py#L308)). When PyYAML's error message contains both `"expected ',' or '}'"` and `"got '['"`, append a hint to the `SchemaExtensionError` naming the two safe forms. When the signature doesn't match, the wrapping is unchanged — failure mode is "as good as today," not "worse than today."
+3. **Robustness test.** Feed PyYAML the same broken YAML the matcher targets and assert PyYAML still produces the signature substrings the matcher keys on. Test docstring tells the future reader: if this fails on a PyYAML upgrade, update the matcher to recognize the new wording — do not just relax the assertion.
+4. **Dependency floor.** Bump `pyyaml>=6.0` → `pyyaml>=6.0.3` ([pyproject.toml:28](../../pyproject.toml#L28)). The current floor was open-ended; pinning to a version definitively-known-to-handle the matcher contract removes one variable.
+
+**Out of scope:**
+- Pre-parse text-lint regex (Option B from the design discussion) — over-engineered for the friction; docs + the targeted hint covers realistic failures without adding a YAML-syntax lint that PyYAML mostly does correctly.
+- A README-wide pre-flight validator (loading every fenced `yaml` block under `version: "1"` in docs) — separate concern, parked for later.
+- The nested-flow-sequence quirk — not reproducible against the declared dependency floor; revisit with a concrete reproducer.
+
+**Tasks:**
+
+- [x] `pyproject.toml`: bump `pyyaml>=6.0` → `pyyaml>=6.0.3`.
+- [x] `src/learningfoundry/schema_extensions.py`: in the `except yaml.YAMLError` block of `load_schema_extensions`, detect the signature (`"expected ',' or '}'"` **and** `"got '['"` both present in the PyYAML error string). When matched, append a multi-line hint to the wrapped `SchemaExtensionError` naming the two safe forms (`{ type: "list[str]" }` quoted-flow, or `type: list[str]` block-style). Implemented as `_pyyaml_flow_context_hint(yaml_error_message)` helper, fail-open by design.
+- [x] `tests/test_schema_extensions.py`:
+  - [x] Happy-path: feed `load_schema_extensions` a file with `{ type: list[str] }`. Assert `SchemaExtensionError` raised; assert message contains the hint substring.
+  - [x] Happy-path: same with `{ type: list[object] }`.
+  - [x] Unrelated-YAML-error guard: feed a file with a different YAML-parse failure (e.g. an unbalanced sequence) and assert the hint is **not** appended (the matcher is signature-specific, not blanket-on).
+  - [x] **Robustness:** feed the same broken YAML directly to `yaml.safe_load` and assert the error still contains `"expected ',' or '}'"` and `"got '['"`. Test docstring instructs: if this fails, the PyYAML wording changed — update the matcher in `load_schema_extensions`, do not just relax the assertion.
+- [x] `README.md`: the two `{ type: list[str], default: [] }` lines in the J.h example are now `{ type: "list[str]", default: [] }`. A "YAML gotcha" callout below the example names the PyYAML signature and the two safe forms.
+- [x] `docs/specs/project-essentials.md`: Architecture Quirks entry "Schema-extensions YAML — PyYAML `list[T]` in flow mapping quirk" appended, naming the signature, the two safe forms, the validator-hint matcher's fail-open posture, and the parked nested-flow-sequence report.
+- [x] Bump version to v0.74.1 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Update `CHANGELOG.md` with a v0.74.1 entry (Changed: docs fix + PyYAML floor; Added: validator hint + project-essentials note; Notes: parked nested-flow-sequence report).
+- [x] Verify: `pyve test` passes (407 total, +4 new in `TestPyYamlFlowContextHint`), `ruff` and `mypy` clean.
+
+---
+
 ## Future
 
 <!--

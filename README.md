@@ -525,10 +525,12 @@ Minimal example — `learningfoundry-schema-extensions.yml`:
 version: "1"
 lesson_meta:
   fields:
-    covers:        { type: list[str], default: [] }
+    covers:        { type: "list[str]", default: [] }
     difficulty:    { type: enum, values: [intro, intermediate, advanced] }
-    prerequisites: { type: list[str], default: [] }
+    prerequisites: { type: "list[str]", default: [] }
 ```
+
+> **YAML gotcha — `list[T]` inside a flow mapping must be quoted.** PyYAML parses `{ type: list[str] }` (unquoted) as the scalar `list` followed by a flow sequence `[str]` and fails with `expected ',' or '}', but got '['`. Two safe forms: quote the scalar — `{ type: "list[str]" }` — or use block style on its own line (`type: list[str]` with no surrounding braces). `learningfoundry validate` recognises this failure signature and appends a hint to the error message, so a build hitting it surfaces the fix without the author needing to recognise the PyYAML quirk first.
 
 With this file in place:
 

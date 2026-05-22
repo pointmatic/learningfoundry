@@ -912,3 +912,87 @@ class TestRecursiveForwardReferenceResolution:
         phase = m.phases[0]  # type: ignore[attr-defined]
         assert phase.id == "p1"
         assert phase.policy.owner.name == "Ada"
+
+
+class TestPyYamlFlowContextHint:
+    """Story J.q.1: when an extension file uses the broken inline-flow
+    form (``{ type: list[str] }``), PyYAML emits a generic
+    ``expected ',' or '}', but got '['`` error. The hint decoration on
+    ``load_schema_extensions``'s ``YAMLError`` wrapper recognises the
+    signature and points the author at the two safe forms."""
+
+    def _write(self, tmp_path: Path, body: str) -> Path:
+        f = tmp_path / "ext.yml"
+        f.write_text(body)
+        return f
+
+    def test_list_str_inside_flow_mapping_gets_hint(
+        self, tmp_path: Path
+    ) -> None:
+        f = self._write(
+            tmp_path,
+            "version: '1'\n"
+            "lesson_meta:\n"
+            "  fields:\n"
+            "    covers: { type: list[str] }\n",
+        )
+        with pytest.raises(SchemaExtensionError) as exc:
+            load_schema_extensions(f)
+        msg = str(exc.value)
+        # Original PyYAML error preserved + hint appended.
+        assert "expected ',' or '}'" in msg
+        assert "PyYAML `list[T]`-in-flow-mapping quirk" in msg
+        assert 'Quote the scalar:  { type: "list[str]"' in msg
+
+    def test_list_object_inside_flow_mapping_gets_hint(
+        self, tmp_path: Path
+    ) -> None:
+        f = self._write(
+            tmp_path,
+            "version: '1'\n"
+            "curriculum_meta:\n"
+            "  fields:\n"
+            "    citations: { type: list[object], fields: { key: { type: str } } }\n",
+        )
+        with pytest.raises(SchemaExtensionError) as exc:
+            load_schema_extensions(f)
+        msg = str(exc.value)
+        assert "PyYAML `list[T]`-in-flow-mapping quirk" in msg
+
+    def test_unrelated_yaml_error_does_not_get_hint(
+        self, tmp_path: Path
+    ) -> None:
+        # Unbalanced flow sequence — different PyYAML failure mode, the
+        # matcher must be signature-specific, not "any YAML error".
+        f = self._write(
+            tmp_path,
+            "version: '1'\nlesson_meta: [unbalanced\n",
+        )
+        with pytest.raises(SchemaExtensionError) as exc:
+            load_schema_extensions(f)
+        msg = str(exc.value)
+        assert "PyYAML `list[T]`-in-flow-mapping quirk" not in msg
+
+    def test_pyyaml_wording_unchanged(self) -> None:
+        """Robustness guard. If this test fails, PyYAML has changed the
+        wording of the error our hint matcher in
+        ``_pyyaml_flow_context_hint`` keys on. **Update the matcher to
+        recognise the new wording — do NOT just relax this assertion.**
+        A silently-non-firing hint is exactly the failure mode the test
+        exists to prevent.
+        """
+        import yaml
+
+        for body in (
+            "foo: { type: list[str] }",
+            "foo: { type: list[object] }",
+        ):
+            with pytest.raises(yaml.YAMLError) as exc:
+                yaml.safe_load(body)
+            msg = str(exc.value)
+            assert "expected ',' or '}'" in msg, (
+                f"PyYAML wording changed for {body!r}; matcher needs update."
+            )
+            assert "got '['" in msg, (
+                f"PyYAML wording changed for {body!r}; matcher needs update."
+            )

@@ -68,6 +68,16 @@ top-level `#` title — the wrapper provides it.
 - **Side-finding on sql.js@1.14.x:** the package now ships both `sql-wasm.wasm` and `sql-wasm-browser.wasm` (Vite's `"browser"` export condition resolves to the latter). In 1.14.1 the two files are **byte-identical (SHA-256)** — `locateFile: () => '/sql-wasm.wasm'` works regardless of which name Vite resolves at build time. **This is a coincidence, not a contract.** A future sql.js release that genuinely diverges them would resurface the failure mode. See [sql-js-wasm-robustness.md](sql-js-wasm-robustness.md) Pattern A and Pattern C for context.
 - Lifecycle scripts (`postinstall`, `prepare`, `prepublish`) are **not** the source of any current bug — Story I.cc was reframed away from a lifecycle-script investigation after the user clarified the actual grief was the strict-layout caveat above (in a separate repo, host-integration scenario).
 
+**Schema-extensions YAML — PyYAML `list[T]` in flow mapping quirk (Story J.q.1):**
+
+- Inside a flow mapping (`{ ... }`), PyYAML parses `list[str]` as the plain scalar `list` followed by a flow sequence `[str]` and rejects with `expected ',' or '}', but got '['`. Affects `list[str]` and `list[object]` everywhere they appear in inline form.
+- Two safe forms when authoring or editing `learningfoundry-schema-extensions.yml`:
+  - Quote the scalar: `{ type: "list[str]" }`, `{ type: "list[object]" }`.
+  - Or use block style on its own line: `type: list[str]` (no surrounding braces).
+- Block style is also the form to default to when an LLM is generating extension files — it avoids the quirk entirely and matches the worked examples in the README's "Strict project-specific extensions" section.
+- The `load_schema_extensions` YAML-error wrapper in [schema_extensions.py](../../src/learningfoundry/schema_extensions.py) recognises this PyYAML signature and appends a hint to the wrapped `SchemaExtensionError`. The hint matcher is brittle to PyYAML wording changes by design (fails open → no hint, not worse error); a robustness test in `tests/test_schema_extensions.py::TestPyYamlFlowContextHint::test_pyyaml_wording_unchanged` reproduces the raw PyYAML failure and asserts the matcher's keyed substrings are still present, so a future PyYAML wording drift surfaces as a test failure first.
+- Nested flow sequences inside flow mappings (`{ type: enum, values: [a, b, c] }`) **do not** trigger the quirk in PyYAML 6.0.3 (the declared dependency floor). Repeated empirical reports of this failing trace to older PyYAML versions or more exotic constructs; if a concrete reproducer surfaces, extend the matcher rather than over-anticipating.
+
 ### Domain Conventions
 
 **Curriculum IDs are hyphenated lowercase strings:**

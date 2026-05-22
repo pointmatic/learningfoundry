@@ -434,6 +434,45 @@ def build_extended_curriculum_v1(
     return extended_v1
 
 
+def _pyyaml_flow_context_hint(yaml_error_message: str) -> str:
+    """Return a one-paragraph hint appended to ``SchemaExtensionError``
+    when the PyYAML failure signature matches the ``list[T]``-in-flow-
+    mapping quirk; empty string otherwise.
+
+    Background: inside a flow mapping (``{ ... }``), PyYAML parses
+    ``list[str]`` as the plain scalar ``list`` followed by a flow
+    sequence ``[str]`` — which the flow-mapping grammar then rejects
+    with ``expected ',' or '}', but got '['``. The author-friendly
+    fixes are to quote the scalar (``{ type: "list[str]" }``) or to use
+    block style on its own line.
+
+    Brittle to PyYAML wording changes by design: if the signature
+    stops matching, this function returns ``""`` and the existing
+    wrapping is unchanged — the function fails open, never producing
+    worse output than today. The companion robustness test in
+    ``tests/test_schema_extensions.py`` asserts the current PyYAML
+    still produces the substrings keyed on here, so a future wording
+    drift surfaces as a test failure first rather than as a silently
+    missing hint.
+    """
+    if "expected ',' or '}'" not in yaml_error_message:
+        return ""
+    if "got '['" not in yaml_error_message:
+        return ""
+    return (
+        "\n\nHint: this looks like the PyYAML `list[T]`-in-flow-mapping "
+        "quirk — inside `{ ... }`, an unquoted `list[str]` or "
+        "`list[object]` parses as the scalar `list` followed by a "
+        "flow sequence `[str]`. Two safe forms:\n"
+        '  - Quote the scalar:  { type: "list[str]", default: [] }\n'
+        "  - Or use block style:\n"
+        "      type: list[str]\n"
+        "      default: []\n"
+        "See the README's \"Strict project-specific extensions\" "
+        "section for a worked example."
+    )
+
+
 def load_schema_extensions(path: Path) -> SchemaExtensions:
     """Read and validate a schema-extensions YAML file. Raises
     ``SchemaExtensionError`` on any failure (missing, malformed YAML,
@@ -448,6 +487,7 @@ def load_schema_extensions(path: Path) -> SchemaExtensions:
     except yaml.YAMLError as e:
         raise SchemaExtensionError(
             f"Failed to parse schema extensions file {path}: {e}"
+            f"{_pyyaml_flow_context_hint(str(e))}"
         ) from e
     if not isinstance(data, dict):
         raise SchemaExtensionError(
