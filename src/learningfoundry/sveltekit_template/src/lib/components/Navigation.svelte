@@ -1,7 +1,8 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import { currentPosition, nextLesson, previousLesson } from '$lib/stores/curriculum.js';
 	import { resolveGoNext, resolveGoPrev } from './navigation.helpers.js';
 

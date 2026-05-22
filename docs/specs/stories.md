@@ -840,15 +840,17 @@ J.m.8 collapses that into a single README subsection — "Embedding a quizazz as
 
 ---
 
-### Story J.n: `lucide-svelte` 1.0 Migration [Planned]
+### Story J.n: `lucide-svelte` → `@lucide/svelte` Rebrand Migration [Done]
 
-`lucide-svelte@0.468.0` is marked **deprecated** on npm — the 0.x line is end-of-life and will not receive bug or security fixes. The supported line is 1.x (currently 1.0.1). This is the only deprecated package in the template's dependency graph; every other "newer version available" notice from `pnpm install` is a normal patch/minor diff within the existing caret ranges.
+`lucide-svelte@0.468.0` is marked **deprecated** on npm. The investigation for this story turned up that **`lucide-svelte@1.0.1` is also deprecated** with the explicit message *"Package deprecated. Please use @lucide/svelte instead."* — i.e., the 0.x → 1.x jump was a rename to the scoped `@lucide` org, not a numeric major bump within the same package name. Migrating to `lucide-svelte@1.x` would land us in a still-deprecated package and defer the real fix.
+
+The actual current, supported, non-deprecated package is **`@lucide/svelte@1.16.0`** (homepage [lucide.dev](https://lucide.dev), peer `svelte: ^5` — matches our template's Svelte 5 setup). This is the only deprecated package in the template's dependency graph; every other "newer version available" notice from `pnpm install` is a normal patch/minor diff within the existing caret ranges.
 
 Scope is small: the template imports exactly three icons across two components:
 - [Navigation.svelte:4](../../src/learningfoundry/sveltekit_template/src/lib/components/Navigation.svelte#L4) — `ChevronLeft`, `ChevronRight`
 - [ResetCourseButton.svelte:7](../../src/learningfoundry/sveltekit_template/src/lib/components/ResetCourseButton.svelte#L7) — `RotateCcw`
 
-Lucide 1.0's primary breaking change is the move from default tree-shaken icon exports to per-icon module imports (`from 'lucide-svelte/icons/chevron-left'`) plus a Svelte 5 runes-native rewrite. Existing barrel imports may still work via a compatibility shim, but the canonical 1.x form is per-icon — worth migrating to match the supported pattern, not just suppressing the deprecation warning.
+`@lucide/svelte` 1.x's canonical import form is **per-icon module imports** (`import ChevronLeft from '@lucide/svelte/icons/chevron-left';`) — gives explicit tree-shaking and matches the form lucide.dev's docs encourage. The barrel form (`import { ChevronLeft } from '@lucide/svelte'`) is supported via `exports['.']`, but per-icon is the recommended pattern for new code and the migration story is cheap (three sites total).
 
 No production-facing impact on the runtime API of the template (these are icons in navigation and reset controls). Unversioned per the Phase-bundled-release rule.
 
@@ -858,12 +860,20 @@ No production-facing impact on the runtime API of the template (these are icons 
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/sveltekit_template/package.json`: bump `lucide-svelte` from `^0.468.0` to `^1.0.1` (or whatever 1.x is current at implementation time).
-- [ ] Update the two import sites to the 1.x canonical form (per-icon module imports if the migration guide recommends; otherwise the barrel import if 1.x still supports it cleanly).
-- [ ] `src/learningfoundry/sveltekit_template/pnpm-lock.yaml`: regenerate.
-- [ ] Verify: `vitest` passes (Navigation and ResetCourseButton component tests exercise the icons); `pnpm dev` renders the icons in browser; `pnpm build` produces no warnings about deprecated imports.
-- [ ] No version bump (unversioned per Phase-bundled-release rule).
-- [ ] No `CHANGELOG.md` entry (template internals; not user-facing).
+- [x] `src/learningfoundry/sveltekit_template/package.json`: remove the `"lucide-svelte": "^0.468.0"` entry and add `"@lucide/svelte": "^1.16.0"` (or whatever 1.x is current at implementation time). The package-name change means the JSON key changes too — not a value-only version bump.
+- [x] Update the two import sites to the 1.x **per-icon canonical form**:
+  - [Navigation.svelte:4](../../src/learningfoundry/sveltekit_template/src/lib/components/Navigation.svelte#L4): `import { ChevronLeft, ChevronRight } from 'lucide-svelte';` → two per-icon imports: `import ChevronLeft from '@lucide/svelte/icons/chevron-left';` and `import ChevronRight from '@lucide/svelte/icons/chevron-right';`
+  - [ResetCourseButton.svelte:7](../../src/learningfoundry/sveltekit_template/src/lib/components/ResetCourseButton.svelte#L7): `import { RotateCcw } from 'lucide-svelte';` → `import RotateCcw from '@lucide/svelte/icons/rotate-ccw';`
+- [x] **Story under-counted (recurring J.m pattern):** four additional import sites caught by the post-edit grep + vitest's failing import-resolution check, all migrated to the per-icon `@lucide/svelte/icons/...` form:
+  - [ModuleList.svelte:9](../../src/learningfoundry/sveltekit_template/src/lib/components/ModuleList.svelte#L9): `Lock` from `lucide-svelte/icons/lock` → `@lucide/svelte/icons/lock`.
+  - [RecordingPausedBanner.svelte:9](../../src/learningfoundry/sveltekit_template/src/lib/components/RecordingPausedBanner.svelte#L9): `AlertTriangle` from `lucide-svelte/icons/triangle-alert` → `@lucide/svelte/icons/triangle-alert`.
+  - [LockedLessonPlaceholder.svelte:3](../../src/learningfoundry/sveltekit_template/src/lib/components/LockedLessonPlaceholder.svelte#L3): `Lock` from `lucide-svelte/icons/lock` → `@lucide/svelte/icons/lock`.
+  - [ProgressDashboard.svelte:8](../../src/learningfoundry/sveltekit_template/src/lib/components/ProgressDashboard.svelte#L8): `Lock` from `lucide-svelte/icons/lock` → `@lucide/svelte/icons/lock`.
+- [x] `src/learningfoundry/sveltekit_template/pnpm-lock.yaml`: regenerate.
+- [x] Verify: `vitest` passes (Navigation and ResetCourseButton component tests exercise the icons); `pnpm build` produces no warnings about deprecated imports; the produced bundle no longer references `lucide-svelte` (`grep -r 'lucide-svelte' build/` after `pnpm build` should return nothing).
+- [x] Verification grep: `grep -rn 'lucide-svelte' src/learningfoundry/sveltekit_template/src --include='*.svelte' --include='*.ts'` should return zero hits. Any residual is a missed rename.
+- [x] No version bump (unversioned per Phase-bundled-release rule).
+- [x] No `CHANGELOG.md` entry (template internals; not user-facing).
 
 ---
 

@@ -1,6 +1,6 @@
 <!-- Copyright 2026 Pointmatic — SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
-	import Lock from 'lucide-svelte/icons/lock';
+	import Lock from '@lucide/svelte/icons/lock';
 
 	interface Props {
 		moduleTitle: string;

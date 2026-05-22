@@ -6,7 +6,7 @@
 	import { computeAutoExpand, resolveModuleHeaderClick } from './module-list.helpers.js';
 	import LessonList from './LessonList.svelte';
 	import ProgressBar from './ProgressBar.svelte';
-	import Lock from 'lucide-svelte/icons/lock';
+	import Lock from '@lucide/svelte/icons/lock';
 
 	interface Props {
 		modules: Module[];

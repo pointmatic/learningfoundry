@@ -5,7 +5,7 @@
 	import { getOptionalLessons, lockedModuleIds } from '$lib/utils/locking.js';
 	import { moduleStatus } from './progress-dashboard.helpers.js';
 	import ProgressBar from './ProgressBar.svelte';
-	import Lock from 'lucide-svelte/icons/lock';
+	import Lock from '@lucide/svelte/icons/lock';
 
 	interface Props {
 		modules: Module[];

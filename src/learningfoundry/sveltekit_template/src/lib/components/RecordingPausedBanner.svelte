@@ -6,7 +6,7 @@
   a freshly-served wasm has a chance to satisfy the precheck.
 -->
 <script lang="ts">
-	import AlertTriangle from 'lucide-svelte/icons/triangle-alert';
+	import AlertTriangle from '@lucide/svelte/icons/triangle-alert';
 	import { dbInit } from '$lib/stores/db-init.js';
 
 	function handleRefresh() {

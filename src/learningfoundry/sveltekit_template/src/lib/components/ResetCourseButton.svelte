@@ -4,7 +4,7 @@
 	import { progressRepo } from '$lib/db/index.js';
 	import { currentPosition, curriculum } from '$lib/stores/curriculum.js';
 	import { invalidateProgress } from '$lib/stores/progress.js';
-	import { RotateCcw } from 'lucide-svelte';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 
 	interface Props {
 		disabled?: boolean;
