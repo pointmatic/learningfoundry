@@ -195,6 +195,7 @@ describe('LessonList mount — assessment rows (Story J.f)', () => {
 		pass_threshold: number | null = null
 	): AssessmentDefinition {
 		return {
+			id: role,
 			role,
 			position,
 			source: 'quizazz',

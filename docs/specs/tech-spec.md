@@ -156,8 +156,11 @@ learningfoundry/
 │           ├── +layout.svelte              # App shell with sidebar navigation
 │           ├── +page.svelte                # Landing / progress dashboard
 │           └── [module]/
-│               └── [lesson]/
-│                   └── +page.svelte        # Lesson page rendering content blocks
+│               ├── [lesson]/
+│               │   └── +page.svelte        # Lesson page rendering content blocks
+│               └── assessment/
+│                   └── [id]/
+│                       └── +page.svelte    # Module-level assessment page (Story J.s)
 │
 ├── tests/
 │   ├── conftest.py                         # Shared fixtures (sample YAML, temp dirs)

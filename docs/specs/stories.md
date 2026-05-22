@@ -1078,7 +1078,7 @@ This is the standalone foundation for J.s (route addressing) and J.u (progress-s
 
 ---
 
-### Story J.s: v0.76.0 — Assessment Route Page + Page Test [Planned]
+### Story J.s: v0.76.0 — Assessment Route Page + Page Test [Done]
 
 `AssessmentBlock.svelte` → `<QuizBlock>` is wired and works — but the `<AssessmentBlock>` chain is only invoked when a *lesson content block* has `type: assessment`. Module-level assessments (the `assessments[]` array from Story J.e) have nowhere to render. The sidebar shows the row, but clicking is a no-op; the route layer simply doesn't exist for `[module]/assessment/...`.
 
@@ -1093,12 +1093,12 @@ Page structure mirrors `[module]/[lesson]/+page.svelte`. The page test mirrors `
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/sveltekit_template/src/routes/[module]/assessment/[id]/+page.svelte`: new file. Derive `moduleId` / `id` from params, look up `module.assessments.find(a => a.id === id)`, mount `<AssessmentBlock>` with `assessmentRef={assessment.ref}` and `manifest={assessment.manifest}`. Completion callback is a no-op stub: `async function handleComplete(score) { /* J.u wires the persistence */ }`. Unknown id branches to "Assessment not found." Header shows `{capitalizeRole(assessment.role)} Assessment` matching the spec.
-- [ ] `src/learningfoundry/sveltekit_template/src/routes/[module]/assessment/[id]/page.test.ts`: new file. Mock `@pointmatic/quizazz`. Assert: page mounts when given a valid `moduleId` + `id`; `<AssessmentBlock>` receives correct `assessmentRef`; unknown `id` renders the not-found copy; completion callback signature accepts `(score: AssessmentScore)` (existing TS shape — J.u may extend it).
-- [ ] `docs/specs/tech-spec.md`: extend the Package Structure tree to list `routes/[module]/assessment/[id]/`. No other doc updates in this story — the broader user-facing language ("assessment-specific routes are deferred" in features.md) is J.w's sweep.
-- [ ] Bump version to v0.76.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] Update `CHANGELOG.md` with a v0.76.0 Added entry for the assessment route page.
-- [ ] Verify: `pyve test` passes, vitest passes (new page test), `ruff` and `mypy` clean.
+- [x] `src/learningfoundry/sveltekit_template/src/routes/[module]/assessment/[id]/+page.svelte`: new file. Derive `moduleId` / `id` from params, look up `module.assessments.find(a => a.id === id)`, mount `<AssessmentBlock>` with `assessmentRef={assessment.ref}` and `manifest={assessment.manifest}`. Completion callback is a no-op stub: `async function handleComplete(score) { /* J.u wires the persistence */ }`. Unknown id branches to "Assessment not found." Header shows `{capitalizeRole(assessment.role)} Assessment` matching the spec.
+- [x] `src/learningfoundry/sveltekit_template/src/routes/[module]/assessment/[id]/page.test.ts`: new file. Mock `@pointmatic/quizazz`. Assert: page mounts when given a valid `moduleId` + `id`; `<AssessmentBlock>` receives correct `assessmentRef`; unknown `id` renders the not-found copy; completion callback signature accepts `(score: AssessmentScore)` (existing TS shape — J.u may extend it).
+- [x] `docs/specs/tech-spec.md`: extend the Package Structure tree to list `routes/[module]/assessment/[id]/`. No other doc updates in this story — the broader user-facing language ("assessment-specific routes are deferred" in features.md) is J.w's sweep.
+- [x] Bump version to v0.76.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Update `CHANGELOG.md` with a v0.76.0 Added entry for the assessment route page.
+- [x] Verify: `pyve test` passes, vitest passes (new page test), `ruff` and `mypy` clean.
 
 ---
 

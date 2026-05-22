@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.76.0] - 2026-05-22
+
+Module-level assessment route layer (Story J.s). Until this story, the sidebar's module-assessment rows had nowhere to navigate — `<AssessmentBlock>` was only invoked from inside `LessonView`'s content-block chain. v0.76.0 adds the `[module]/assessment/[id]/` route so module-level assessments are reachable by URL. Sidebar interactivity (J.t), per-module persistence wiring (J.u), and locking enforcement (J.v) land in subsequent stories.
+
+### Added
+
+- **`routes/[module]/assessment/[id]/+page.svelte`** — new SvelteKit route. Derives `moduleId` / `id` from `$page.params`, looks up `module.assessments.find(a => a.id === id)` in the curriculum store, and mounts `<AssessmentBlock>` with `assessmentRef={assessment.ref}`, `manifest={assessment.content}`, `passThreshold={assessment.pass_threshold ?? 0.0}`. Header shows `{capitalizeRole(role)} Assessment`. Completion is wired to a no-op `handleComplete(score: AssessmentScore)` stub — J.u replaces it with `progressRepo.markAssessmentComplete(moduleId, id, score)`. Unknown id (or unknown module) renders "Assessment not found." (parallels the lesson 404 branch).
+- **`routes/[module]/assessment/[id]/page.test.ts`** — 5 vitest cases mirroring `AssessmentBlock.test.ts`'s stub strategy. Asserts: `<AssessmentBlock>` receives correct `assessmentRef` + `manifest`; the capitalized role label renders in the header; "Assessment not found." renders on unknown assessment id and on unknown module id; the route's completion callback signature accepts `AssessmentScore` (J.u-ready contract).
+
+### Changed
+
+- **[tech-spec.md](docs/specs/tech-spec.md)** Package Structure tree — adds the new `assessment/[id]/+page.svelte` route under `[module]/` alongside `[lesson]/`.
+
+### Notes
+
+- The progress-store write path (`markAssessmentComplete`) is deliberately out of scope. `<AssessmentBlock>` still persists per-assessment scores via `progressRepo.saveAssessmentScore` (its standard behaviour, untouched here); only the higher-level "module-assessment completed" hook is stubbed. J.u introduces the new `(moduleId, assessmentId)` key shape so two modules' assessments can share a `ref` without collision.
+- The new route is reachable only by typing the URL directly. The sidebar's assessment row stays a static `<li>` until Story J.t.
+- Pre-existing vitest failures in `LessonView.test.ts`, `VideoBlock.test.ts`, and `routes/[module]/[lesson]/page.test.ts` (12 cases) predate this story and are unrelated. Documented for visibility; their fix belongs in a separate `debug` cycle.
+
 ## [0.75.0] - 2026-05-22
 
 Stable per-assessment identifier for module-level assessments (Story J.r). Foundation for the upcoming assessment route layer (J.s) and the progress-store write path (J.u): both need to address a single assessment within a module by something that survives author-order edits. Without an id, the route layer would have to fall back to array indices, and URLs would shift every time an author inserts or reorders an entry.

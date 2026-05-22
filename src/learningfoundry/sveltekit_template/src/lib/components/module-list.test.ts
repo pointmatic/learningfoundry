@@ -127,6 +127,7 @@ function assessment(
 	pass_threshold: number | null = null
 ): AssessmentDefinition {
 	return {
+		id: role,
 		role,
 		position,
 		source: 'quizazz',
