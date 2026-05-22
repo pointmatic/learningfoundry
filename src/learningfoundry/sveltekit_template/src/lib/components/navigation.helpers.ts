@@ -27,13 +27,16 @@ export function resolveGoNext(
 	next: NavPosition | null
 ): NavAction {
 	if (disabled) return { kind: 'noop' };
-	if (next) return { kind: 'goto', url: `/${next.moduleId}/${next.lessonId}` };
+	// `next` always comes from the lesson-sequence derived store, so
+	// `lessonId` is non-null in practice — the guard satisfies the
+	// `string | null` type that opened up in Story J.t.
+	if (next?.lessonId) return { kind: 'goto', url: `/${next.moduleId}/${next.lessonId}` };
 	return { kind: 'goto', url: '/', clearPosition: true };
 }
 
 /** Resolve the action for the Previous button click. */
 export function resolveGoPrev(prev: NavPosition | null): NavAction {
-	if (!prev) return { kind: 'noop' };
+	if (!prev?.lessonId) return { kind: 'noop' };
 	return { kind: 'goto', url: `/${prev.moduleId}/${prev.lessonId}` };
 }
 

@@ -29,9 +29,15 @@ export const curriculum = readable<Curriculum | null>(null, (set) => {
 // Navigation state
 // ---------------------------------------------------------------------------
 
+// Story J.t — `currentPosition` now represents either a lesson position
+// or a module-level assessment position. `lessonId` and `assessmentId`
+// are mutually exclusive: when one is set, the other must be null. The
+// `navigateTo` / `navigateToAssessment` helpers enforce this; consumers
+// reading the store should null-check whichever side they care about.
 export interface NavPosition {
 	moduleId: string;
-	lessonId: string;
+	lessonId: string | null;
+	assessmentId?: string | null;
 }
 
 export const currentPosition = writable<NavPosition | null>(null);
@@ -68,7 +74,7 @@ export const currentModule = derived(
 export const currentLesson = derived(
 	[currentModule, currentPosition],
 	([$mod, $pos]): Lesson | null => {
-		if (!$mod || !$pos) return null;
+		if (!$mod || !$pos || !$pos.lessonId) return null;
 		return $mod.lessons.find((l) => l.id === $pos.lessonId) ?? null;
 	}
 );
@@ -113,8 +119,20 @@ export const nextLesson = derived(
  * predictably for every user-initiated navigation.
  */
 export function navigateTo(moduleId: string, lessonId: string): void {
-	currentPosition.set({ moduleId, lessonId });
+	currentPosition.set({ moduleId, lessonId, assessmentId: null });
 	void goto(`/${moduleId}/${lessonId}`);
+}
+
+/**
+ * **Internal route-sync only — UI code uses `goto` directly.**
+ *
+ * Sets `currentPosition` for a module-level assessment (Story J.t). The
+ * caller is the assessment route's URL→store `$effect`. Unlike
+ * `navigateTo`, this does *not* call `goto` itself; the route file is
+ * already where it should be.
+ */
+export function setAssessmentPosition(moduleId: string, assessmentId: string): void {
+	currentPosition.set({ moduleId, lessonId: null, assessmentId });
 }
 
 export function navigateNext(): void {
@@ -139,7 +157,7 @@ export function navigatePrev(): void {
 	for (const mod of get(modules) as Module[]) {
 		for (const lesson of mod.lessons as Lesson[]) {
 			if (mod.id === pos.moduleId && lesson.id === pos.lessonId) {
-				if (prev) navigateTo(prev.moduleId, prev.lessonId);
+				if (prev?.lessonId) navigateTo(prev.moduleId, prev.lessonId);
 				return;
 			}
 			prev = { moduleId: mod.id, lessonId: lesson.id };

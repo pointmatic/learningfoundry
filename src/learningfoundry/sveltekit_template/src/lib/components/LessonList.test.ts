@@ -16,20 +16,25 @@ import type {
 	LessonStatus
 } from '$lib/types/index.js';
 
-const { gotoMock } = vi.hoisted(() => ({ gotoMock: vi.fn() }));
-
-vi.mock('$app/navigation', () => ({ goto: gotoMock }));
-vi.mock('$lib/stores/curriculum.js', () => {
-	const noop = () => {};
+const { gotoMock, currentPositionStore } = vi.hoisted(() => {
+	// `vi.hoisted` runs before module-level imports, so `svelte/store`
+	// has to be required dynamically here. A real writable is needed
+	// (rather than a fake `{subscribe}`) so the Story J.t active-state
+	// tests can push a position and have `LessonList` reactively pick
+	// it up via the component's `$currentPosition` deref.
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const { writable } = require('svelte/store') as typeof import('svelte/store');
+	type Pos = { moduleId: string; lessonId: string | null; assessmentId?: string | null } | null;
 	return {
-		currentPosition: {
-			subscribe: (fn: (v: null) => void) => {
-				fn(null);
-				return noop;
-			}
-		}
+		gotoMock: vi.fn(),
+		currentPositionStore: writable<Pos>(null)
 	};
 });
+
+vi.mock('$app/navigation', () => ({ goto: gotoMock }));
+vi.mock('$lib/stores/curriculum.js', () => ({
+	currentPosition: currentPositionStore
+}));
 
 function makeLesson(id: string, title = id): Lesson {
 	return { id, title, content_blocks: [] };
@@ -51,6 +56,7 @@ describe('LessonList mount — status icons render the correct glyph per status'
 
 	beforeEach(async () => {
 		gotoMock.mockReset();
+		currentPositionStore.set(null);
 		LessonList = (await import('./LessonList.svelte')).default;
 	});
 
@@ -83,8 +89,8 @@ describe('LessonList mount — status icons render the correct glyph per status'
 				moduleId: 'mod-01',
 				lessons,
 				progress,
-				optionalLessons: new Set(['lesson-04']),
-				lockedLessons: new Set()
+				optionalLessons: new Set<string>(['lesson-04']),
+				lockedLessons: new Set<string>()
 			}
 		});
 
@@ -111,6 +117,7 @@ describe('LessonList mount — role chip (Story J.b)', () => {
 
 	beforeEach(async () => {
 		gotoMock.mockReset();
+		currentPositionStore.set(null);
 		LessonList = (await import('./LessonList.svelte')).default;
 	});
 
@@ -132,8 +139,8 @@ describe('LessonList mount — role chip (Story J.b)', () => {
 				moduleId: 'mod-01',
 				lessons,
 				progress: {},
-				optionalLessons: new Set(),
-				lockedLessons: new Set()
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>()
 			}
 		});
 
@@ -149,8 +156,8 @@ describe('LessonList mount — role chip (Story J.b)', () => {
 				moduleId: 'mod-01',
 				lessons,
 				progress: {},
-				optionalLessons: new Set(),
-				lockedLessons: new Set()
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>()
 			}
 		});
 
@@ -167,8 +174,8 @@ describe('LessonList mount — role chip (Story J.b)', () => {
 				moduleId: 'mod-01',
 				lessons,
 				progress: {},
-				optionalLessons: new Set(),
-				lockedLessons: new Set()
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>()
 			}
 		});
 
@@ -182,6 +189,7 @@ describe('LessonList mount — assessment rows (Story J.f)', () => {
 
 	beforeEach(async () => {
 		gotoMock.mockReset();
+		currentPositionStore.set(null);
 		LessonList = (await import('./LessonList.svelte')).default;
 	});
 
@@ -212,8 +220,8 @@ describe('LessonList mount — assessment rows (Story J.f)', () => {
 				moduleId: 'mod-01',
 				lessons,
 				progress: {},
-				optionalLessons: new Set(),
-				lockedLessons: new Set()
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>()
 			}
 		});
 		expect(container.querySelectorAll('[data-testid="assessment-row"]')).toHaveLength(0);
@@ -226,8 +234,8 @@ describe('LessonList mount — assessment rows (Story J.f)', () => {
 				lessons: [makeLesson('lesson-01')],
 				assessments: [makeAssessment('pre', 'before_lessons')],
 				progress: {},
-				optionalLessons: new Set(),
-				lockedLessons: new Set()
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>()
 			}
 		});
 		const rows = container.querySelectorAll('[data-testid="assessment-row"]');
@@ -247,12 +255,14 @@ describe('LessonList mount — assessment rows (Story J.f)', () => {
 					makeAssessment('post', 'after_lessons', 0.8)
 				],
 				progress: {},
-				optionalLessons: new Set(),
-				lockedLessons: new Set()
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>()
 			}
 		});
 		const items = Array.from(container.querySelectorAll('ul > li')).map((li) => {
-			const role = li.getAttribute('data-role');
+			// Story J.t — assessment rows became `<li> > <button data-role>`;
+			// look one level deeper for the role attribute.
+			const role = li.querySelector('[data-role]')?.getAttribute('data-role');
 			if (role) return `assess:${role}`;
 			const titleEl = li.querySelector('button span:nth-child(2)');
 			return `lesson:${titleEl?.textContent?.trim()}`;
@@ -273,8 +283,8 @@ describe('LessonList mount — assessment rows (Story J.f)', () => {
 				lessons: [makeLesson('lesson-01')],
 				assessments: [makeAssessment('post', 'after_lessons', 0.7)],
 				progress: {},
-				optionalLessons: new Set(),
-				lockedLessons: new Set()
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>()
 			}
 		});
 		const threshold = container.querySelector('[data-testid="assessment-threshold"]');
@@ -289,8 +299,8 @@ describe('LessonList mount — assessment rows (Story J.f)', () => {
 				lessons: [makeLesson('lesson-01')],
 				assessments: [makeAssessment('pre', 'before_lessons', null)],
 				progress: {},
-				optionalLessons: new Set(),
-				lockedLessons: new Set()
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>()
 			}
 		});
 		expect(
@@ -304,6 +314,7 @@ describe('LessonList mount — locked rows', () => {
 
 	beforeEach(async () => {
 		gotoMock.mockReset();
+		currentPositionStore.set(null);
 		LessonList = (await import('./LessonList.svelte')).default;
 	});
 
@@ -318,8 +329,8 @@ describe('LessonList mount — locked rows', () => {
 				moduleId: 'mod-01',
 				lessons,
 				progress: {},
-				optionalLessons: new Set(),
-				lockedLessons: new Set(['lesson-01'])
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>(['lesson-01'])
 			}
 		});
 
@@ -338,8 +349,8 @@ describe('LessonList mount — locked rows', () => {
 				moduleId: 'mod-01',
 				lessons,
 				progress: {},
-				optionalLessons: new Set(),
-				lockedLessons: new Set()
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>()
 			}
 		});
 
@@ -348,5 +359,154 @@ describe('LessonList mount — locked rows', () => {
 
 		expect(gotoMock).toHaveBeenCalledTimes(1);
 		expect(gotoMock).toHaveBeenCalledWith('/mod-01/lesson-02');
+	});
+});
+
+describe('LessonList mount — clickable assessment rows (Story J.t)', () => {
+	let LessonList: typeof import('./LessonList.svelte').default;
+
+	function makeAssessment(
+		id: string,
+		role: string,
+		position: AssessmentDefinition['position'],
+		pass_threshold: number | null = null
+	): AssessmentDefinition {
+		return {
+			id,
+			role,
+			position,
+			source: 'quizazz',
+			ref: `a/${id}.yml`,
+			pass_threshold,
+			content: { assessmentName: id, tree: [], questions: [] }
+		};
+	}
+
+	beforeEach(async () => {
+		gotoMock.mockReset();
+		currentPositionStore.set(null);
+		LessonList = (await import('./LessonList.svelte')).default;
+	});
+
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('renders the assessment row as a clickable <button> (not a static <li> chip)', () => {
+		const { container } = render(LessonList, {
+			props: {
+				moduleId: 'mod-01',
+				lessons: [makeLesson('lesson-01')],
+				assessments: [makeAssessment('pre', 'pre', 'before_lessons')],
+				progress: {},
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>()
+			}
+		});
+		const row = container.querySelector('[data-testid="assessment-row"]');
+		expect(row).not.toBeNull();
+		expect(row?.tagName.toLowerCase()).toBe('button');
+	});
+
+	it('click navigates to `/${moduleId}/assessment/${assessmentId}`', () => {
+		const { container } = render(LessonList, {
+			props: {
+				moduleId: 'mod-01',
+				lessons: [makeLesson('lesson-01')],
+				assessments: [makeAssessment('practice-2', 'practice', { after_lesson: 'lesson-01' })],
+				progress: {},
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>()
+			}
+		});
+		const btn = container.querySelector(
+			'[data-testid="assessment-row"]'
+		) as HTMLButtonElement;
+		btn.click();
+		expect(gotoMock).toHaveBeenCalledTimes(1);
+		expect(gotoMock).toHaveBeenCalledWith('/mod-01/assessment/practice-2');
+	});
+
+	it('active state (amber palette) renders when $currentPosition matches moduleId + assessmentId', () => {
+		currentPositionStore.set({ moduleId: 'mod-01', lessonId: null, assessmentId: 'pre' });
+		const { container } = render(LessonList, {
+			props: {
+				moduleId: 'mod-01',
+				lessons: [makeLesson('lesson-01')],
+				assessments: [
+					makeAssessment('pre', 'pre', 'before_lessons'),
+					makeAssessment('post', 'post', 'after_lessons', 0.8)
+				],
+				progress: {},
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>()
+			}
+		});
+		const rows = container.querySelectorAll('[data-testid="assessment-row"]');
+		// First row matches — should be amber.
+		expect(rows[0].className).toContain('bg-amber-100');
+		expect(rows[0].className).toContain('text-amber-800');
+		// Second row does not match — should not be amber.
+		expect(rows[1].className).not.toContain('bg-amber-100');
+	});
+
+	it('inactive assessment row falls back to the default gray palette', () => {
+		const { container } = render(LessonList, {
+			props: {
+				moduleId: 'mod-01',
+				lessons: [makeLesson('lesson-01')],
+				assessments: [makeAssessment('pre', 'pre', 'before_lessons')],
+				progress: {},
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>()
+			}
+		});
+		const btn = container.querySelector(
+			'[data-testid="assessment-row"]'
+		) as HTMLButtonElement;
+		expect(btn.className).toContain('text-gray-700');
+		expect(btn.className).not.toContain('bg-amber-100');
+	});
+
+	it('locked appearance: aria-disabled="true" + cursor-not-allowed + grey palette; click does not navigate', () => {
+		const { container } = render(LessonList, {
+			props: {
+				moduleId: 'mod-01',
+				lessons: [makeLesson('lesson-01')],
+				assessments: [makeAssessment('pre', 'pre', 'before_lessons')],
+				progress: {},
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>(),
+				lockedAssessments: new Set(['pre'])
+			}
+		});
+		const btn = container.querySelector(
+			'[data-testid="assessment-row"]'
+		) as HTMLButtonElement;
+		expect(btn.getAttribute('aria-disabled')).toBe('true');
+		expect(btn.className).toContain('cursor-not-allowed');
+		expect(btn.className).toContain('text-gray-300');
+
+		btn.click();
+		expect(gotoMock).not.toHaveBeenCalled();
+	});
+
+	it('lockedAssessments default (omitted prop) leaves all assessment rows clickable', () => {
+		const { container } = render(LessonList, {
+			props: {
+				moduleId: 'mod-01',
+				lessons: [makeLesson('lesson-01')],
+				assessments: [makeAssessment('pre', 'pre', 'before_lessons')],
+				progress: {},
+				optionalLessons: new Set<string>(),
+				lockedLessons: new Set<string>()
+				// `lockedAssessments` omitted — defaults to `new Set()` per Story J.t.
+			}
+		});
+		const btn = container.querySelector(
+			'[data-testid="assessment-row"]'
+		) as HTMLButtonElement;
+		expect(btn.getAttribute('aria-disabled')).toBe('false');
+		expect(btn.className).not.toContain('cursor-not-allowed');
 	});
 });

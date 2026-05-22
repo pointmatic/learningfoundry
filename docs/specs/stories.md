@@ -1102,7 +1102,7 @@ Page structure mirrors `[module]/[lesson]/+page.svelte`. The page test mirrors `
 
 ---
 
-### Story J.t: v0.77.0 — Clickable Sidebar Assessment Row [Planned]
+### Story J.t: v0.77.0 — Clickable Sidebar Assessment Row [Done]
 
 `LessonList.svelte` already interleaves assessment rows at the correct positions (Story J.f), but each row is a static `<li>` chip — no `<button>`, no `onclick`, no navigation target. With the route from J.s in place, the row needs to become an interactive navigation control matching the lesson rows' idioms.
 
@@ -1115,13 +1115,13 @@ This story replaces the static chip with a `<button>` that navigates to `/{modul
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/stores/curriculum.ts` (or wherever `currentPosition` lives): extend `Position` / `currentPosition` to include an optional `assessmentId: string | null` field alongside the existing `moduleId` / `lessonId`. Setting `assessmentId` clears `lessonId` and vice versa — they're mutually exclusive.
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/components/LessonList.svelte`: replace the static `<li>` chip in the assessment branch with a `<button>` matching the spec ([assessment-route-spec.md](assessment-route-spec.md) "Sidebar nav" subsection). `onclick` navigates via `goto(...)` to `/{moduleId}/assessment/{assessmentId}`. Active state: amber palette when `$currentPosition.moduleId === moduleId && $currentPosition.assessmentId === id`. Locked state: grey + `aria-disabled` driven by a `lockedAssessments: Set<string>` prop (defaulting to empty in this story).
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/components/LessonList.test.ts`: flip the existing "assessment row renders" test from asserting a chip to asserting a `<button>` with the correct click target. Add cases: active state highlights when `currentPosition.assessmentId` matches; locked appearance renders when the id is in `lockedAssessments`.
-- [ ] No `features.md` / `tech-spec.md` / `README.md` updates in this story — the "Rows are non-interactive in v1" sentence in features.md needs revision *after* J.v's locking also lands, so it's J.w's job.
-- [ ] Bump version to v0.77.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] Update `CHANGELOG.md` with a v0.77.0 Changed entry for the sidebar assessment row going clickable.
-- [ ] Verify: vitest passes, `pyve test` passes (regression guard on the Python side), `ruff` and `mypy` clean.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/stores/curriculum.ts` (or wherever `currentPosition` lives): extend `Position` / `currentPosition` to include an optional `assessmentId: string | null` field alongside the existing `moduleId` / `lessonId`. Setting `assessmentId` clears `lessonId` and vice versa — they're mutually exclusive.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/components/LessonList.svelte`: replace the static `<li>` chip in the assessment branch with a `<button>` matching the spec ([assessment-route-spec.md](assessment-route-spec.md) "Sidebar nav" subsection). `onclick` navigates via `goto(...)` to `/{moduleId}/assessment/{assessmentId}`. Active state: amber palette when `$currentPosition.moduleId === moduleId && $currentPosition.assessmentId === id`. Locked state: grey + `aria-disabled` driven by a `lockedAssessments: Set<string>` prop (defaulting to empty in this story).
+- [x] `src/learningfoundry/sveltekit_template/src/lib/components/LessonList.test.ts`: flip the existing "assessment row renders" test from asserting a chip to asserting a `<button>` with the correct click target. Add cases: active state highlights when `currentPosition.assessmentId` matches; locked appearance renders when the id is in `lockedAssessments`.
+- [x] No `features.md` / `tech-spec.md` / `README.md` updates in this story — the "Rows are non-interactive in v1" sentence in features.md needs revision *after* J.v's locking also lands, so it's J.w's job.
+- [x] Bump version to v0.77.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Update `CHANGELOG.md` with a v0.77.0 Changed entry for the sidebar assessment row going clickable.
+- [x] Verify: vitest passes, `pyve test` passes (regression guard on the Python side), `ruff` and `mypy` clean.
 
 ---
 
@@ -1187,9 +1187,18 @@ The `lockedAssessments: Set<string>` prop on `<LessonList>` (J.t) is fed by the 
 
 ---
 
-### Story J.w: Phase J Sub-Phase Doc Sweep [Planned]
+### Story J.w: `svelte-check` errors [Planned]
 
-Closing doc-sweep story for the assessment-routes sub-phase. Code stories J.r–J.v each updated the doc surfaces they directly introduced (the `id` field references, the route directory in tech-spec's Package Structure, the TS types and SQLite schema for the new write path). What remains is the cross-cutting language that spans multiple stories and reads cleanly only as a single coherent revision rather than five partial edits.
+With `pnpm exec svelte-check` there are 3 errors; two fixes were made in Story J.s, 20 were fixed in J.t: the id-missing errors caused by J.r. The remaining 23 are pre-existing Set<unknown> generic-narrowing issues in LessonList.test.ts, a Lesson-cast in LessonView.test.ts, and a fake-indexeddb declaration-file issue in database.test.ts. The pre-existing vitest + svelte-check failures warrant a debug cycle of their own.
+
+- [ ] TBD
+- [ ] (if code changes) Bump version to v0.79.1 in all the relevant places.
+
+---
+
+### Story J.x: Phase J Sub-Phase Doc Sweep [Planned]
+
+Closing doc-sweep story for the assessment-routes sub-phase. Code stories J.r–J.w each updated the doc surfaces they directly introduced (the `id` field references, the route directory in tech-spec's Package Structure, the TS types and SQLite schema for the new write path). What remains is the cross-cutting language that spans multiple stories and reads cleanly only as a single coherent revision rather than five partial edits.
 
 Specifically:
 
@@ -1203,7 +1212,7 @@ No code, no version bump (per Version Cadence — doc-only stories share the clo
 
 **Out of scope:**
 - Any functional change.
-- Refactor of the per-story doc edits J.r–J.v already made.
+- Refactor of the per-story doc edits J.r–J.w already made.
 - A new integration-test fixture exercising the sub-phase end-to-end — covered by the per-story tests (page test, locking tests, progress tests) and the existing `test_pedagogical_authoring_smoke.py` which the J.r schema change extends transparently.
 
 **Tasks:**
@@ -1213,7 +1222,7 @@ No code, no version bump (per Version Cadence — doc-only stories share the clo
 - [ ] `README.md` "Assessments" subsection: rewrite the `pass_threshold` paragraph to distinguish gating (`post`) from non-gating (`pre`, informational) cases.
 - [ ] `README.md` "Embedding a quizazz assessment" walkthrough: add a "Module-level assessment routes" paragraph noting that module-level entries become `/{moduleId}/assessment/{id}` routes reachable from the sidebar.
 - [ ] `README.md` "Content locking" section: list assessment-threshold gating as the third mechanism alongside `sequential` and per-module `locked`. Worked example showing a `post` with `pass_threshold: 0.7` gating the next module.
-- [ ] No version bump (shares v0.79.0 with J.v). No `CHANGELOG.md` entry (doc-only).
+- [ ] No version bump (shares v0.79.0 with J.v or v0.79.1 if code changes were made with the error corrections). No `CHANGELOG.md` entry (doc-only).
 - [ ] Verify: prose review against features.md and README.md; `markdown-lint` (or equivalent) clean if part of CI; no test re-runs (no code touched).
 
 ---

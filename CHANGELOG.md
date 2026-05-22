@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.77.0] - 2026-05-22
+
+Clickable sidebar assessment row (Story J.t). With Story J.s's route in place, the sidebar's module-assessment row finally becomes the navigation control it always implied it was: a `<button>` that drives `goto('/{moduleId}/assessment/{id}')`, lights up amber when its assessment is the one currently being attempted, and renders a grey `aria-disabled` state when locked. The locking signal (`lockedAssessments`) is a prop-shaped seam wired into the component but fed an empty set until Story J.v ships the actual gate logic.
+
+### Added
+
+- **`currentPosition.assessmentId`** in [stores/curriculum.ts](src/learningfoundry/sveltekit_template/src/lib/stores/curriculum.ts) — `NavPosition` gains an optional `assessmentId: string | null` field; `lessonId` widens to `string | null`. Mutual-exclusion is enforced by the setters: `navigateTo(...)` writes `{ moduleId, lessonId, assessmentId: null }`, the new `setAssessmentPosition(moduleId, assessmentId)` writes `{ moduleId, lessonId: null, assessmentId }`. Lesson-side derived stores (`currentLesson`, `currentIndex`) treat null `lessonId` as "not on a lesson" and return null / -1.
+- **Clickable assessment row** in [components/LessonList.svelte](src/learningfoundry/sveltekit_template/src/lib/components/LessonList.svelte) — the static `<li>` chip is now an inner `<button>`. `onclick` calls `goto('/${moduleId}/assessment/${assessment.id}')` unless the row is locked. Active state lights up the **amber palette** (`bg-amber-100 font-medium text-amber-800`, ◆ in `text-amber-600`) when `$currentPosition.moduleId === moduleId && $currentPosition.assessmentId === assessment.id` — intentionally distinct from the blue lesson-active palette so learners can tell at a glance whether they're in an assessment or a lesson. Locked state: `cursor-not-allowed text-gray-300`, `aria-disabled="true"`, ◆ also greyed; click is a no-op.
+- **`lockedAssessments?: Set<string>` prop** on `LessonList.svelte` — defaults to empty. Story J.v's locking pass will populate this from `locking.ts`; until then the seam exists so consumers can wire it without LessonList shape changes later.
+- **Route → store sync** in [routes/\[module\]/assessment/\[id\]/+page.svelte](src/learningfoundry/sveltekit_template/src/routes/[module]/assessment/[id]/+page.svelte) — `onMount` + `$effect` call `setAssessmentPosition(moduleId, assessmentId)` when the matched assessment exists. Mirrors the lesson route's URL→store pattern; without it the sidebar amber-active state would never light up in production.
+- **6 new LessonList tests** under `describe('LessonList mount — clickable assessment rows (Story J.t)')` — button shape, click navigation target, amber active state via a real `currentPosition` writable mock, default gray palette when inactive, locked-state attributes/styles/click suppression, and the `lockedAssessments` default-empty behaviour.
+- **3 new curriculum-store tests** under `describe('setAssessmentPosition (Story J.t)')` — sets `{ moduleId, lessonId: null, assessmentId }` without calling `goto`, and the two mutual-exclusion transitions (lesson → assessment, assessment → lesson) clear the opposing field.
+
+### Changed
+
+- **[components/navigation.helpers.ts](src/learningfoundry/sveltekit_template/src/lib/components/navigation.helpers.ts)** — `resolveGoNext` / `resolveGoPrev` add a `lessonId` non-null guard. Lesson-sequence positions are always lesson-only at runtime, so this is a TS-shape concession to the new `NavPosition.lessonId: string | null`; behaviour unchanged.
+- **Existing `LessonList.test.ts` interleaved-rows test** — moves its `data-role` lookup from `li.getAttribute('data-role')` to `li.querySelector('[data-role]')`, since `data-role` now sits on the inner `<button>`. Existing `[data-testid="assessment-row"]` selectors keep working (the attribute moved with the role to the button).
+- **Existing `curriculum.test.ts` navigateTo / navigateNext / navigatePrev assertions** — `toEqual` shapes updated to include `assessmentId: null` (the new explicit-clears-the-other-field contract).
+- **Test-file Set typing** — 13 `new Set()` instances across `LessonList.test.ts` parameterized to `new Set<string>()`. Incidental cleanup; resolved 13 pre-existing svelte-check `Set<unknown>` errors that would otherwise have grown alongside the new tests.
+
+### Notes
+
+- The lock determination itself is **deliberately not in this story** — `lockedAssessments` is whatever the caller passes in, default empty. Until J.v, no assessment renders locked in production. The visual state is exercised only by tests.
+- The new route is now reachable both by URL and by sidebar click, but learners still can't be locked out of it — the locking story (J.v) closes that loop.
+- Mid-lesson placement, keyboard-nav refinements beyond native `<button>` focus, and per-role styling beyond amber-active / grey-locked remain deferred (matches the story's "Out of scope" list).
+- Pre-existing svelte-check errors went from 23 → 3 as a side effect of fixing the Set typing in tests I touched. The remaining 3 (vite.config `test` field, LessonView.test cast, fake-indexeddb declaration) predate this work.
+
 ## [0.76.0] - 2026-05-22
 
 Module-level assessment route layer (Story J.s). Until this story, the sidebar's module-assessment rows had nowhere to navigate — `<AssessmentBlock>` was only invoked from inside `LessonView`'s content-block chain. v0.76.0 adds the `[module]/assessment/[id]/` route so module-level assessments are reachable by URL. Sidebar interactivity (J.t), per-module persistence wiring (J.u), and locking enforcement (J.v) land in subsequent stories.

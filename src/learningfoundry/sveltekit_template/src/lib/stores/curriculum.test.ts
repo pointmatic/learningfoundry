@@ -60,7 +60,8 @@ const {
 	currentPosition,
 	navigateTo,
 	navigateNext,
-	navigatePrev
+	navigatePrev,
+	setAssessmentPosition
 } = await import('./curriculum.js');
 
 // Wait for the readable store's async loader to resolve and emit the
@@ -85,7 +86,7 @@ beforeEach(() => {
 describe('navigateTo', () => {
 	it('updates currentPosition and calls goto with /{moduleId}/{lessonId}', () => {
 		navigateTo('mod-01', 'lesson-01');
-		expect(get(currentPosition)).toEqual({ moduleId: 'mod-01', lessonId: 'lesson-01' });
+		expect(get(currentPosition)).toEqual({ moduleId: 'mod-01', lessonId: 'lesson-01', assessmentId: null });
 		expect(gotoMock).toHaveBeenCalledTimes(1);
 		expect(gotoMock).toHaveBeenCalledWith('/mod-01/lesson-01');
 	});
@@ -97,7 +98,7 @@ describe('navigateNext', () => {
 		gotoMock.mockClear();
 
 		navigateNext();
-		expect(get(currentPosition)).toEqual({ moduleId: 'mod-01', lessonId: 'lesson-02' });
+		expect(get(currentPosition)).toEqual({ moduleId: 'mod-01', lessonId: 'lesson-02', assessmentId: null });
 		expect(gotoMock).toHaveBeenCalledWith('/mod-01/lesson-02');
 	});
 
@@ -106,7 +107,7 @@ describe('navigateNext', () => {
 		gotoMock.mockClear();
 
 		navigateNext();
-		expect(get(currentPosition)).toEqual({ moduleId: 'mod-02', lessonId: 'lesson-01' });
+		expect(get(currentPosition)).toEqual({ moduleId: 'mod-02', lessonId: 'lesson-01', assessmentId: null });
 		expect(gotoMock).toHaveBeenCalledWith('/mod-02/lesson-01');
 	});
 
@@ -115,7 +116,7 @@ describe('navigateNext', () => {
 		gotoMock.mockClear();
 
 		navigateNext();
-		expect(get(currentPosition)).toEqual({ moduleId: 'mod-02', lessonId: 'lesson-02' });
+		expect(get(currentPosition)).toEqual({ moduleId: 'mod-02', lessonId: 'lesson-02', assessmentId: null });
 		expect(gotoMock).not.toHaveBeenCalled();
 	});
 
@@ -132,7 +133,7 @@ describe('navigatePrev', () => {
 		gotoMock.mockClear();
 
 		navigatePrev();
-		expect(get(currentPosition)).toEqual({ moduleId: 'mod-01', lessonId: 'lesson-01' });
+		expect(get(currentPosition)).toEqual({ moduleId: 'mod-01', lessonId: 'lesson-01', assessmentId: null });
 		expect(gotoMock).toHaveBeenCalledWith('/mod-01/lesson-01');
 	});
 
@@ -141,7 +142,7 @@ describe('navigatePrev', () => {
 		gotoMock.mockClear();
 
 		navigatePrev();
-		expect(get(currentPosition)).toEqual({ moduleId: 'mod-01', lessonId: 'lesson-02' });
+		expect(get(currentPosition)).toEqual({ moduleId: 'mod-01', lessonId: 'lesson-02', assessmentId: null });
 		expect(gotoMock).toHaveBeenCalledWith('/mod-01/lesson-02');
 	});
 
@@ -150,7 +151,7 @@ describe('navigatePrev', () => {
 		gotoMock.mockClear();
 
 		navigatePrev();
-		expect(get(currentPosition)).toEqual({ moduleId: 'mod-01', lessonId: 'lesson-01' });
+		expect(get(currentPosition)).toEqual({ moduleId: 'mod-01', lessonId: 'lesson-01', assessmentId: null });
 		expect(gotoMock).not.toHaveBeenCalled();
 	});
 
@@ -158,5 +159,39 @@ describe('navigatePrev', () => {
 		navigatePrev();
 		expect(get(currentPosition)).toBeNull();
 		expect(gotoMock).not.toHaveBeenCalled();
+	});
+});
+
+describe('setAssessmentPosition (Story J.t)', () => {
+	it('sets currentPosition with assessmentId and clears lessonId; does not call goto', () => {
+		setAssessmentPosition('mod-01', 'pre');
+		expect(get(currentPosition)).toEqual({
+			moduleId: 'mod-01',
+			lessonId: null,
+			assessmentId: 'pre'
+		});
+		expect(gotoMock).not.toHaveBeenCalled();
+	});
+
+	it('switching from a lesson position to an assessment position clears lessonId', () => {
+		navigateTo('mod-01', 'lesson-02');
+		gotoMock.mockClear();
+		setAssessmentPosition('mod-01', 'post');
+		expect(get(currentPosition)).toEqual({
+			moduleId: 'mod-01',
+			lessonId: null,
+			assessmentId: 'post'
+		});
+	});
+
+	it('switching from an assessment position to a lesson position clears assessmentId', () => {
+		setAssessmentPosition('mod-01', 'pre');
+		gotoMock.mockClear();
+		navigateTo('mod-01', 'lesson-01');
+		expect(get(currentPosition)).toEqual({
+			moduleId: 'mod-01',
+			lessonId: 'lesson-01',
+			assessmentId: null
+		});
 	});
 });

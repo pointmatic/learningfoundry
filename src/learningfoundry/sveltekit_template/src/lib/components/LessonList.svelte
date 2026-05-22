@@ -22,6 +22,10 @@
 		progress?: Record<string, LessonProgress>;
 		optionalLessons?: Set<string>;
 		lockedLessons?: Set<string>;
+		/** Story J.t — assessment ids that should render in locked state.
+		 * Defaults to empty (no assessments locked). Story J.v's locking
+		 * pass populates this from `locking.ts`. */
+		lockedAssessments?: Set<string>;
 	}
 	let {
 		moduleId,
@@ -29,7 +33,8 @@
 		assessments = [],
 		progress = {},
 		optionalLessons = new Set(),
-		lockedLessons = new Set()
+		lockedLessons = new Set(),
+		lockedAssessments = new Set()
 	}: Props = $props();
 
 	const flow = $derived(interleaveModuleFlow(lessons, assessments));
@@ -53,6 +58,11 @@
 	function handleClick(lessonId: string) {
 		if (resolveLessonClick(lessonId, lockedLessons) === 'noop') return;
 		void goto(lessonHref(moduleId, lessonId));
+	}
+
+	function handleAssessmentClick(assessmentId: string) {
+		if (lockedAssessments.has(assessmentId)) return;
+		void goto(`/${moduleId}/assessment/${assessmentId}`);
 	}
 </script>
 
@@ -91,21 +101,37 @@
 		{:else}
 			{@const assessment = item.assessment}
 			{@const threshold = formatPassThreshold(assessment.pass_threshold)}
-			<li
-				class="flex items-center gap-2 rounded px-3 py-1.5 text-sm text-gray-600"
-				data-testid="assessment-row"
-				data-role={assessment.role}
-			>
-				<span class="shrink-0 text-xs text-amber-600" aria-hidden="true">◆</span>
-				<span class="truncate font-medium">{capitalizeRole(assessment.role)} Assessment</span>
-				{#if threshold}
+			{@const isAssessmentActive =
+				$currentPosition?.moduleId === moduleId &&
+				$currentPosition?.assessmentId === assessment.id}
+			{@const assessmentLocked = lockedAssessments.has(assessment.id)}
+			<li>
+				<button
+					onclick={() => handleAssessmentClick(assessment.id)}
+					class="flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-sm transition-colors
+						{assessmentLocked
+						? 'cursor-not-allowed text-gray-300'
+						: isAssessmentActive
+							? 'bg-amber-100 font-medium text-amber-800'
+							: 'text-gray-700 hover:bg-gray-100'}"
+					aria-disabled={assessmentLocked}
+					data-testid="assessment-row"
+					data-role={assessment.role}
+				>
 					<span
-						class="ml-auto shrink-0 text-[11px] text-gray-400"
-						data-testid="assessment-threshold"
+						class="shrink-0 text-xs {assessmentLocked ? 'text-gray-300' : 'text-amber-600'}"
+						aria-hidden="true">◆</span
 					>
-						{threshold}
-					</span>
-				{/if}
+					<span class="truncate font-medium">{capitalizeRole(assessment.role)} Assessment</span>
+					{#if threshold}
+						<span
+							class="ml-auto shrink-0 text-[11px] text-gray-400"
+							data-testid="assessment-threshold"
+						>
+							{threshold}
+						</span>
+					{/if}
+				</button>
 			</li>
 		{/if}
 	{/each}

@@ -9,8 +9,9 @@
   Story J.v.
 -->
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { curriculum } from '$lib/stores/curriculum.js';
+	import { curriculum, setAssessmentPosition } from '$lib/stores/curriculum.js';
 	import type {
 		AssessmentDefinition,
 		AssessmentManifest,
@@ -29,6 +30,21 @@
 	const currentAssessment = $derived<AssessmentDefinition | null>(
 		currentModule?.assessments.find((a) => a.id === assessmentId) ?? null
 	);
+
+	// Sync URL → store so the sidebar's assessment-row active state
+	// (Story J.t) lights up. Mirrors the lesson route's pattern; locking
+	// integration arrives in Story J.v.
+	onMount(() => {
+		if (moduleId && assessmentId && currentAssessment) {
+			setAssessmentPosition(moduleId, assessmentId);
+		}
+	});
+
+	$effect(() => {
+		if (moduleId && assessmentId && currentAssessment) {
+			setAssessmentPosition(moduleId, assessmentId);
+		}
+	});
 
 	// Story J.u will replace this with a real persistence call:
 	//   progressRepo.markAssessmentComplete(moduleId, assessmentId, score)
