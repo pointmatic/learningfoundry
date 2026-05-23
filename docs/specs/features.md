@@ -50,7 +50,7 @@ learningfoundry is a PyPI package that turns a versioned YAML curriculum definit
 3. **Server-side persistence or APIs** — The generated app is fully static; no backend at runtime.
 4. **AI video generation** — Videos are YouTube embeds only.
 5. **Spaced repetition or adaptive sequencing** — Beyond future pre/post-assessment gating, no adaptive learning algorithms.
-6. **Content locking/gating (v1)** — Pre/post assessments are present but do not gate access to modules in v1. The data model anticipates future gating support.
+6. **Content locking/gating (v1)** — Post-assessment `pass_threshold` gates progression on subsequent items in the module flow (Phase J / Story J.v); the sequential-module rule consumes the same gate so the next module stays locked until the previous module's post-assessment is passed. `role: pre` is non-gating by convention (soft-gate). Cross-module assessment dependencies (e.g. M3 post gates M5 pre) and pre-assessment hard-gating remain out of scope.
 7. **Multi-curriculum dashboard** — No cross-curriculum analytics or management surface.
 8. **Mobile native wrappers** — Web-only delivery.
 9. **nbfoundry integration (v1)** — Marimo notebook generation is out of scope; placeholder slots in the frontend anticipate future integration.
@@ -242,7 +242,7 @@ The expanded module in the sidebar interleaves assessment rows with lesson rows 
 - `{ after_lesson: <id> }` entries → directly below the named lesson row.
 - `after_lessons` entries → below every lesson.
 
-Each assessment row shows the role label (capitalized, e.g. `Pre Assessment` / `Practice Assessment` / `Post Assessment`) and, when `pass_threshold` is set, a secondary annotation `"X% to pass"`. Rows are non-interactive in v1 — gating, per-role styling beyond the label, mid-lesson placement, and assessment-specific routes are deferred.
+Each assessment row shows the role label (capitalized, e.g. `Pre Assessment` / `Practice Assessment` / `Post Assessment`) and, when `pass_threshold` is set, a secondary annotation `"X% to pass"`. Rows are clickable `<button>` controls (Story J.t) that navigate to `/{moduleId}/assessment/{id}` (Story J.s); post-assessment `pass_threshold` gates progression on subsequent items in the module flow (Story J.v), with `role: pre` exempt as a soft-gate convention. Per-role styling beyond the amber active-state palette and mid-lesson placement remain deferred.
 
 **Pedagogical metadata (Phase J / Stories J.a, J.h):**
 

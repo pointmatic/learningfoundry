@@ -1237,7 +1237,7 @@ With `pnpm exec svelte-check` there are 12 vitest and 3 svelte-check errors, all
 
 ---
 
-### Story J.x: Phase J Sub-Phase Doc Sweep [Planned]
+### Story J.x: Phase J Sub-Phase Doc Sweep [Done]
 
 Closing doc-sweep story for the assessment-routes sub-phase. Code stories J.r–J.w each updated the doc surfaces they directly introduced (the `id` field references, the route directory in tech-spec's Package Structure, the TS types and SQLite schema for the new write path). What remains is the cross-cutting language that spans multiple stories and reads cleanly only as a single coherent revision rather than five partial edits.
 
@@ -1258,13 +1258,13 @@ No code, no version bump (per Version Cadence — doc-only stories share the clo
 
 **Tasks:**
 
-- [ ] `docs/specs/features.md`: rewrite the FR-2 "Rows are non-interactive in v1 ..." sentence to reflect what actually shipped. Suggested form: *"Assessment rows are clickable and navigate to `/{moduleId}/assessment/{id}`; post-assessment `pass_threshold` gates progression on subsequent items (`role: pre` is non-blocking by convention). Per-role styling beyond the label and mid-lesson placement remain deferred."* Final wording subject to review.
-- [ ] `docs/specs/features.md`: soften Non-goal #6 to read along the lines of *"Pre-assessment gating and cross-module dependency gating remain out of scope. Post-assessment `pass_threshold` gates progression on subsequent items in the module flow (Phase J / Story J.v)."* Final wording subject to review.
-- [ ] `README.md` "Assessments" subsection: rewrite the `pass_threshold` paragraph to distinguish gating (`post`) from non-gating (`pre`, informational) cases.
-- [ ] `README.md` "Embedding a quizazz assessment" walkthrough: add a "Module-level assessment routes" paragraph noting that module-level entries become `/{moduleId}/assessment/{id}` routes reachable from the sidebar.
-- [ ] `README.md` "Content locking" section: list assessment-threshold gating as the third mechanism alongside `sequential` and per-module `locked`. Worked example showing a `post` with `pass_threshold: 0.7` gating the next module.
-- [ ] No version bump (shares v0.79.0 with J.v or v0.79.1 if code changes were made with the error corrections). No `CHANGELOG.md` entry (doc-only).
-- [ ] Verify: prose review against features.md and README.md; `markdown-lint` (or equivalent) clean if part of CI; no test re-runs (no code touched).
+- [x] `docs/specs/features.md`: rewrite the FR-2 "Rows are non-interactive in v1 ..." sentence to reflect what actually shipped. Suggested form: *"Assessment rows are clickable and navigate to `/{moduleId}/assessment/{id}`; post-assessment `pass_threshold` gates progression on subsequent items (`role: pre` is non-blocking by convention). Per-role styling beyond the label and mid-lesson placement remain deferred."* Final wording subject to review.
+- [x] `docs/specs/features.md`: soften Non-goal #6 to read along the lines of *"Pre-assessment gating and cross-module dependency gating remain out of scope. Post-assessment `pass_threshold` gates progression on subsequent items in the module flow (Phase J / Story J.v)."* Final wording subject to review.
+- [x] `README.md` "Assessments" subsection: rewrite the `pass_threshold` paragraph to distinguish gating (`post`) from non-gating (`pre`, informational) cases.
+- [x] `README.md` "Embedding a quizazz assessment" walkthrough: add a "Module-level assessment routes" paragraph noting that module-level entries become `/{moduleId}/assessment/{id}` routes reachable from the sidebar.
+- [x] `README.md` "Content locking" section: list assessment-threshold gating as the third mechanism alongside `sequential` and per-module `locked`. Worked example showing a `post` with `pass_threshold: 0.7` gating the next module.
+- [x] No version bump (shares v0.79.0 with J.v or v0.79.1 if code changes were made with the error corrections). No `CHANGELOG.md` entry (doc-only).
+- [x] Verify: prose review against features.md and README.md; `markdown-lint` (or equivalent) clean if part of CI; no test re-runs (no code touched).
 
 ---
 

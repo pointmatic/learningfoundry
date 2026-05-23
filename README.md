@@ -651,9 +651,11 @@ questions:
     # ...remaining answer slots per quizazz's schema
 ```
 
-**What the learner sees.** At build time, learningfoundry's `QuizazzProvider` invokes quizazz's `compile_assessment` API on each referenced YAML, embeds the compiled manifest into the generated SvelteKit app's `curriculum.json`, and the frontend mounts the vendor `<QuizBlock>` component to render the assessment inline. Each completed assessment fires a score event; learningfoundry persists `{assessmentRef, score, maxScore}` to the in-browser SQLite `assessment_scores` table. quizazz manages its own per-assessment IndexedDB database for per-question detail — the two storage layers are separate by design (see [quizazz consumer-dependency-spec.md](docs/specs/quizazz/consumer-dependency-spec.md) RR-1, RR-1a, RR-1b for the full contract).
+**What the learner sees.** At build time, learningfoundry's `QuizazzProvider` invokes quizazz's `compile_assessment` API on each referenced YAML, embeds the compiled manifest into the generated SvelteKit app's `curriculum.json`, and the frontend mounts the vendor `<QuizBlock>` component to render the assessment. Each completed assessment fires a score event; learningfoundry persists scores to the in-browser SQLite. quizazz manages its own per-assessment IndexedDB database for per-question detail — the two storage layers are separate by design (see [quizazz consumer-dependency-spec.md](docs/specs/quizazz/consumer-dependency-spec.md) RR-1, RR-1a, RR-1b for the full contract).
 
-**Pass-threshold gating.** Optional `pass_threshold: 0.0–1.0` on either embedding shape. When set, the assessment block fires its completion event upward only when the learner's `score / maxScore` clears the threshold, which is what gates lesson-completion progression in the sidebar. When omitted (the default), every completion attempt counts as "complete" regardless of score — useful for self-paced check-yourself assessments where the goal is exposure to the questions rather than gating.
+**Module-level assessment routes (Story J.s, J.t).** A module-level `assessments[]` entry becomes a dedicated route at `/{moduleId}/assessment/{id}` — the `id` is the explicit `id:` if you supplied one, otherwise the role-based auto-gen (`pre`, `post`, `practice`, `practice-2`, …; see [Assessments](#assessments)). The sidebar renders each module-level row as a clickable `<button>` that navigates to its route, lights up an amber palette while the assessment is the active spot in the curriculum, and renders a grey `aria-disabled` style when locked by an upstream gate (see [Content locking](#content-locking)). Content-block-level assessments (`type: assessment` inside a lesson's `content_blocks`) stay inline within the lesson page — no separate route. The two persistence paths live in separate tables: content-block scores in `assessment_scores` keyed on global `assessmentRef`; module-level scores in `module_assessment_scores` keyed on `(moduleId, assessmentId)` so two modules referencing the same YAML don't collide.
+
+**Pass-threshold gating.** Optional `pass_threshold: 0.0–1.0` on either embedding shape. Content-block-level: the assessment block fires its completion event upward only when `score / maxScore` clears the threshold, which gates lesson-completion progression in the sidebar. Module-level: the gate is broader — items after the assessment in the module flow lock until a recorded passed score, and the next sequential module stays locked until the previous module's post-assessment is passed (Story J.v). `role: pre` is the soft-gate exception — see [Content locking](#content-locking) and the `pass_threshold` bullet under [Assessments](#assessments).
 
 **Common gotchas:**
 
@@ -673,7 +675,10 @@ Each module declares an `assessments[]` array; each entry carries:
   - `{ before_lesson: <lesson-id> }` — anchors immediately before the named lesson.
   - `{ after_lesson: <lesson-id> }` — anchors immediately after.
 - `source`, `ref` — provider + path, same shape as `assessment` content blocks.
-- `pass_threshold` — optional `0.0`–`1.0`. Recorded but not gating in v1; surfaces as a `"X% to pass"` annotation on the assessment row when set.
+- `pass_threshold` — optional `0.0`–`1.0`. Surfaces as a `"X% to pass"` annotation on the assessment row when set. **Gating semantics (Story J.v, v0.79.0+):**
+  - On any assessment with `role` other than `pre`, a `pass_threshold` makes that assessment a gate — items appearing after it in the module flow (lessons and later assessments) stay locked until a recorded score meets the threshold. A module's sequential next-module unlock consumes the same gate, so an unpassed `after_lessons` post-assessment keeps the next module locked even when every lesson is complete.
+  - On `role: pre`, `pass_threshold` is **non-gating** by convention — pre-assessments are diagnostic, and locking a learner out of lesson 1 behind a test they haven't earned the right to skip yet defeats the purpose. Scores are still recorded; they just don't block progression. Authors who want hard pre-gating use `role: practice` with `position: { before_lesson: <lesson-id> }`.
+  - Assessments without `pass_threshold` are informational — they record scores but never gate.
 
 Lesson-anchored refs (`before_lesson` / `after_lesson`) are validated against the module's `lessons` at build time — typing a wrong lesson id fails the build with the module id, role, and unknown lesson id.
 
@@ -732,11 +737,11 @@ Strict-mode Pydantic rejects an unmigrated `pre_assessment` / `post_assessment` 
 
 ## Content locking
 
-Control access to modules and lessons with a three-level configuration hierarchy (most local wins):
+Control access to modules and lessons with three orthogonal mechanisms:
 
 1. **Per-module `locked`** — explicit `true`/`false` override; trumps everything.
-2. **Curriculum `locking.sequential`** — when true, module N+1 requires module N complete.
-3. **Global config `locking.sequential`** — project-wide default (see Configuration File below).
+2. **Sequential locking** (`locking.sequential` + `locking.lesson_sequential`) — when on, modules / lessons must be completed in order. Hierarchy: curriculum-level config beats global config (see Configuration File below).
+3. **Assessment-threshold gating (Story J.v)** — a module-level assessment with `pass_threshold` set (and `role` other than `pre`) gates every item appearing after it in the module flow. The sequential rule consumes the same gate, so an unpassed `after_lessons` post-assessment keeps the next module locked even when every lesson is complete. `role: pre` is non-gating by convention — pre-assessments are diagnostic, not gates; authors who want hard pre-gating use `role: practice` with `position: { before_lesson: <id> }`.
 
 ```yaml
 curriculum:
@@ -756,9 +761,22 @@ curriculum:
               source: quizazz
               ref: assessments/assessment.yml
               pass_threshold: 0.7           # 70% required to count as passed
+
+      # Module-level post-assessment with a threshold — gates the next module
+      # (Story J.v). An unpassed score here keeps `mod-02` locked even after
+      # every lesson in `mod-01` is complete.
+      assessments:
+        - role: post
+          position: after_lessons
+          source: quizazz
+          ref: assessments/mod-01-post.yml
+          pass_threshold: 0.7
+
+    - id: mod-02
+      lessons: [...]
 ```
 
-`unlock_module_on_complete` is useful for "gateway" lessons — a single assessment that, once passed, opens the rest of the module and the next one.
+`unlock_module_on_complete` is useful for "gateway" lessons — a single content-block assessment that, once passed, opens the rest of the module and the next one. It composes with assessment-threshold gating: an `after_lessons` post-assessment with `pass_threshold` still has to pass before the next module unlocks, even if the gateway lesson short-circuited the in-module lesson requirements.
 
 ---
 
