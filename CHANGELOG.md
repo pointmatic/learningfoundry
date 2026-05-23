@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.79.1] - 2026-05-22
+
+Fix five pre-existing `svelte-check` and `vitest` failures uncovered after the J.v post-assessment work landed (Story J.w). All five are type-only or test-only — no runtime behaviour changes.
+
+### Fixed
+
+- **`vite.config.ts` typed `test` block.** `defineConfig` is now imported from `vitest/config` so the `test` field type-checks under `svelte-check`. The redundant `/// <reference types="vitest" />` triple-slash directive is removed in the same edit. A top-level `optimizeDeps: { exclude: ['sql.js'] }` is added as a safety belt for future scenarios where learningfoundry-owned code statically imports `sql.js`.
+- **`LessonView.test.ts` lesson cast.** Replaced the brittle `Parameters<typeof render>[1] extends { props: infer P } ? P : never` conditional cast (which now resolves to `never` under `@testing-library/svelte`'s updated `render` signature) with the file-local convention `as unknown as never` already used by the J.b tagline tests.
+- **`database.test.ts` `fake-indexeddb` subpath import.** `fake-indexeddb@6.x` ships type declarations only at the package root and `/auto`, not at `/lib/FDBFactory`. Switched to the typed named export: `import { IDBFactory as FDBFactory } from 'fake-indexeddb';`.
+- **`VideoBlock.test.ts` `MockPlayer` constructability.** Vitest 4.x stopped wrapping `vi.fn().mockImplementation((…) => { … })` so arrow-function impls are no longer constructable via `new`. Changed both `MockPlayer` definitions to regular `function (…) { … }` impls. The dependent `IntersectionObserver is not defined` error in the rerender test was a cascade from the same root cause and is resolved by the same fix.
+- **`LessonView.test.ts` / `routes/[module]/[lesson]/page.test.ts` quizazz mock.** Added `vi.mock('@pointmatic/quizazz', …)` to both files. `@pointmatic/quizazz`'s bundled `dist/db/database.js` contains a static `import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url';` — vite-only syntax. Under vitest/Node ESM the `?url` query is stripped, Node treats the `.wasm` path as an ESM WebAssembly module, and fails to resolve Emscripten's synthetic `"a"` env import. The failing tests never actually render `<QuizBlock>` (their lessons are text-only or empty), so a module-surface stub is sufficient and intercepts the chain at the quizazz boundary.
+
+### Verified
+
+- `pnpm exec svelte-check` → 0 errors, 0 warnings (was 3 errors).
+- `pnpm exec vitest run` → 277 passed (was 265 passed / 12 failed).
+- `pyve test` → 411 passed.
+- `ruff` clean, `mypy` clean.
+
 ## [0.79.0] - 2026-05-22
 
 Post-assessment threshold gating + soft pre-assessment convention (Story J.v). With J.u's per-module-assessment scores now persisting, locking finally consumes them: a threshold-bearing non-pre assessment gates every item that appears after it in `interleaveModuleFlow`, and the next module stays sequentially locked until the assessment passes. `role: pre` is the deliberate exception — diagnostic pre-assessments are soft-gates per the J.v sharp-edge resolution, so even an unpassed pre-assessment with a `pass_threshold` set does not lock lesson 1. The `lockedAssessments: Set<string>` prop on `<LessonList>` (added in J.t with an empty default) is finally fed real data.

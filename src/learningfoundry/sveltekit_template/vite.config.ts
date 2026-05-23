@@ -1,12 +1,18 @@
 // Copyright 2026 Pointmatic
 // SPDX-License-Identifier: Apache-2.0
-/// <reference types="vitest" />
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+	// Keep sql.js out of vite's deps pre-bundle. The package's
+	// `sql-wasm.wasm` is a binary asset; vitest 4.x's optimizer parses
+	// it as JS and chokes on the `\0asm` magic header ("Cannot find
+	// package 'a'"). Excluding here covers both prod build and the
+	// test pre-bundle path — the per-test `test.deps.optimizer.web.exclude`
+	// alone is ineffective under vitest 4.x. Story J.w.
+	optimizeDeps: { exclude: ['sql.js'] },
 	// Vitest-only: resolve `svelte` to its browser export so component
 	// `mount(...)` works in jsdom. Without this, Svelte 5 throws
 	// `lifecycle_function_unavailable: mount(...) is not available on the

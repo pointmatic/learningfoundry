@@ -72,6 +72,18 @@ vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$lib/stores/progress.js', () => ({
 	invalidateProgress: invalidateProgressMock
 }));
+// Quizazz's bundled `dist/db/database.js` has a static
+// `import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url';` — vite-only
+// syntax. Under vitest/Node ESM the `?url` query is stripped and Node
+// tries to instantiate `sql-wasm.wasm` as an ESM wasm module, failing
+// to resolve Emscripten's synthetic `"a"` env import. We never render
+// `<QuizBlock>` in LessonView tests (content_blocks is empty or
+// text-only), so stubbing the module surface is sufficient. Story J.w.
+vi.mock('@pointmatic/quizazz', () => ({
+	QuizBlock: vi.fn(),
+	MANIFEST_SCHEMA_VERSION_MAJOR: 1,
+	isCompatible: () => true
+}));
 
 describe('LessonView block tracking (via createBlockTracker)', () => {
 	it('all blocks complete → returns true on final markBlockComplete', () => {
@@ -288,7 +300,7 @@ describe('LessonView lifecycle ordering on mount (Story I.p, re-instated under S
 					content: { markdown: 'hi', path: 'x.md' }
 				}
 			]
-		} as unknown as Parameters<typeof render>[1] extends { props: infer P } ? P : never;
+		} as unknown as never;
 
 		render(LessonView, {
 			props: { lesson, moduleId: 'mod-01', onlessonopen }

@@ -1,7 +1,7 @@
 // Copyright 2026 Pointmatic
 // SPDX-License-Identifier: Apache-2.0
 import 'fake-indexeddb/auto';
-import FDBFactory from 'fake-indexeddb/lib/FDBFactory';
+import { IDBFactory as FDBFactory } from 'fake-indexeddb';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';

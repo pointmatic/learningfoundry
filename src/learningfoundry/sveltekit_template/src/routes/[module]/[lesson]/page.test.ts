@@ -61,6 +61,19 @@ vi.mock('$lib/db/index.js', () => ({
 	database: { getDb: vi.fn(), persist: vi.fn() }
 }));
 
+// Quizazz's bundled `dist/db/database.js` has a static
+// `import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url';` — vite-only
+// syntax. Under vitest/Node ESM the `?url` query is stripped and Node
+// tries to instantiate `sql-wasm.wasm` as an ESM wasm module, failing
+// to resolve Emscripten's synthetic `"a"` env import. The lesson here
+// is text-only (no assessment block), so stubbing the module surface
+// is sufficient. Story J.w.
+vi.mock('@pointmatic/quizazz', () => ({
+	QuizBlock: vi.fn(),
+	MANIFEST_SCHEMA_VERSION_MAJOR: 1,
+	isCompatible: () => true
+}));
+
 function makeCurriculum(): Curriculum {
 	return {
 		version: '1.0.0',

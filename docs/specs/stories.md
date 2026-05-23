@@ -1187,12 +1187,53 @@ The `lockedAssessments: Set<string>` prop on `<LessonList>` (J.t) is fed by the 
 
 ---
 
-### Story J.w: `svelte-check` errors [Planned]
+### Story J.w: `svelte-check` errors [Done]
 
 With `pnpm exec svelte-check` there are 12 vitest and 3 svelte-check errors, all pre-existing before the Story J.r; two fixes were made in Story J.s, 20 were fixed in J.t: the id-missing errors caused by J.r. The remaining 23 are pre-existing Set<unknown> generic-narrowing issues in LessonList.test.ts, a Lesson-cast in LessonView.test.ts, and a fake-indexeddb declaration-file issue in database.test.ts. The pre-existing vitest + svelte-check failures warrant a debug cycle of their own.
 
-- [ ] TBD
-- [ ] (if code changes) Bump version to v0.79.1 in all the relevant places.
+- [x] Investigate the vitest and svelte-check errors.
+
+**Current state (observed on `main` post-J.v):** `pnpm exec svelte-check` reports **3** errors; `pnpm exec vitest run` reports **12** failed tests. The story preamble's "23 pre-existing" tally was a counting artifact of an earlier snapshot — the live failure set, after triage, decomposes into **5 distinct defects** (3 type, 2 runtime) covering all 15 failures.
+
+**Defect 1 — `vite.config.ts:17` `'test' does not exist in type 'UserConfigExport'` (svelte-check):**
+- *Root cause:* `defineConfig` is imported from `'vite'`, whose `UserConfigExport` has no `test` field. The `/// <reference types="vitest" />` directive at the top of the file augments the *global* vite type for the runtime config loader but does **not** retroactively widen `defineConfig`'s parameter type at the call site under TS strict resolution.
+- *Fix:* Replace `import { defineConfig } from 'vite';` with `import { defineConfig } from 'vitest/config';`. The `vitest/config` re-export's `defineConfig` accepts the `test` field directly and is the canonical form per vitest 1.x+ docs. The `/// <reference types="vitest" />` line then becomes redundant and can be removed in the same edit.
+
+**Defect 2 — `LessonView.test.ts:294` `Type 'unknown' is not assignable to type 'Lesson'` (svelte-check):**
+- *Root cause:* The local `lesson` const is typed via the conditional `Parameters<typeof render>[1] extends { props: infer P } ? P : never`. With `@testing-library/svelte`'s updated `render` signature, `Parameters<typeof render>[1]` no longer matches the `{ props: P }` branch, so the conditional resolves to `never` and TS rejects passing it back into `props`. The same test file uses a simpler `as unknown as never` cast in the J.b tagline tests (lines 351, 366, 384) which type-checks cleanly.
+- *Fix:* Replace the verbose conditional cast on line 291 with `as unknown as never` to match the J.b convention, or import `Lesson` from `$lib/types/index.js` and cast `as unknown as Lesson`. The first option is consistent with sibling tests in the same file and requires no new import.
+
+**Defect 3 — `database.test.ts:4` `Could not find a declaration file for module 'fake-indexeddb/lib/FDBFactory'` (svelte-check):**
+- *Root cause:* `fake-indexeddb@6.x` ships type declarations only at the package root and at `fake-indexeddb/auto`, not at the subpath `fake-indexeddb/lib/FDBFactory`. The runtime file resolves (the build at `node_modules/.pnpm/fake-indexeddb@6.2.5/...esm/FDBFactory.js` exists) but TS has no `.d.ts` for that subpath.
+- *Fix:* The package's main entry re-exports `FDBFactory`. Replace `import FDBFactory from 'fake-indexeddb/lib/FDBFactory';` with `import { FDBFactory } from 'fake-indexeddb';` (or `import { IDBFactory as FDBFactory } from 'fake-indexeddb';` if the alias matters for clarity). This eliminates the subpath and uses the typed public surface. Verified `fake-indexeddb`'s root `index.d.ts` exports `FDBFactory` as a named export.
+
+**Defect 4 — sql.js `Cannot find package 'a' imported from .../sql-wasm.wasm` (10 of 12 vitest failures):**
+- *Affected tests:* all 8 in `LessonView.test.ts` and both 2 in `routes/[module]/[lesson]/page.test.ts`.
+- *Root cause (corrected after empirical fix attempt):* not learningfoundry's `database.ts`, but a **transitive static import in `@pointmatic/quizazz`**. Its bundled `dist/db/database.js` contains the line `import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url';`. The `?url` suffix is vite-only — under production build, vite intercepts it and emits an asset URL string. Under vitest/Node ESM, the `?url` query is stripped during module resolution and Node treats the bare `.wasm` path as an ESM WebAssembly module. Node's experimental wasm-modules loader then tries to resolve the wasm file's declared imports — Emscripten emits an import from a synthetic module named `"a"` (the env-binding namespace) — and fails with `ERR_MODULE_NOT_FOUND: Cannot find package 'a'`. The error message's pointer to `dist/sql-wasm.wasm` is misleading; the file *is* a wasm module, but the failure happens during instantiation, not during JS parsing as initially hypothesized.
+- *Why only LessonView/page tests fail:* the dependency chain is `LessonView.svelte → ContentBlock.svelte → AssessmentBlock.svelte → @pointmatic/quizazz → quizazz/dist/embed/QuizBlock.svelte → quizazz/dist/db/database.js → sql.js/dist/sql-wasm.wasm?url`. Static-import evaluation walks this graph at module-load time; the `vi.mock('$lib/db/index.js', …)` already in those test files only intercepts learningfoundry's own db barrel, not quizazz's internal db module. `database.test.ts` passes because it dynamically imports sql.js itself (no wasm `?url` suffix in the chain) and reaches a working init path.
+- *Why the earlier `optimizeDeps.exclude: ['sql.js']` fix didn't help:* the failing import isn't `sql.js` but a *subpath of sql.js with a vite query suffix*. Excluding `sql.js` from optimize-deps doesn't intercept Node's ESM loader walking the static `import … from 'sql.js/dist/sql-wasm.wasm?url'` line in quizazz.
+- *Fix:* add `vi.mock('@pointmatic/quizazz', () => ({ QuizBlock: vi.fn(), MANIFEST_SCHEMA_VERSION_MAJOR: 1, isCompatible: () => true }))` to both `LessonView.test.ts` and `page.test.ts`. The failing tests use lessons whose `content_blocks` is empty or text-only, so `<QuizBlock>` is never rendered — only its module identity is needed for the import-graph walk. This intercepts the chain at the quizazz boundary and leaves the `sql.js/.../?url` line unreached. Pattern matches the existing `vi.mock('$app/navigation', …)` / `vi.mock('$lib/stores/curriculum.js', …)` setup in both files.
+- *Alternative (rejected):* a resolve-alias on the `?url` suffix would fix it config-side but introduces vitest-specific magic in `vite.config.ts` and would silently re-break if quizazz changes its asset-loading idiom. The per-test mock is local, explicit, and consistent with the file's existing mock setup.
+- *Note on the earlier `optimizeDeps` edit:* added in this same commit as a no-op safety belt for a future scenario where learningfoundry-owned code statically imports `sql.js`. It is harmless to leave in; the existing `test.deps.optimizer.web.exclude` nested entry can stay alongside it.
+
+**Defect 5 — `VideoBlock.test.ts` arrow-function `mockImplementation` (2 of 12 vitest failures):**
+- *Affected tests:* `mock YT global: ENDED state fires videocomplete` and `rerender with a different URL destroys the prior player, creates a new one with the new videoId, and resets the fired latch`.
+- *Root cause:* Both tests build `MockPlayer = vi.fn().mockImplementation((id, opts) => { … })` and then construct it with `new YT.Player(...)`. Vitest 4 tightened `vi.fn` so the mock implementation runs *as the actual call body* — and an arrow function is not a constructor per the JS spec, so `new (mock)` throws `(arrow) is not a constructor`. In vitest 3.x, `vi.fn` wrapped the impl in a function declaration that *was* constructable, masking arrow-function impls. The second test failure cascades from the first: when `new YT.Player(...)` throws inside `VideoBlock.svelte`'s `createPlayer()`, the `catch` branch calls `setupViewportFallback()` which references `IntersectionObserver`, undefined in jsdom in this `describe` block (no `vi.stubGlobal('IntersectionObserver', …)`) — surfacing as `ReferenceError: IntersectionObserver is not defined`.
+- *Fix:* Change both `MockPlayer` definitions from arrow-function impls to regular-function impls — `vi.fn().mockImplementation(function (id, opts) { … })`. This restores constructability under vitest 4. No production-code change is required and no IntersectionObserver stub needs adding to the second `describe` (the cascade goes away once `new YT.Player` succeeds).
+
+**Fix list (concrete tasks):**
+
+- [x] `vite.config.ts`: import `defineConfig` from `vitest/config` instead of `vite`; remove the now-redundant `/// <reference types="vitest" />` directive; add top-level `optimizeDeps: { exclude: ['sql.js'] }` as a safety belt for future scenarios. (Defect 1; partial belt-and-braces for Defect 4.)
+- [x] `src/lib/components/LessonView.test.ts:291`: replace the `Parameters<typeof render>[1] extends { props: infer P } ? P : never` cast with the file-local convention `as unknown as never`. (Defect 2.)
+- [x] `src/lib/db/database.test.ts:4`: replace `import FDBFactory from 'fake-indexeddb/lib/FDBFactory';` with `import { IDBFactory as FDBFactory } from 'fake-indexeddb';` (the package's typed root entry re-exports `FDBFactory` under the name `IDBFactory`). (Defect 3.)
+- [x] `src/lib/components/VideoBlock.test.ts:26` and `:166`: change the `MockPlayer` arrow-function `.mockImplementation((…) => { … })` to a regular `function (…) { … }` impl so `new MockPlayer(...)` works under vitest 4. (Defect 5.)
+- [x] `src/lib/components/LessonView.test.ts`: add `vi.mock('@pointmatic/quizazz', () => ({ QuizBlock: vi.fn(), MANIFEST_SCHEMA_VERSION_MAJOR: 1, isCompatible: () => true }));` alongside the existing top-of-file `vi.mock` block. (Defect 4.)
+- [x] `src/routes/[module]/[lesson]/page.test.ts`: same `vi.mock('@pointmatic/quizazz', …)` addition. (Defect 4.)
+- [x] Re-run `pnpm exec svelte-check` — 0 errors / 0 warnings / 0 files with problems. Re-run `pnpm exec vitest run` — 277/277 tests passing. `pyve test` → 411/411. `ruff` and `mypy` clean.
+- [x] Prevention scan: `grep -rnE "vi\\.fn\\(\\)\\.mockImplementation\\(\\(" src/` returns no matches outside the two files just fixed.
+- [x] Prevention scan: no other config file in `src/` uses `defineConfig` from `'vite'`; remaining matches are inside `node_modules` README/typedef files only.
+- [x] `CHANGELOG.md`: v0.79.1 Fixed entry added, listing each of the five defects, the "no runtime behaviour change" framing, and the four green-check verifications.
+- [x] Bump version to v0.79.1 in `pyproject.toml` and `src/learningfoundry/__init__.py`. The `sveltekit_template/package.json` is intentionally pinned at `0.0.1` — it's the *template*, not a published package, and its version is not part of the learningfoundry release surface.
 
 ---
 

@@ -22,8 +22,11 @@ describe('VideoBlock completion — YT ENDED state', () => {
 		const callback = vi.fn();
 		let registeredOnStateChange: ((event: { data: number }) => void) | undefined;
 
-		// Simulate YT.Player constructor capturing the onStateChange handler
-		const MockPlayer = vi.fn().mockImplementation((_id: string, opts: any) => {
+		// Simulate YT.Player constructor capturing the onStateChange handler.
+		// `function` (not arrow) so `new MockPlayer(...)` is a valid
+		// construction under vitest 4.x — arrow `mockImplementation` impls
+		// are not constructable. Story J.w.
+		const MockPlayer = vi.fn().mockImplementation(function (_id: string, opts: any) {
 			registeredOnStateChange = opts.events?.onStateChange;
 			return { destroy: vi.fn() };
 		});
@@ -163,7 +166,12 @@ describe('VideoBlock mount — URL change destroys old player and creates new on
 
 	beforeEach(() => {
 		players = [];
-		MockPlayer = vi.fn().mockImplementation((id: string, opts: { videoId: string; events: any }) => {
+		// `function` (not arrow) so `new MockPlayer(...)` is a valid
+		// construction under vitest 4.x. Story J.w.
+		MockPlayer = vi.fn().mockImplementation(function (
+			id: string,
+			opts: { videoId: string; events: any }
+		) {
 			const inst: MockPlayerInstance = {
 				id,
 				videoId: opts.videoId,
