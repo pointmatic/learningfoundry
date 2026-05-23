@@ -2,7 +2,11 @@
 <script lang="ts">
 	import { currentPosition, expandedModuleId } from '$lib/stores/curriculum.js';
 	import type { Curriculum, Module, ModuleProgress } from '$lib/types/index.js';
-	import { getOptionalLessons, lockedLessonIds } from '$lib/utils/locking.js';
+	import {
+		getOptionalLessons,
+		lockedAssessmentIds,
+		lockedLessonIds
+	} from '$lib/utils/locking.js';
 	import { computeAutoExpand, resolveModuleHeaderClick } from './module-list.helpers.js';
 	import LessonList from './LessonList.svelte';
 	import ProgressBar from './ProgressBar.svelte';
@@ -76,6 +80,7 @@
 			{@const isExpanded = !locked && $expandedModuleId === mod.id}
 			{@const optional = curriculum ? getOptionalLessons(mod.id, curriculum, progress) : new Set<string>()}
 			{@const lockedLessons = curriculum ? lockedLessonIds(mod.id, curriculum, progress) : new Set<string>()}
+			{@const lockedAssessments = curriculum ? lockedAssessmentIds(mod.id, curriculum, progress) : new Set<string>()}
 			<li
 				class="rounded-lg border border-gray-200 bg-white
 					{!locked && mod.id === $currentPosition?.moduleId
@@ -111,6 +116,7 @@
 							progress={progress[mod.id]?.lessons}
 							optionalLessons={optional}
 							lockedLessons={lockedLessons}
+							lockedAssessments={lockedAssessments}
 						/>
 					</div>
 				{/if}

@@ -1154,7 +1154,7 @@ The route's no-op stub callback from J.s gets replaced with `progressRepo.markAs
 
 ---
 
-### Story J.v: v0.79.0 — Locking: Post-Assessment Threshold Gate + Soft Pre-Assessment [Planned]
+### Story J.v: v0.79.0 — Locking: Post-Assessment Threshold Gate + Soft Pre-Assessment [Done]
 
 `locking.ts` already plumbs `assessments[]` through `interleaveModuleFlow` for sidebar ordering (Story J.f) but doesn't gate progression on assessment completion or threshold. With J.u's write path in place, locking can read assessment scores from `progressRepo` and treat an assessment with `pass_threshold` set as a hard gate on subsequent items in the flow.
 
@@ -1171,19 +1171,19 @@ The `lockedAssessments: Set<string>` prop on `<LessonList>` (J.t) is fed by the 
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/utils/locking.ts`: extend the lock-determination logic to consume `progressRepo.getAssessmentScore(moduleId, assessmentId)` (or read the relevant slice of `$progressStore.assessmentScores`). For each assessment with `pass_threshold != null` and `role != "pre"`, items appearing after it in the flow lock until the recorded score has `passed === true`. Build and return a `lockedAssessments: Set<string>` of assessment ids that should themselves render locked (e.g., a post-assessment after an earlier unpassed gate).
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/components/LessonList.svelte`: wire the locking-function output into the `lockedAssessments` prop introduced in J.t (which until now defaulted to empty).
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/utils/locking.test.ts`: new cases per the spec —
+- [x] `src/learningfoundry/sveltekit_template/src/lib/utils/locking.ts`: extend the lock-determination logic to consume `progressRepo.getAssessmentScore(moduleId, assessmentId)` (or read the relevant slice of `$progressStore.assessmentScores`). For each assessment with `pass_threshold != null` and `role != "pre"`, items appearing after it in the flow lock until the recorded score has `passed === true`. Build and return a `lockedAssessments: Set<string>` of assessment ids that should themselves render locked (e.g., a post-assessment after an earlier unpassed gate).
+- [x] `src/learningfoundry/sveltekit_template/src/lib/components/LessonList.svelte`: wire the locking-function output into the `lockedAssessments` prop introduced in J.t (which until now defaulted to empty). (Wired via `ModuleList.svelte` — the upstream component computes `lockedAssessmentIds(...)` and passes the set down; `LessonList` itself already consumed the prop from J.t.)
+- [x] `src/learningfoundry/sveltekit_template/src/lib/utils/locking.test.ts`: new cases per the spec —
   - Post-assessment with `pass_threshold: 0.7`, no recorded score: next module is locked.
   - Post-assessment with recorded score below threshold: next module is locked.
   - Post-assessment with recorded score above threshold: next module unlocked.
   - Pre-assessment with `pass_threshold: 0.7`, no recorded score: lesson 1 is **not** locked (soft-gate convention).
   - Two post-assessments in sequence; passing the first but not the second locks the second module's content.
   - Assessment without `pass_threshold` (informational): nothing locks regardless of recorded score.
-- [ ] No `features.md` / `tech-spec.md` / `README.md` updates in this story — the cross-cutting language ("recorded but not gating in v1", Non-goal #6, the README "Content locking" section) is J.w's sweep.
-- [ ] Bump version to v0.79.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] Update `CHANGELOG.md` with a v0.79.0 Added entry for post-assessment threshold gating.
-- [ ] Verify: vitest passes, `pyve test` passes, `ruff` and `mypy` clean.
+- [x] No `features.md` / `tech-spec.md` / `README.md` updates in this story — the cross-cutting language ("recorded but not gating in v1", Non-goal #6, the README "Content locking" section) is J.w's sweep.
+- [x] Bump version to v0.79.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Update `CHANGELOG.md` with a v0.79.0 Added entry for post-assessment threshold gating.
+- [x] Verify: vitest passes, `pyve test` passes, `ruff` and `mypy` clean.
 
 ---
 

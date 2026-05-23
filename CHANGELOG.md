@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.79.0] - 2026-05-22
+
+Post-assessment threshold gating + soft pre-assessment convention (Story J.v). With J.u's per-module-assessment scores now persisting, locking finally consumes them: a threshold-bearing non-pre assessment gates every item that appears after it in `interleaveModuleFlow`, and the next module stays sequentially locked until the assessment passes. `role: pre` is the deliberate exception — diagnostic pre-assessments are soft-gates per the J.v sharp-edge resolution, so even an unpassed pre-assessment with a `pass_threshold` set does not lock lesson 1. The `lockedAssessments: Set<string>` prop on `<LessonList>` (added in J.t with an empty default) is finally fed real data.
+
+### Added
+
+- **`lockedItemsInModule(moduleId, curriculum, progress)`** in [lib/utils/locking.ts](src/learningfoundry/sveltekit_template/src/lib/utils/locking.ts) — walks `interleaveModuleFlow` in canonical order and returns `{ lockedLessons, lockedAssessments }`. Combines two orthogonal rules: the existing `lesson_sequential` lock-on-prior-incomplete, plus the new assessment-threshold gate (once any threshold-bearing non-pre assessment is unpassed, every subsequent flow item locks — including later assessments).
+- **`lockedAssessmentIds(moduleId, curriculum, progress)`** — assessments-only projection of `lockedItemsInModule`. Consumed by `<ModuleList>` and passed into `<LessonList>`'s `lockedAssessments` prop.
+- **11 new locking tests** in [lib/utils/locking.test.ts](src/learningfoundry/sveltekit_template/src/lib/utils/locking.test.ts) covering the six J.v acceptance cases plus extra coverage:
+  - Post-assessment unrecorded → next module locked.
+  - Post-assessment below threshold → next module locked.
+  - Post-assessment at/above threshold → next module unlocked.
+  - Pre-assessment unrecorded (with threshold) → lesson 1 still unlocked (soft-gate).
+  - Two post-assessments in sequence: passing the first but not the second locks the third module.
+  - Threshold-null assessment is informational; never gates.
+  - `{before_lesson: <id>}` threshold-gate locks that lesson + everything after.
+  - A later assessment downstream of an unpassed earlier gate renders locked itself.
+  - `lockedAssessmentIds` projection matches expected set shape.
+  - Pre-assessment with threshold doesn't block `isModuleComplete`.
+  - Informational assessment inside a module doesn't lock subsequent items.
+
+### Changed
+
+- **`isModuleComplete`** in `locking.ts` extends to also require every threshold-bearing non-pre assessment to be passed (per `computeAssessmentPassed`). This is the propagation channel that makes the cross-module rule work: the sequential-locking check already consults `isModuleComplete(prev)`, and now an unpassed post-gate keeps that returning false. `role: pre` exempt (soft-gate).
+- **`lockedLessonIds`** refactored to a wrapper that returns `lockedItemsInModule(...).lockedLessons`. Lesson-sequential locking still works identically; the new layer adds assessment-gate locking on top.
+- **[components/ModuleList.svelte](src/learningfoundry/sveltekit_template/src/lib/components/ModuleList.svelte)** — computes `lockedAssessments` via `lockedAssessmentIds(...)` and passes it into `<LessonList>` alongside the existing `lockedLessons`. This is what makes the J.t locked-state styling visible in production.
+
+### Notes
+
+- **`role: pre` soft-gate is the only special case in the locking logic.** Authors who want hard pre-gating use `role: practice` with `position: { before_lesson: <id> }` — same gating effect via the generic rule, no separate code path needed (matches the project-essentials guidance under "Pre-assessments are a non-locking soft-gate by convention").
+- **No backwards-compat shim.** Pre-J.v modules with threshold-bearing assessments-without-scores had previously been treated as "complete" (the threshold was recorded but not gating in v1). Post-J.v those modules are `not_complete` until the assessment passes. Acceptable pre-1.0; downstream curricula that relied on the old behaviour can either drop the `pass_threshold` (making the assessment informational) or accept the gate.
+- **Cross-module assessment dependencies, score-history-aware gating, and pre-assessment "skip" UI affordances remain out of scope** (matches the story spec's OOS list).
+- **The pre-existing 12 vitest failures (LessonView, lesson route, VideoBlock) + 3 svelte-check errors** are still unaddressed. Story J.w now exists to track them as a `debug` cycle.
+
 ## [0.78.0] - 2026-05-22
 
 Per-module-assessment progress write path (Story J.u). With Story J.s's route + J.t's clickable sidebar in place, completing a module-level assessment now actually *persists*. The chosen reconciliation path (Option B per the J.u investigation gate) is a new sibling `module_assessment_scores` table keyed on `(module_id, assessment_id)` — the content-block `assessment_scores` table (keyed on global `assessment_ref`) stays as-is. The two write paths are genuinely different domains: a content-block ref is curriculum-globally unique, while two modules can legitimately reuse the same quizazz YAML so its identity at module level has to include the module id.
