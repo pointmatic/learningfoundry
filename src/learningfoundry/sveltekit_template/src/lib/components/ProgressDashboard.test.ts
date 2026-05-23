@@ -45,8 +45,7 @@ function makeProgress(
 		moduleId: mod.id,
 		status: completedCount === mod.lessons.length ? 'complete' : 'not_started',
 		lessons,
-		preAssessment: null,
-		postAssessment: null
+		assessmentScores: {}
 	};
 }
 
@@ -143,8 +142,7 @@ describe('moduleStatus (Story I.r — "Continue" button regression fix)', () => 
 			moduleId: mod.id,
 			status: moduleStatus,
 			lessons,
-			preAssessment: null,
-			postAssessment: null
+			assessmentScores: {}
 		};
 	}
 

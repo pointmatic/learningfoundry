@@ -56,6 +56,12 @@ export class WasmAssetMissingError extends Error {
 // again. Learner progress in the assessment-scores track is intentionally
 // lost on upgrade — acceptable pre-1.0; `lesson_progress` and
 // `exercise_status` are unaffected.
+//
+// Story J.u — `module_assessment_scores` added as a sibling table keyed on
+// `(module_id, assessment_id)` for module-level assessments (the J.e
+// generalized-array shape). Content-block-level scores keep using the
+// `assessment_scores` table with its `assessment_ref` PK — the two write
+// paths are genuinely different domains (see CHANGELOG v0.78.0).
 const DDL = `
 CREATE TABLE IF NOT EXISTS lesson_progress (
   module_id   TEXT NOT NULL,
@@ -74,6 +80,16 @@ CREATE TABLE IF NOT EXISTS assessment_scores (
   question_count INTEGER NOT NULL,
   completed_at   TEXT NOT NULL,
   PRIMARY KEY (assessment_ref)
+);
+
+CREATE TABLE IF NOT EXISTS module_assessment_scores (
+  module_id      TEXT NOT NULL,
+  assessment_id  TEXT NOT NULL,
+  score          INTEGER NOT NULL,
+  max_score      INTEGER NOT NULL,
+  question_count INTEGER NOT NULL,
+  completed_at   TEXT NOT NULL,
+  PRIMARY KEY (module_id, assessment_id)
 );
 
 CREATE TABLE IF NOT EXISTS exercise_status (

@@ -26,6 +26,7 @@ import type {
 	AssessmentScore,
 	LessonProgress,
 	LessonStatus,
+	ModuleAssessmentScore,
 	ModuleProgress
 } from '$lib/types/index.js';
 
@@ -162,7 +163,15 @@ export class ProgressRepo {
 		}
 	}
 
-	async getAssessmentScore(assessmentRef: string): Promise<AssessmentScore | null> {
+	/**
+	 * Read a content-block-level assessment score by its global `ref`.
+	 * Story J.u renamed this from `getAssessmentScore` to free that name
+	 * for the new `(moduleId, assessmentId)` keyed lookup below — the
+	 * two paths persist into different tables (`assessment_scores` vs.
+	 * `module_assessment_scores`) for the reasons documented on the
+	 * `module_assessment_scores` DDL in `database.ts`.
+	 */
+	async getAssessmentScoreByRef(assessmentRef: string): Promise<AssessmentScore | null> {
 		try {
 			const db = await this.#database.getDb();
 			const result = db.exec(
@@ -175,6 +184,87 @@ export class ProgressRepo {
 				.values[0] as [string, number, number, number, string];
 			return {
 				assessmentRef: assessment_ref,
+				score: sc,
+				maxScore: max_sc,
+				questionCount: q_count,
+				completedAt: completed_at
+			};
+		} catch (err) {
+			if (isWasmMissing(err)) return null;
+			throw err;
+		}
+	}
+
+	// -------------------------------------------------------------------
+	// Module-level assessment scores (Story J.u)
+	// -------------------------------------------------------------------
+
+	/**
+	 * Persist a score for a module-level assessment. Distinct from
+	 * `saveAssessmentScore` (which keys on the global `assessmentRef`)
+	 * because two modules can reference the same quizazz YAML — the
+	 * natural key here is `(moduleId, assessmentId)`. Called by the
+	 * `[module]/assessment/[id]/+page.svelte` route's completion handler.
+	 *
+	 * Accepts the same `AssessmentScore` shape that `<AssessmentBlock>`
+	 * already builds, then translates at the boundary so callers don't
+	 * have to manually construct a `ModuleAssessmentScore` — `assessmentRef`
+	 * is intentionally dropped (the module-level table doesn't carry it;
+	 * the `(moduleId, assessmentId)` pair is the identity).
+	 */
+	async markAssessmentComplete(
+		moduleId: string,
+		assessmentId: string,
+		score: Omit<AssessmentScore, 'completedAt'>
+	): Promise<void> {
+		try {
+			const db = await this.#database.getDb();
+			db.run(
+				`INSERT INTO module_assessment_scores
+         (module_id, assessment_id, score, max_score, question_count, completed_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(module_id, assessment_id) DO UPDATE SET
+         score=excluded.score, max_score=excluded.max_score,
+         question_count=excluded.question_count, completed_at=excluded.completed_at`,
+				[
+					moduleId,
+					assessmentId,
+					score.score,
+					score.maxScore,
+					score.questionCount,
+					new Date().toISOString()
+				]
+			);
+			await this.#database.persist();
+		} catch (err) {
+			if (isWasmMissing(err)) return;
+			throw err;
+		}
+	}
+
+	/**
+	 * Read a module-level assessment score by `(moduleId, assessmentId)`.
+	 * Returns `null` when no score has been recorded — locking (J.v) reads
+	 * this and treats `null` as "not yet attempted."
+	 */
+	async getAssessmentScore(
+		moduleId: string,
+		assessmentId: string
+	): Promise<ModuleAssessmentScore | null> {
+		try {
+			const db = await this.#database.getDb();
+			const result = db.exec(
+				`SELECT module_id, assessment_id, score, max_score, question_count, completed_at
+       FROM module_assessment_scores
+       WHERE module_id = ? AND assessment_id = ?`,
+				[moduleId, assessmentId]
+			);
+			if (!result.length || !result[0].values.length) return null;
+			const [mod_id, ass_id, sc, max_sc, q_count, completed_at] = result[0]
+				.values[0] as [string, string, number, number, number, string];
+			return {
+				moduleId: mod_id,
+				assessmentId: ass_id,
 				score: sc,
 				maxScore: max_sc,
 				questionCount: q_count,
@@ -221,6 +311,7 @@ export class ProgressRepo {
 				`BEGIN;
 				 DELETE FROM lesson_progress;
 				 DELETE FROM assessment_scores;
+				 DELETE FROM module_assessment_scores;
 				 DELETE FROM exercise_status;
 				 COMMIT;`
 			);
@@ -271,12 +362,39 @@ export class ProgressRepo {
 					? 'in_progress'
 					: 'not_started';
 
+			// Story J.u — load every module-level assessment score for this
+			// module in one query, keyed by `assessmentId` on the way out.
+			const assessmentResult = db.exec(
+				`SELECT assessment_id, score, max_score, question_count, completed_at
+       FROM module_assessment_scores WHERE module_id = ?`,
+				[moduleId]
+			);
+			const assessmentScores: Record<string, ModuleAssessmentScore> = {};
+			if (assessmentResult.length) {
+				for (const row of assessmentResult[0].values as [
+					string,
+					number,
+					number,
+					number,
+					string
+				][]) {
+					const [assessmentId, sc, max_sc, q_count, completedAt] = row;
+					assessmentScores[assessmentId] = {
+						moduleId,
+						assessmentId,
+						score: sc,
+						maxScore: max_sc,
+						questionCount: q_count,
+						completedAt
+					};
+				}
+			}
+
 			return {
 				moduleId,
 				status: moduleStatus,
 				lessons: lessonMap,
-				preAssessment: null,
-				postAssessment: null
+				assessmentScores
 			};
 		} catch (err) {
 			if (isWasmMissing(err)) {
@@ -295,8 +413,7 @@ export class ProgressRepo {
 					moduleId,
 					status: 'not_started',
 					lessons: lessonMap,
-					preAssessment: null,
-					postAssessment: null
+					assessmentScores: {}
 				};
 			}
 			throw err;

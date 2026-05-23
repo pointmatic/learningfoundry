@@ -16,11 +16,19 @@ import type {
 	Curriculum
 } from '$lib/types/index.js';
 
-const { pageState, capturedProps, saveAssessmentScoreMock } = vi.hoisted(() => ({
+const {
+	pageState,
+	capturedProps,
+	saveAssessmentScoreMock,
+	markAssessmentCompleteMock,
+	invalidateProgressMock
+} = vi.hoisted(() => ({
 	pageState: { params: { module: 'mod-01', id: 'pre' } as Record<string, string> },
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	capturedProps: { current: null as any },
-	saveAssessmentScoreMock: vi.fn().mockResolvedValue(undefined)
+	saveAssessmentScoreMock: vi.fn().mockResolvedValue(undefined),
+	markAssessmentCompleteMock: vi.fn().mockResolvedValue(undefined),
+	invalidateProgressMock: vi.fn().mockResolvedValue(undefined)
 }));
 
 vi.mock('$app/state', () => ({ page: pageState }));
@@ -37,8 +45,16 @@ vi.mock('@pointmatic/quizazz', () => {
 });
 
 vi.mock('$lib/db/index.js', () => ({
-	progressRepo: { saveAssessmentScore: saveAssessmentScoreMock },
+	progressRepo: {
+		saveAssessmentScore: saveAssessmentScoreMock,
+		markAssessmentComplete: markAssessmentCompleteMock
+	},
 	database: { getDb: vi.fn(), persist: vi.fn() }
+}));
+
+vi.mock('$lib/stores/progress.js', () => ({
+	invalidateProgress: invalidateProgressMock,
+	progressStore: { subscribe: () => () => {} }
 }));
 
 const curriculumStore = writable<Curriculum | null>(null);
@@ -167,15 +183,16 @@ describe('assessment route page (Story J.s)', () => {
 		expect(capturedProps.current).toBeNull();
 	});
 
-	it('completion callback signature accepts AssessmentScore (J.u-ready shape)', async () => {
+	it('completion handler persists via progressRepo.markAssessmentComplete(moduleId, assessmentId, score) (Story J.u)', async () => {
 		curriculumStore.set(makeCurriculum());
 
 		const Page = (await import('./+page.svelte')).default;
 		render(Page);
 
-		// The vendor stub captured the `oncomplete` <AssessmentBlock> was
-		// given. Drive a completion through it; the wrapper persists,
-		// then invokes the route's stub callback with an `AssessmentScore`.
+		// Drive a completion through the vendor stub's `oncomplete`.
+		// `<AssessmentBlock>` translates the vendor's `quizRef` field to
+		// `assessmentRef` on the way out, then invokes the route's
+		// `handleComplete(score: AssessmentScore)`.
 		const vendorOncomplete = capturedProps.current?.oncomplete as (
 			d: unknown
 		) => Promise<void>;
@@ -186,12 +203,35 @@ describe('assessment route page (Story J.s)', () => {
 			questionCount: 5
 		});
 
-		// AssessmentBlock persisted the score (its standard behaviour);
-		// the route's no-op `handleComplete` ran without throwing — that
-		// is the J.u-ready signature contract (`(score: AssessmentScore) => Promise<void>`).
+		// Content-block-level row still persists via `saveAssessmentScore`
+		// (AssessmentBlock's standard behaviour, unchanged here).
 		expect(saveAssessmentScoreMock).toHaveBeenCalledOnce();
 		const persisted = saveAssessmentScoreMock.mock.calls[0][0] as AssessmentScore;
 		expect(persisted.assessmentRef).toBe('assessments/mod-01-pre.yml');
 		expect(persisted.score).toBe(4);
+
+		// The route's `handleComplete` writes the module-level row via
+		// `markAssessmentComplete(moduleId, assessmentId, score)` — the J.u
+		// path. The (moduleId, assessmentId) pair comes from the URL params.
+		expect(markAssessmentCompleteMock).toHaveBeenCalledOnce();
+		const [callModuleId, callAssessmentId, callScore] =
+			markAssessmentCompleteMock.mock.calls[0];
+		expect(callModuleId).toBe('mod-01');
+		expect(callAssessmentId).toBe('pre');
+		expect((callScore as AssessmentScore).score).toBe(4);
+		expect((callScore as AssessmentScore).assessmentRef).toBe(
+			'assessments/mod-01-pre.yml'
+		);
+
+		// `<AssessmentBlock>` invokes the route's `oncomplete` via
+		// `oncomplete?.(score)` — synchronously, NOT `await`-ed (see
+		// AssessmentBlock.svelte). The route's `handleComplete` returns
+		// a promise that begins executing on the next microtask, so we
+		// need to flush the queue before asserting on `invalidateProgress`.
+		await new Promise<void>((resolve) => queueMicrotask(resolve));
+
+		// And the in-memory progress snapshot is invalidated so the sidebar /
+		// dashboard pick up the new score without a page reload.
+		expect(invalidateProgressMock).toHaveBeenCalledOnce();
 	});
 });

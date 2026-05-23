@@ -24,8 +24,7 @@ function makeModuleProgress(
 		moduleId,
 		status: 'not_started',
 		lessons: lessonMap,
-		preAssessment: null,
-		postAssessment: null
+		assessmentScores: {}
 	};
 }
 

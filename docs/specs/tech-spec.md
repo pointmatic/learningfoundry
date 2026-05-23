@@ -1014,13 +1014,30 @@ CREATE TABLE IF NOT EXISTS lesson_progress (
   completed_at  INTEGER                        -- Unix timestamp, NULL if incomplete
 );
 
+-- Content-block-level assessment scores (lesson content blocks of `type: assessment`).
+-- Keyed on the global `assessment_ref` because content-block refs are unique
+-- across the curriculum.
 CREATE TABLE IF NOT EXISTS assessment_scores (
-  assessment_ref  TEXT PRIMARY KEY,              -- Assessment ref path (unique per assessment)
-  module_id       TEXT NOT NULL,
-  assessment_type TEXT NOT NULL,                 -- "pre" | "post" | "inline"
-  score           INTEGER NOT NULL DEFAULT 0,
-  max_score       INTEGER NOT NULL DEFAULT 0,
-  completed_at    INTEGER NOT NULL               -- Unix timestamp
+  assessment_ref TEXT NOT NULL,
+  score          INTEGER NOT NULL,
+  max_score      INTEGER NOT NULL,
+  question_count INTEGER NOT NULL,
+  completed_at   TEXT NOT NULL,                  -- ISO 8601 timestamp
+  PRIMARY KEY (assessment_ref)
+);
+
+-- Story J.u — module-level assessment scores (the J.e generalized
+-- `assessments[]` array). Distinct table from `assessment_scores` because
+-- two modules can legitimately reference the same quizazz YAML — the
+-- natural key here is `(module_id, assessment_id)`.
+CREATE TABLE IF NOT EXISTS module_assessment_scores (
+  module_id      TEXT NOT NULL,
+  assessment_id  TEXT NOT NULL,
+  score          INTEGER NOT NULL,
+  max_score      INTEGER NOT NULL,
+  question_count INTEGER NOT NULL,
+  completed_at   TEXT NOT NULL,                  -- ISO 8601 timestamp
+  PRIMARY KEY (module_id, assessment_id)
 );
 
 CREATE TABLE IF NOT EXISTS exercise_status (
@@ -1146,13 +1163,26 @@ export interface LessonProgress {
   completedAt: number | null;
 }
 
+// Content-block-level assessment score — keyed on the global `assessmentRef`.
 export interface AssessmentScore {
   assessmentRef: string;
-  moduleId: string;
-  assessmentType: "pre" | "post" | "inline";
   score: number;
   maxScore: number;
-  completedAt: number;
+  questionCount: number;
+  completedAt: string;                  // ISO 8601
+}
+
+// Story J.u — module-level assessment score. Distinct shape because two
+// modules can reference the same `ref`; identity is `(moduleId, assessmentId)`.
+// `passed` is *not* stored — compute on read via `computeAssessmentPassed`
+// so YAML threshold edits re-evaluate against the active rule.
+export interface ModuleAssessmentScore {
+  moduleId: string;
+  assessmentId: string;
+  score: number;
+  maxScore: number;
+  questionCount: number;
+  completedAt: string;
 }
 
 export interface ExerciseStatus {
@@ -1164,11 +1194,11 @@ export interface ExerciseStatus {
 
 export interface ModuleProgress {
   moduleId: string;
-  lessonsCompleted: number;
-  lessonsTotal: number;
-  percentComplete: number;
-  preAssessmentScore: AssessmentScore | null;
-  postAssessmentScore: AssessmentScore | null;
+  status: "not_started" | "in_progress" | "complete";
+  lessons: Record<string, LessonProgress>;
+  // Story J.u — module-level assessment scores keyed by `assessmentId`.
+  // Replaces the pre-J.e `preAssessment` / `postAssessment` two-slot fields.
+  assessmentScores: Record<string, ModuleAssessmentScore>;
 }
 ```
 

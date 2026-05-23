@@ -46,8 +46,7 @@ function makeMockProgress(moduleId: string): ModuleProgress {
 		moduleId,
 		status: 'not_started',
 		lessons: {},
-		preAssessment: null,
-		postAssessment: null
+		assessmentScores: {}
 	};
 }
 

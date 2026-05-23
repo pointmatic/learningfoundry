@@ -12,6 +12,8 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { curriculum, setAssessmentPosition } from '$lib/stores/curriculum.js';
+	import { progressRepo } from '$lib/db/index.js';
+	import { invalidateProgress } from '$lib/stores/progress.js';
 	import type {
 		AssessmentDefinition,
 		AssessmentManifest,
@@ -46,13 +48,16 @@
 		}
 	});
 
-	// Story J.u will replace this with a real persistence call:
-	//   progressRepo.markAssessmentComplete(moduleId, assessmentId, score)
-	// AssessmentBlock already calls `progressRepo.saveAssessmentScore`
-	// internally — this stub is the higher-level "module-assessment
-	// completed" hook that J.u wires to the new write path.
-	async function handleComplete(_score: AssessmentScore): Promise<void> {
-		/* J.u wires the per-module-assessment persistence */
+	// Story J.u — persist the score on the module-level table keyed by
+	// `(moduleId, assessmentId)`. `<AssessmentBlock>` still writes the
+	// content-block-level row via `saveAssessmentScore`; the two paths
+	// land in different tables on purpose (see `database.ts` DDL).
+	// `invalidateProgress` refreshes the in-memory `progressStore` so
+	// sidebar / dashboard reactivity sees the new score immediately.
+	async function handleComplete(score: AssessmentScore): Promise<void> {
+		if (!moduleId || !assessmentId) return;
+		await progressRepo.markAssessmentComplete(moduleId, assessmentId, score);
+		await invalidateProgress($curriculum);
 	}
 </script>
 

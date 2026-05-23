@@ -338,15 +338,18 @@ The `lesson_progress.status` column moves through four states plus the orthogona
 `opened` and `in_progress` share the sidebar `…` icon — the lifecycle distinction is data-only, intended for analytics / future hooks. `LessonView` emits three callback-prop events (`onlessonopen`, `onlessonengage`, `onlessoncomplete`) that fire at most once per mount session and are suppressed when the corresponding state transition is a no-op (e.g. revisiting a `complete` lesson fires `onlessonopen` only). No internal subscribers exist today.
 
 **Behavior:**
-1. On first app load, create the SQLite database and initialize the schema (modules, lessons, assessment_scores, exercise_status).
+1. On first app load, create the SQLite database and initialize the schema (`lesson_progress`, `assessment_scores`, `module_assessment_scores`, `exercise_status`).
 2. Mark a lesson as completed when every content block in the lesson has fired its completion event. Per-block completion contracts:
    - **Text block** — fires when a sentinel `<div data-textblock-end>` placed at the *end* of the rendered markdown is continuously visible in the viewport for 1 s. Observing the end-of-block sentinel (rather than any portion of the wrapper) is what makes a tall lesson require actual reading-time scroll: simply landing on the page is no longer sufficient.
    - **Video block** — fires on the YouTube IFrame Player API `ENDED` state, with a 3-second viewport-fallback when the IFrame API is unavailable.
    - **Assessment block** — fires when `score / maxScore >= passThreshold` (default `0.0`); failed attempts retry internally without firing.
-3. Store assessment scores (pre/post and inline) with timestamps.
+3. Store assessment scores with timestamps. Two write paths exist (Story J.u):
+   - **Content-block assessments** (lesson content blocks of `type: assessment`) persist via `progressRepo.saveAssessmentScore(score)` into `assessment_scores`, keyed on the global `assessmentRef`.
+   - **Module-level assessments** (the J.e generalized `assessments[]` array) persist via `progressRepo.markAssessmentComplete(moduleId, assessmentId, score)` into `module_assessment_scores`, keyed on `(moduleId, assessmentId)` so two modules referencing the same quizazz YAML don't collide.
+   - `passed: boolean` is **not** stored — read sites compute it via `computeAssessmentPassed(score, pass_threshold)`. This keeps the active YAML threshold authoritative if an author retunes it.
 4. Store exercise completion status.
 5. Surface progress in the navigation UI: per-module completion percentage, assessment score indicators.
-6. Provide a course-level reset button in the sidebar (Story I.l): disabled when no learner activity exists; on confirmed click, truncate `lesson_progress`, `assessment_scores`, and `exercise_status` and route to `/`.
+6. Provide a course-level reset button in the sidebar (Story I.l): disabled when no learner activity exists; on confirmed click, truncate `lesson_progress`, `assessment_scores`, `module_assessment_scores`, and `exercise_status` and route to `/`.
 
 **Locking and sequential access:**
 The locking configuration (parsed from YAML and global config) controls which modules/lessons the learner can access:

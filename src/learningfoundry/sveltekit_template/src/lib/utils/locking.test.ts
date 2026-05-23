@@ -60,8 +60,7 @@ function makeProgress(
 		moduleId,
 		status: 'in_progress',
 		lessons,
-		preAssessment: null,
-		postAssessment: null
+		assessmentScores: {}
 	};
 }
 

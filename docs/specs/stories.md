@@ -1125,11 +1125,11 @@ This story replaces the static chip with a `<button>` that navigates to `/{modul
 
 ---
 
-### Story J.u: v0.78.0 — Progress Store: Per-Module-Assessment Write Path [Planned]
+### Story J.u: v0.78.0 — Progress Store: Per-Module-Assessment Write Path [Done]
 
 `progressRepo` tracks lesson-content-block assessment scores today via the `assessment_scores` table (renamed from `quiz_scores` in J.m.4). The current schema PK is `assessment_ref` with `assessment_type: "pre" | "post" | "inline"` and `assessment_ref` doubling as the natural key. That shape was designed for content-block-level assessments where each `ref` is globally unique. The new write path needs to persist scores keyed by `(moduleId, assessmentId)` — distinct from the content-block path because two modules' assessments can legitimately share a `ref` (the same quizazz YAML used as both module-01's pre-test and module-02's review).
 
-This story starts with an **investigation task**: read the current `AssessmentScore` TS interface, the `assessment_scores` table schema, and the existing `markAssessmentComplete` (if it exists post-J.m.4) to determine the cleanest reconciliation path. Two candidate shapes — (a) add `assessment_id: TEXT NULL` and `module_id: TEXT NULL` columns and key new rows on `(module_id, assessment_id)`, leaving old `assessment_ref`-keyed rows untouched; (b) introduce a separate `module_assessment_scores` table. The story body documents whichever path the investigation picks; the choice is design work that lands at the story's approval gate alongside the implementation.
+This story started with an **investigation task** (see CHANGELOG v0.78.0 for the full writeup): read the current `AssessmentScore` TS interface, the `assessment_scores` table schema, and the existing `progressRepo`. Investigation outcome — **Option (b): new `module_assessment_scores` table keyed on `(module_id, assessment_id)`**, with the existing `assessment_scores` table left untouched. Reasoning: the two write paths are genuinely different domains (content-block ref vs. module-level id pair) and conflating them in one table forces a polymorphic schema with nullable columns held together by check constraints. The new table approach also lets us retire the vestigial pre-J.e `preAssessment`/`postAssessment` slots on `ModuleProgress` in the same pass. `passed: boolean` is computed at read time via `computeAssessmentPassed` so YAML threshold edits re-evaluate against the active rule rather than freezing to whatever was set at write time.
 
 The route's no-op stub callback from J.s gets replaced with `progressRepo.markAssessmentComplete(moduleId, assessmentId, score)`. `getAssessmentScore(moduleId, assessmentId)` reads back. `$progressStore` extends to include the assessment scores map (key shape depends on investigation outcome). `passed: boolean` semantics: `score.raw >= assessment.pass_threshold` when threshold is set; `true` when threshold is null (informational assessment doesn't gate, so "passed" is vacuously true).
 
@@ -1140,17 +1140,17 @@ The route's no-op stub callback from J.s gets replaced with `progressRepo.markAs
 
 **Tasks:**
 
-- [ ] **Investigation task (do this first):** read [progress.ts](../../src/learningfoundry/sveltekit_template/src/lib/db/progress.ts), the `AssessmentScore` TS interface in [types/index.ts](../../src/learningfoundry/sveltekit_template/src/lib/types/index.ts), and the `assessment_scores` table DDL in [database.ts](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts). Document the current shape and the chosen reconciliation path (option a "add columns" vs. option b "new table") in the story body before writing code.
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/database.ts`: schema migration matching the chosen path. Migration is forward-only (pre-1.0, no rollback contract).
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/db/progress.ts`: add `markAssessmentComplete(moduleId, assessmentId, score)` and `getAssessmentScore(moduleId, assessmentId)`. Extend the in-memory `progressStore` to include `assessmentScores` keyed on the chosen scheme.
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts`: reconcile the `AssessmentScore` interface with the new write path. If the existing shape is reusable as-is, document why; if it needs extending, add the new fields (likely `assessmentId: string`, possibly `passed: boolean` if computed at write time vs. read time).
-- [ ] `src/learningfoundry/sveltekit_template/src/routes/[module]/assessment/[id]/+page.svelte`: replace the J.s no-op stub callback with the real `progressRepo.markAssessmentComplete(moduleId, id, score)` invocation.
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/stores/progress.test.ts` (or equivalent): cases — write then read returns the same score; write under one `(moduleId, assessmentId)` does not collide with a write under a different `(moduleId, assessmentId)` even if they share a ref; `passed` resolves correctly for thresholded and threshold-null cases.
-- [ ] `docs/specs/tech-spec.md`: update the `AssessmentScore` TS interface and the `assessment_scores` SQLite DDL to reflect the chosen reconciliation. Note in prose which option was chosen and why.
-- [ ] `docs/specs/features.md`: if a new sub-bullet under FR-4 is warranted (per-module-assessment write path distinct from lesson-content-block path), add it. If the existing language covers both paths without revision, skip.
-- [ ] Bump version to v0.78.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
-- [ ] Update `CHANGELOG.md` with a v0.78.0 Added entry for the per-module-assessment progress write path.
-- [ ] Verify: vitest passes (new + existing progress tests), `pyve test` passes, `ruff` and `mypy` clean.
+- [x] **Investigation task (do this first):** read [progress.ts](../../src/learningfoundry/sveltekit_template/src/lib/db/progress.ts), the `AssessmentScore` TS interface in [types/index.ts](../../src/learningfoundry/sveltekit_template/src/lib/types/index.ts), and the `assessment_scores` table DDL in [database.ts](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts). Document the current shape and the chosen reconciliation path (option a "add columns" vs. option b "new table") in the story body before writing code.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/db/database.ts`: schema migration matching the chosen path. Migration is forward-only (pre-1.0, no rollback contract).
+- [x] `src/learningfoundry/sveltekit_template/src/lib/db/progress.ts`: add `markAssessmentComplete(moduleId, assessmentId, score)` and `getAssessmentScore(moduleId, assessmentId)`. Extend the in-memory `progressStore` to include `assessmentScores` keyed on the chosen scheme.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts`: reconcile the `AssessmentScore` interface with the new write path. If the existing shape is reusable as-is, document why; if it needs extending, add the new fields (likely `assessmentId: string`, possibly `passed: boolean` if computed at write time vs. read time).
+- [x] `src/learningfoundry/sveltekit_template/src/routes/[module]/assessment/[id]/+page.svelte`: replace the J.s no-op stub callback with the real `progressRepo.markAssessmentComplete(moduleId, id, score)` invocation.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/stores/progress.test.ts` (or equivalent): cases — write then read returns the same score; write under one `(moduleId, assessmentId)` does not collide with a write under a different `(moduleId, assessmentId)` even if they share a ref; `passed` resolves correctly for thresholded and threshold-null cases.
+- [x] `docs/specs/tech-spec.md`: update the `AssessmentScore` TS interface and the `assessment_scores` SQLite DDL to reflect the chosen reconciliation. Note in prose which option was chosen and why.
+- [x] `docs/specs/features.md`: if a new sub-bullet under FR-4 is warranted (per-module-assessment write path distinct from lesson-content-block path), add it. If the existing language covers both paths without revision, skip.
+- [x] Bump version to v0.78.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+- [x] Update `CHANGELOG.md` with a v0.78.0 Added entry for the per-module-assessment progress write path.
+- [x] Verify: vitest passes (new + existing progress tests), `pyve test` passes, `ruff` and `mypy` clean.
 
 ---
 
@@ -1189,7 +1189,7 @@ The `lockedAssessments: Set<string>` prop on `<LessonList>` (J.t) is fed by the 
 
 ### Story J.w: `svelte-check` errors [Planned]
 
-With `pnpm exec svelte-check` there are 3 errors; two fixes were made in Story J.s, 20 were fixed in J.t: the id-missing errors caused by J.r. The remaining 23 are pre-existing Set<unknown> generic-narrowing issues in LessonList.test.ts, a Lesson-cast in LessonView.test.ts, and a fake-indexeddb declaration-file issue in database.test.ts. The pre-existing vitest + svelte-check failures warrant a debug cycle of their own.
+With `pnpm exec svelte-check` there are 12 vitest and 3 svelte-check errors, all pre-existing before the Story J.r; two fixes were made in Story J.s, 20 were fixed in J.t: the id-missing errors caused by J.r. The remaining 23 are pre-existing Set<unknown> generic-narrowing issues in LessonList.test.ts, a Lesson-cast in LessonView.test.ts, and a fake-indexeddb declaration-file issue in database.test.ts. The pre-existing vitest + svelte-check failures warrant a debug cycle of their own.
 
 - [ ] TBD
 - [ ] (if code changes) Bump version to v0.79.1 in all the relevant places.

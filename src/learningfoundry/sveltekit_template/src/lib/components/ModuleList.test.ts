@@ -71,8 +71,7 @@ function emptyProgress(mod: Module): ModuleProgress {
 		moduleId: mod.id,
 		status: 'not_started',
 		lessons,
-		preAssessment: null,
-		postAssessment: null
+		assessmentScores: {}
 	};
 }
 

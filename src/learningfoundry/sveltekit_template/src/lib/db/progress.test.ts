@@ -37,13 +37,14 @@ describe('resetProgress', () => {
 		vi.clearAllMocks();
 	});
 
-	it('truncates lesson_progress, assessment_scores, and exercise_status in a single transaction', async () => {
+	it('truncates lesson_progress, assessment_scores, module_assessment_scores, and exercise_status in a single transaction', async () => {
 		await repo.resetProgress();
 		expect(execMock).toHaveBeenCalledTimes(1);
 		const sql = String(execMock.mock.calls[0][0]);
 		expect(sql).toMatch(/BEGIN;/);
 		expect(sql).toMatch(/DELETE FROM lesson_progress;/);
 		expect(sql).toMatch(/DELETE FROM assessment_scores;/);
+		expect(sql).toMatch(/DELETE FROM module_assessment_scores;/);
 		expect(sql).toMatch(/DELETE FROM exercise_status;/);
 		expect(sql).toMatch(/COMMIT;/);
 	});
@@ -117,6 +118,191 @@ describe('markLessonInProgress (Story I.p caller-contract narrowing)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Story J.u — per-module-assessment write path. Distinct from the
+// content-block `saveAssessmentScore` path because it persists into the
+// `module_assessment_scores` table keyed on `(moduleId, assessmentId)` so
+// two modules referencing the same `assessmentRef` don't collide.
+// ---------------------------------------------------------------------------
+
+describe('markAssessmentComplete (Story J.u)', () => {
+	let repo: ProgressRepo;
+	beforeEach(() => {
+		runMock.mockClear();
+		persistMock.mockClear();
+		repo = makeRepo();
+	});
+
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('writes to module_assessment_scores with the (module_id, assessment_id) PK', async () => {
+		await repo.markAssessmentComplete('mod-01', 'pre', {
+			assessmentRef: 'assessments/mod-01-pre.yml',
+			score: 4,
+			maxScore: 5,
+			questionCount: 5
+		});
+		expect(runMock).toHaveBeenCalledTimes(1);
+		const sql = String(runMock.mock.calls[0][0]);
+		expect(sql).toMatch(/INSERT INTO module_assessment_scores/);
+		expect(sql).toMatch(
+			/ON CONFLICT\(module_id, assessment_id\) DO UPDATE SET/
+		);
+		const params = runMock.mock.calls[0][1] as unknown[];
+		expect(params[0]).toBe('mod-01');
+		expect(params[1]).toBe('pre');
+		expect(params[2]).toBe(4);
+		expect(params[3]).toBe(5);
+		expect(params[4]).toBe(5);
+		// completedAt is the new Date().toISOString() — assert shape only.
+		expect(typeof params[5]).toBe('string');
+	});
+
+	it('persists after the write', async () => {
+		await repo.markAssessmentComplete('mod-01', 'pre', {
+			assessmentRef: 'r',
+			score: 0,
+			maxScore: 0,
+			questionCount: 0
+		});
+		expect(persistMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not write the assessmentRef field (table has no ref column)', async () => {
+		// Two writes from different modules with the same inbound
+		// `assessmentRef` produce two independent rows keyed on
+		// `(module_id, assessment_id)` — the ref is intentionally dropped at
+		// the boundary. This is the collision-isolation contract from the
+		// J.u story spec.
+		await repo.markAssessmentComplete('mod-01', 'pre', {
+			assessmentRef: 'shared-quiz.yml',
+			score: 3,
+			maxScore: 5,
+			questionCount: 5
+		});
+		await repo.markAssessmentComplete('mod-02', 'pre', {
+			assessmentRef: 'shared-quiz.yml',
+			score: 4,
+			maxScore: 5,
+			questionCount: 5
+		});
+		expect(runMock).toHaveBeenCalledTimes(2);
+		const sql0 = String(runMock.mock.calls[0][0]);
+		expect(sql0).not.toMatch(/assessment_ref/);
+		const params0 = runMock.mock.calls[0][1] as unknown[];
+		const params1 = runMock.mock.calls[1][1] as unknown[];
+		// Distinct module ids ensure the ON CONFLICT clause won't merge the
+		// two rows even though the inbound refs match.
+		expect(params0[0]).toBe('mod-01');
+		expect(params1[0]).toBe('mod-02');
+		// Neither param tuple contains the shared ref.
+		expect(params0).not.toContain('shared-quiz.yml');
+		expect(params1).not.toContain('shared-quiz.yml');
+	});
+});
+
+describe('getAssessmentScore by (moduleId, assessmentId) (Story J.u)', () => {
+	let repo: ProgressRepo;
+	beforeEach(() => {
+		execMock.mockClear();
+		repo = makeRepo();
+	});
+
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('reads from module_assessment_scores with the (module_id, assessment_id) where clause', async () => {
+		execMock.mockReturnValueOnce([]);
+		await repo.getAssessmentScore('mod-01', 'pre');
+		expect(execMock).toHaveBeenCalledTimes(1);
+		const sql = String(execMock.mock.calls[0][0]);
+		expect(sql).toMatch(/FROM module_assessment_scores/);
+		expect(sql).toMatch(/WHERE module_id = \? AND assessment_id = \?/);
+		const params = execMock.mock.calls[0][1] as unknown[];
+		expect(params).toEqual(['mod-01', 'pre']);
+	});
+
+	it('returns the row as a ModuleAssessmentScore when one exists', async () => {
+		execMock.mockReturnValueOnce([
+			{
+				columns: [
+					'module_id',
+					'assessment_id',
+					'score',
+					'max_score',
+					'question_count',
+					'completed_at'
+				],
+				values: [['mod-01', 'pre', 4, 5, 5, '2026-05-22T00:00:00.000Z']]
+			}
+		]);
+		const result = await repo.getAssessmentScore('mod-01', 'pre');
+		expect(result).toEqual({
+			moduleId: 'mod-01',
+			assessmentId: 'pre',
+			score: 4,
+			maxScore: 5,
+			questionCount: 5,
+			completedAt: '2026-05-22T00:00:00.000Z'
+		});
+	});
+
+	it('returns null when no row matches', async () => {
+		execMock.mockReturnValueOnce([]);
+		const result = await repo.getAssessmentScore('mod-99', 'practice');
+		expect(result).toBeNull();
+	});
+});
+
+describe('getModuleProgress assessmentScores (Story J.u)', () => {
+	let repo: ProgressRepo;
+	beforeEach(() => {
+		execMock.mockClear();
+		repo = makeRepo();
+	});
+
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('populates assessmentScores keyed by assessmentId from module_assessment_scores', async () => {
+		// First call: lesson_progress (empty). Second call:
+		// module_assessment_scores (two rows). Order matches the SQL
+		// sequence in `getModuleProgress`.
+		execMock.mockReturnValueOnce([]);
+		execMock.mockReturnValueOnce([
+			{
+				columns: ['assessment_id', 'score', 'max_score', 'question_count', 'completed_at'],
+				values: [
+					['pre', 3, 5, 5, '2026-05-22T00:00:00.000Z'],
+					['post', 4, 5, 5, '2026-05-22T01:00:00.000Z']
+				]
+			}
+		]);
+		const mp = await repo.getModuleProgress('mod-01', ['lesson-01']);
+		expect(Object.keys(mp.assessmentScores).sort()).toEqual(['post', 'pre']);
+		expect(mp.assessmentScores['pre']).toEqual({
+			moduleId: 'mod-01',
+			assessmentId: 'pre',
+			score: 3,
+			maxScore: 5,
+			questionCount: 5,
+			completedAt: '2026-05-22T00:00:00.000Z'
+		});
+		expect(mp.assessmentScores['post'].score).toBe(4);
+	});
+
+	it('returns an empty assessmentScores map when no rows match', async () => {
+		execMock.mockReturnValueOnce([]); // lesson_progress
+		execMock.mockReturnValueOnce([]); // module_assessment_scores
+		const mp = await repo.getModuleProgress('mod-01', ['lesson-01']);
+		expect(mp.assessmentScores).toEqual({});
+	});
+});
+
+// ---------------------------------------------------------------------------
 // Story I.bb — `WasmAssetMissingError` is swallowed at the ProgressRepo
 // boundary so UI components don't have to defend on every call site. The
 // layout-level banner (`RecordingPausedBanner`) is the user-facing surface.
@@ -173,9 +359,26 @@ describe('ProgressRepo — WasmAssetMissingError handling (Story I.bb)', () => {
 		await expect(repo.getLessonProgress('mod-01', 'lesson-01')).resolves.toBeNull();
 	});
 
-	it('getAssessmentScore returns null when wasm is missing', async () => {
+	it('getAssessmentScoreByRef returns null when wasm is missing', async () => {
 		const repo = makeRepoWithBrokenDb();
-		await expect(repo.getAssessmentScore('q1')).resolves.toBeNull();
+		await expect(repo.getAssessmentScoreByRef('q1')).resolves.toBeNull();
+	});
+
+	it('markAssessmentComplete resolves quietly when wasm is missing', async () => {
+		const repo = makeRepoWithBrokenDb();
+		await expect(
+			repo.markAssessmentComplete('mod-01', 'pre', {
+				assessmentRef: 'assessments/pre.yml',
+				score: 1,
+				maxScore: 1,
+				questionCount: 1
+			})
+		).resolves.toBeUndefined();
+	});
+
+	it('getAssessmentScore (moduleId, assessmentId) returns null when wasm is missing', async () => {
+		const repo = makeRepoWithBrokenDb();
+		await expect(repo.getAssessmentScore('mod-01', 'pre')).resolves.toBeNull();
 	});
 
 	it('getModuleProgress returns an empty not_started shape so the dashboard renders', async () => {
@@ -186,8 +389,7 @@ describe('ProgressRepo — WasmAssetMissingError handling (Story I.bb)', () => {
 		expect(Object.keys(mp.lessons)).toEqual(['lesson-01', 'lesson-02']);
 		expect(mp.lessons['lesson-01'].status).toBe('not_started');
 		expect(mp.lessons['lesson-02'].completedAt).toBeNull();
-		expect(mp.preAssessment).toBeNull();
-		expect(mp.postAssessment).toBeNull();
+		expect(mp.assessmentScores).toEqual({});
 	});
 
 	it('non-WASM errors still propagate', async () => {

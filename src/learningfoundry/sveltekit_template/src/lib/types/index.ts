@@ -221,12 +221,37 @@ export interface AssessmentScore {
 	completedAt: string;
 }
 
+/**
+ * Story J.u — per-module-assessment persisted score. Distinct from
+ * `AssessmentScore` because two modules' assessments can legitimately
+ * share an `assessment_ref` (the same quizazz YAML reused), so the
+ * natural key is `(moduleId, assessmentId)`. Backed by the
+ * `module_assessment_scores` SQLite table.
+ *
+ * `passed` is **not stored** — compute it on read via
+ * `computeAssessmentPassed(score, passThreshold)` so a future threshold
+ * tweak in YAML re-evaluates against current rules instead of staying
+ * frozen to whatever was true at write time.
+ */
+export interface ModuleAssessmentScore {
+	moduleId: string;
+	assessmentId: string;
+	score: number;
+	maxScore: number;
+	questionCount: number;
+	completedAt: string;
+}
+
 export interface ModuleProgress {
 	moduleId: string;
 	status: ModuleStatus;
 	lessons: Record<string, LessonProgress>;
-	preAssessment: AssessmentScore | null;
-	postAssessment: AssessmentScore | null;
+	/**
+	 * Story J.u — module-level assessment scores, keyed by `assessmentId`.
+	 * Replaces the pre-J.e `preAssessment` / `postAssessment` two-slot
+	 * shape (which had been carrying `null` since J.e and was retired here).
+	 */
+	assessmentScores: Record<string, ModuleAssessmentScore>;
 }
 
 export interface CurriculumProgress {
