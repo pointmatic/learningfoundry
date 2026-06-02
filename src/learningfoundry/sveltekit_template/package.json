@@ -12,14 +12,14 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@lucide/svelte": "^1.16.0",
+    "@lucide/svelte": "^1.17.0",
     "@pointmatic/quizazz": "^1.4.0",
-    "@sveltejs/kit": "^2.0.0",
+    "@sveltejs/kit": "^2.61.1",
     "katex": "^0.17.0",
     "marked": "^18.0.0",
-    "marked-katex-extension": "^5.1.4",
+    "marked-katex-extension": "^5.1.10",
     "sql.js": "^1.12.0",
-    "svelte": "^5.0.0"
+    "svelte": "^5.55.10"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
