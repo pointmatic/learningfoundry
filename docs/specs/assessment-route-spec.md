@@ -13,7 +13,7 @@ interactive `<AssessmentBlock>` component (`$lib/components/AssessmentBlock.svel
 exists and works correctly — it's just never reached from a module-level
 assessment position.
 
-Observed against a D802 curriculum where Module 1 declares pre + post
+Observed against a curriculum where Module 1 declares pre + post
 assessments via Story J.e's unified `assessments[]` shape. Sidebar renders
 `◆ Pre Assessment` and `◆ Post Assessment 70%`. Clicking is a no-op.
 

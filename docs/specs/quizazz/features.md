@@ -19,7 +19,7 @@ Quizazz is designed to serve four distinct use cases from the same core engine, 
 |---|----------|----------|-------|
 | UC-1 | **Standalone single-quiz SPA** | Self-directed learners, authors shipping a one-off quiz | One quiz → one independent static SPA, deployable anywhere |
 | UC-2 | **Multi-quiz hub SPA** | Authors managing several quiz banks in one place | Single SPA with a quiz chooser and runtime upload of externally-compiled quizzes |
-| UC-3 | **Embeddable assessment component** | Host curriculum / learning frameworks (e.g., [`learningfoundry`](learningfoundry-dependency-spec.md), which in turn powers curricula such as the D802 deep-learning course — see [`d802-curriculum-idea-statement.md`](d802-curriculum-idea-statement.md)) | Quizazz ships a **Python library** for build-time YAML compilation and a **SvelteKit `<QuizBlock>` component** for in-page runtime delivery; the host invokes the library during its own build and embeds the component in its own pages |
+| UC-3 | **Embeddable assessment component** | Host curriculum / learning frameworks (e.g., [`learningfoundry`](learningfoundry/consumer-dependency-spec.md), which in turn powers curricula) | Quizazz ships a **Python library** for build-time YAML compilation and a **SvelteKit `<QuizBlock>` component** for in-page runtime delivery; the host invokes the library during its own build and embeds the component in its own pages |
 | UC-4 | **LLM-assisted question generation pipeline** *(future)* | Authors generating questions at scale from source material | `python/` toolchain that drives LLMs to produce validated YAML |
 
 UC-1, UC-2, and UC-3 are in scope for v1. UC-4 is deferred; the `python/` workspace exists today partly to hold this future pipeline.
@@ -89,7 +89,7 @@ The repository is organized as a monorepo:
 - **Real-time multiplayer** — No collaborative or competitive features.
 - **In-browser question editing** — Questions are authored in YAML and compiled; there is no WYSIWYG editor.
 - **Native mobile wrappers** — Browser-only.
-- **Non-MCQ question formats** — Fill-in-the-blank, short free-response, and LLM-as-judge "teach me" exercises are out of scope. In the D802 / learningfoundry context, these formats live in Jupyter notebooks alongside the Quizazz-delivered MCQ assessments.
+- **Non-MCQ question formats** — Fill-in-the-blank, short free-response, and LLM-as-judge "teach me" exercises are out of scope. In the consumer / learningfoundry context, these formats live in Jupyter notebooks alongside the Quizazz-delivered MCQ assessments.
 - **Host-supplied scope overrides for embedded quizzes** — In UC-3 v1, the manifest *is* the full assessment; the host cannot pass topic/subtopic scope, question count, or tag filter to narrow it further at runtime. See Future Vision.
 - **Per-question outcome streaming to host** — In UC-3 v1, the host receives only an aggregate `{quizRef, score, maxScore, questionCount}` payload on completion. Per-question outcomes remain inside Quizazz's IndexedDB. See Future Vision.
 - **Host progress persistence** — Quizazz does not write to any host database; the host is responsible for persisting the completion event payload.
@@ -249,7 +249,7 @@ The `<QuizBlock>` SvelteKit component accepts:
 | `manifest` | Yes | The compiled manifest object produced by `compile_assessment` (deserialized from the host's JSON data file) |
 | `quizRef` | Yes | A unique string identifying this quiz instance (typically the assessment's ref path in the host's curriculum); used as the progress-tracking key |
 
-In UC-3 v1 the component does **not** accept topic/subtopic scope, question count, or tag-filter props from the host — the manifest *is* the full assessment unit (e.g., a pre-module or post-module 3–5 question set in the D802 context). Richer host-supplied scope is a Future Vision item.
+In UC-3 v1 the component does **not** accept topic/subtopic scope, question count, or tag-filter props from the host — the manifest *is* the full assessment unit (e.g., a pre-module or post-module 3–5 question set in the consumer context). Richer host-supplied scope is a Future Vision item.
 
 ---
 

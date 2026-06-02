@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.79.2] - 2026-06-02
+
+Fix sql.js browser-ESM init failure in the SvelteKit template's dev-server preview path. Module and lesson routes were returning 500 in `learningfoundry preview` because `(await import('sql.js')).default` was `undefined` in the browser. Diagnosed in `docs/specs/bug-sql-js-browser-esm-spec.md`; fixed via Story J.y.
+
+### Fixed
+
+- **`vite.config.ts` — `optimizeDeps.exclude` scoped to test mode only.** The exclude was added by Story J.w as a belt-and-braces safety net (J.w's actual fix was the `vi.mock('@pointmatic/quizazz', …)`), but in dev/prod mode it disables Vite's CJS→ESM dep pre-bundling for `sql.js`. Without that pre-bundling layer, the dev-server browser receives `sql.js@1.13+`'s raw UMD `dist/sql-wasm-browser.js`, whose CJS/AMD export branches don't run in pure browser ESM — so `.default` is `undefined` and `initSqlJsFn(...)` throws `TypeError: initSqlJsFn is not a function`. The exclude is now gated on `process.env.VITEST` so vitest 4.x still skips the dep-optimizer (preserving the J.w WASM-magic-header fix) while dev/prod regain CJS-interop.
+- **`src/lib/db/database.ts` — typed `CjsEsmInteropError` backstop.** The dynamic `import('sql.js')` site now reads `.default` defensively and throws a named `CjsEsmInteropError` instead of an opaque `TypeError` when the initializer is missing. So the *next* sql.js drift surfaces a self-describing error in the dev-server console rather than the previous unactionable shape.
+
+### Verified
+
+- `pnpm exec vitest run` → 278 passed (was 277; +1 new contract test for the CJS/ESM interop guard).
+- `pnpm exec svelte-check` → 0 errors, 0 warnings.
+- `pnpm exec vite build` → succeeds (confirms the gated `optimizeDeps.exclude` doesn't break prod build; the J.w comment's "covers both prod build" framing was incorrect).
+- Manual: dev-server `/{moduleId}/{lessonId}` route renders without 500 in the d802-deep-learning consumer (verification scheduled with the consumer team — captured as a `[ ]` follow-up).
+
 ## [0.79.1] - 2026-05-22
 
 Fix five pre-existing `svelte-check` and `vitest` failures uncovered after the J.v post-assessment work landed (Story J.w). All five are type-only or test-only — no runtime behaviour changes.

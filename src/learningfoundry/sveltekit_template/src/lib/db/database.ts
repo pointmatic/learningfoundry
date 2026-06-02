@@ -15,6 +15,7 @@
  * `db:${userId}` and removed — see `#migrateLegacyKey`.
  */
 import type { Database as SqlDatabase, SqlJsStatic } from 'sql.js';
+import type initSqlJs from 'sql.js';
 import { getUserId } from './user-id.js';
 
 const IDB_DB_NAME = 'learningfoundry';
@@ -46,6 +47,28 @@ export class WasmAssetMissingError extends Error {
 		this.name = 'WasmAssetMissingError';
 		this.assetUrl = assetUrl;
 		if (cause !== undefined) (this as { cause?: unknown }).cause = cause;
+	}
+}
+
+/**
+ * Thrown by `Database.getDb()` when the dynamically-imported `sql.js`
+ * module exposes no callable initializer. Surfaces the CJS/ESM
+ * interop drift documented in `docs/specs/bug-sql-js-browser-esm-spec.md`:
+ * sql.js@1.13+ ships `dist/sql-wasm-browser.js` as a UMD wrapper whose
+ * CJS/AMD branches don't run in pure browser ESM, so the dev-server
+ * browser sees a module with no `default` export. The package-level
+ * fix is to pin sql.js to <1.13 (see `package.json`); this typed
+ * error is the defensive backstop so the *next* drift surfaces a
+ * named failure instead of `TypeError: initSqlJsFn is not a function`.
+ */
+export class CjsEsmInteropError extends Error {
+	constructor() {
+		super(
+			'sql.js did not expose a callable initializer — likely a CJS/ESM ' +
+				'interop mismatch. The dep may have drifted to a browser-ESM-' +
+				'incompatible release; verify the sql.js version range in package.json.'
+		);
+		this.name = 'CjsEsmInteropError';
 	}
 }
 
@@ -167,7 +190,17 @@ export class Database {
 				// every consumer to see a typed `WasmAssetMissingError`.
 				await this.#assertWasmAssetAvailable();
 				// Dynamic import keeps the WASM module out of the main bundle.
-				const initSqlJsFn = (await import('sql.js')).default;
+				// Read `.default` defensively: in pure browser ESM the UMD
+				// wrapper of sql.js@1.13+ exposes no callable initializer,
+				// so a `typeof` check converts that opaque shape into a
+				// typed `CjsEsmInteropError`.
+				const mod = (await import('sql.js')) as unknown as {
+					default?: typeof initSqlJs;
+				};
+				const initSqlJsFn = mod.default;
+				if (typeof initSqlJsFn !== 'function') {
+					throw new CjsEsmInteropError();
+				}
 				const SQL = await initSqlJsFn({ locateFile: () => WASM_ASSET_URL });
 				this.#SQL = SQL;
 				return SQL;

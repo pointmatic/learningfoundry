@@ -304,6 +304,45 @@ describe('Database — wasm-asset failure surfaces as WasmAssetMissingError', ()
 // `lesson_progress` and `exercise_status` tables are unaffected.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// CJS/ESM interop guard — when the dynamically-imported `sql.js` module
+// resolves to a shape with no callable initializer (no `default`, namespace
+// itself not callable), the dev-server browser path receives that exact shape
+// from `dist/sql-wasm-browser.js`'s UMD wrapper because none of its CJS/AMD
+// branches run in pure browser ESM. Pre-guard, `Database.getDb()` rejects with
+// the opaque `TypeError: initSqlJsFn is not a function`, indistinguishable
+// from a generic init failure. The Option C guard surfaces it as a typed
+// CJS/ESM-interop error so the next time the `sql.js` dep drifts to a
+// browser-ESM-incompatible build, the failure is named.
+// ---------------------------------------------------------------------------
+
+describe('Database — CJS/ESM interop guard for sql.js', () => {
+	beforeEach(() => {
+		vi.resetModules();
+		localStorage.removeItem('learningfoundry-user-id');
+		freshIdb();
+	});
+
+	afterEach(() => {
+		vi.doUnmock('sql.js');
+	});
+
+	it('rejects with a typed CJS/ESM interop error when sql.js exposes no callable initializer', async () => {
+		// Mimic the browser's view of sql.js@1.13+ `dist/sql-wasm-browser.js`:
+		// a UMD wrapper whose CJS and AMD branches both fail in pure browser
+		// ESM, leaving the namespace with `.default === undefined` and
+		// nothing callable elsewhere. (Explicit `default: undefined` so
+		// vitest's missing-export interceptor doesn't fire and we see the
+		// real `.default` shape the browser produces.)
+		vi.doMock('sql.js', () => ({ default: undefined }));
+
+		const { Database, CjsEsmInteropError } = await import('./database.js');
+		const database = new Database('user-interop');
+		await expect(database.getDb()).rejects.toBeInstanceOf(CjsEsmInteropError);
+		await expect(database.getDb()).rejects.toThrow(/CJS\/ESM interop/);
+	});
+});
+
 describe('Database — quiz_scores → assessment_scores migration (Story J.m.4)', () => {
 	beforeEach(() => {
 		vi.resetModules();

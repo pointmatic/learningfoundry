@@ -329,9 +329,11 @@ Pyve supports the developer with an isolated test environment, separate from the
 Pyve supports integration testing via a dedicated dev/test runner environment separate from the project runtime virtual environment. When you run `pyve test`, Pyve will initialize the dev/test runner environment. If `pytest` is missing, Pyve prompts to install `pytest` (interactive shell).
 
 - Project environment: `.venv/` (created by `pyve init`)
-- Dev/test runner environment: `.pyve/testenv/venv/` (used by `pyve test`)
+- Dev/test runner environment: `.pyve/testenvs/testenv/venv/` (used by `pyve test`)
 
 This separation prevents destructive actions like `pyve init --force` from wiping your test tooling.
+
+**Two envs is the minimum, not the maximum.** Since v2.8, declare additional named test environments in `pyproject.toml` under `[tool.pyve.testenvs]` — each with its own backend (`venv`, `micromamba`, or `inherit`), dependency source (`requirements` / `extra` / `manifest`), and lifecycle policy (`lazy = true` for on-demand provisioning). State for each env lives under `.pyve/testenvs/<name>/`. Then `pyve test --env <name>` (single) or `pyve test --env a,b,c` (matrix) routes the suite to the right env. See [Testing → Named test environments](https://pointmatic.github.io/pyve/testing/#named-test-environments) for the full schema and the canonical detail.
 
 ### Running tests
 

@@ -26,8 +26,6 @@ The system should integrate the following libraries (some are WIP):
   - micromamba backend
 - SvelteKit (for frontend)
 
-See [d802-curriculum-idea-statement.md](d802-curriculum-idea-statement.md) for a detailed use case for a deep learning curriculum.
-
 ### Dependency Specs
 - Write dependency specs for each of the libraries listed above that will facilitate being able to orchestrate a cohesive learning experience.
 - Identify complexity challenges that may need to be abstracted into additional libraries. 

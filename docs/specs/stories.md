@@ -756,7 +756,7 @@ Closes the J.m series. The code-side renames in J.m.2 / J.m.3 / J.m.4 / J.m.5 le
 
 **Out of scope (intentionally not touched):**
 - **`CHANGELOG.md`** — every historical version entry that mentions `QuizBlock` / `quiz_scores` / `saveQuizScore` / `QuizManifest` (v0.36.0 through v0.66.x) describes the codebase state at the time of that release. Rewriting falsifies history. **Must not touch.** J.m.2 / J.m.3 / J.m.4 / J.m.5's own changelog entries for v0.71.0 / v0.72.0 / v0.72.1 carry the rename narrative.
-- **`docs/specs/phase-j-improvement-idea.md`** (4 refs) and **`docs/specs/d802-curriculum-idea-statement.md`** (1 ref) — frozen pre-Phase-J idea/plan input documents. Conventional to leave as-shipped artifacts.
+- **`docs/specs/phase-j-improvement-idea.md`** (4 refs) and a consumer reference doc (1 ref) — frozen pre-Phase-J idea/plan input documents. Conventional to leave as-shipped artifacts.
 - Code identifier renames — owned by J.m.2 / J.m.3 / J.m.4 / J.m.5.
 
 **Tasks:**
@@ -934,7 +934,7 @@ Repo artifact alone doesn't activate Dependabot — committing `dependabot.yml` 
 
 ### Story J.q: v0.74.0 — Schema Extensions: `object` and `list[object]` Field Types [Done]
 
-J.h added a project-specific schema-extensions grammar supporting `str`, `int`, `bool`, `list[str]`, and `enum` field types ([schema_extensions.py](../../src/learningfoundry/schema_extensions.py)). Authoring the CNN curriculum surfaced two missing shapes: a single nested object (`provenance: {author, license}` on a lesson) and a list of nested objects (`citations: [{key, apa, doi, verified, role?, note?}]` and `phases: [{id, title, description, modules}]` at the curriculum level). Today those have to be smuggled into `extra="allow"` or flattened into ad-hoc string conventions, which defeats J.h's whole point. See [d802-deep-learning-dictionary-spec.md](d802-deep-learning-dictionary-spec.md) for the source spec.
+J.h added a project-specific schema-extensions grammar supporting `str`, `int`, `bool`, `list[str]`, and `enum` field types ([schema_extensions.py](../../src/learningfoundry/schema_extensions.py)). Authoring the CNN curriculum surfaced two missing shapes: a single nested object (`provenance: {author, license}` on a lesson) and a list of nested objects (`citations: [{key, apa, doi, verified, role?, note?}]` and `phases: [{id, title, description, modules}]` at the curriculum level). Today those have to be smuggled into `extra="allow"` or flattened into ad-hoc string conventions, which defeats J.h's whole point. (based on a reference doc of dictionary terms...now scrubbed) for the source spec.
 
 J.q adds `object` and `list[object]` as two new discriminated-union variants in the extensions grammar. Names match JSON-Schema parlance — `dict` would imply arbitrary keys (`Mapping[str, V]`), and `nested_object` is redundant since every extension-declared object is nested by definition. The recursive `fields:` map reuses the full `FieldDef` grammar (including nested `object` types), so authors get arbitrary tree-shaped data without further schema churn.
 
@@ -1265,6 +1265,42 @@ No code, no version bump (per Version Cadence — doc-only stories share the clo
 - [x] `README.md` "Content locking" section: list assessment-threshold gating as the third mechanism alongside `sequential` and per-module `locked`. Worked example showing a `post` with `pass_threshold: 0.7` gating the next module.
 - [x] No version bump (shares v0.79.0 with J.v or v0.79.1 if code changes were made with the error corrections). No `CHANGELOG.md` entry (doc-only).
 - [x] Verify: prose review against features.md and README.md; `markdown-lint` (or equivalent) clean if part of CI; no test re-runs (no code touched).
+
+---
+
+### Story J.y: v0.79.2 — sql.js Browser-ESM Init Failure (CJS/ESM Interop Drift) [Done]
+
+Debug-cycle story. In the generated SvelteKit app, the home page rendered fine but any module/lesson route (`/{moduleId}/{lessonId}`) returned a 500 in `learningfoundry preview` once `sql.js` resolved to 1.13+. The dev server reported `SyntaxError: ... does not provide an export named 'default'` followed by `TypeError: initSqlJsFn is not a function` at [database.ts:170](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts#L170). Full diagnosis in [bug-sql-js-browser-esm-spec.md](bug-sql-js-browser-esm-spec.md).
+
+**Root cause:** three composing factors. (1) `package.json`'s `"sql.js": "^1.12.0"` floated up to 1.14.1. (2) `sql.js@1.13+`'s `dist/sql-wasm-browser.js` is a UMD wrapper whose CJS/AMD export branches don't run in pure browser ESM, so `.default` is `undefined`. (3) Story J.w's `optimizeDeps: { exclude: ['sql.js'] }` in [vite.config.ts](../../src/learningfoundry/sveltekit_template/vite.config.ts) (added as a safety belt; J.w's actual fix was the `vi.mock('@pointmatic/quizazz', …)`) had the unintended side effect of disabling Vite's CJS→ESM dep pre-bundling for `sql.js` in dev/prod — that pre-bundling layer was what previously synthesized the missing `default` export from the UMD's `module.exports = initSqlJs` line. Without it, the dev-server browser got the raw UMD with nothing usable.
+
+**Why tests didn't catch it.** `database.test.ts` runs against real `sql.js` under vitest + jsdom; Node's CJS interop synthesizes `.default` from `module.exports`, so the import succeeds in the test runtime and the missing-`default` shape is structurally invisible to the suite. No playwright-style browser-smoke test exists for `/{moduleId}/{lessonId}` against a generated `dist/`. That gap is the prevention follow-up below.
+
+**Fix chosen — Option E + Option C:**
+- **Option E (primary fix):** scope `optimizeDeps.exclude: ['sql.js']` to `process.env.VITEST` only. Vitest 4.x still skips the dep-optimizer for `sql.js` (preserving J.w's WASM-magic-header workaround); dev and prod regain Vite's CJS→ESM dep pre-bundling, restoring a synthesizable `.default` in the browser.
+- **Option C (backstop):** add `CjsEsmInteropError` and a `typeof initSqlJsFn !== 'function'` guard at the dynamic-import site. Future drift surfaces a typed, self-describing error instead of `TypeError: initSqlJsFn is not a function`.
+
+**Why not Option A (the spec's "Recommendation"):** the spec's pin to `>=1.12.0 <1.13.0` (recommended as 1.12.2) is unreachable — the only sub-1.13 version on npm is 1.12.0, and 1.12.0's emscripten runtime takes the Node `fs.readFile` path under vitest + jsdom (the test infra's `globalThis.fetch` shim doesn't intercept it), breaking 10 existing tests with `ENOENT: '/sql-wasm.wasm'`. The spec's 1.12.2 reference appears to have been a typo. **Why not Option B:** `import('sql.js/dist/sql-wasm.js')` resolves to the *Node-targeted* bundle, which hits the same `fs.readFile('/sql-wasm.wasm')` path under vitest. Option E is the only path that doesn't churn the test infra.
+
+**Out of scope:**
+- Adding a playwright-style browser-smoke test for `/{moduleId}/{lessonId}` against a generated `dist/`. That is the missing test layer that would have caught this class of bug — captured below as a `[ ]` follow-up rather than expanded into this story. New e2e infra is a meaningful scope shift; better as its own story.
+- Tightening the `sql.js` version range in [package.json](../../src/learningfoundry/sveltekit_template/package.json). With Option E in place, 1.14.1 works against the dev-server browser, so the `^1.12.0` range no longer needs narrowing. If a future sql.js release breaks again, the `CjsEsmInteropError` backstop names the failure.
+- Removing the `vi.mock('@pointmatic/quizazz', …)` from `LessonView.test.ts` / `page.test.ts` (added by J.w). It's still needed for the quizazz `wasm?url` import chain; orthogonal to this fix.
+
+**Tasks:**
+
+- [x] `src/learningfoundry/sveltekit_template/vite.config.ts`: gate the top-level `optimizeDeps: { exclude: ['sql.js'] }` on `process.env.VITEST`. Update the surrounding comment to capture both the vitest 4.x reason for keeping it in tests *and* the dev-server CJS-interop reason for not applying it in dev/prod. Link the bug-spec file from the comment.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/db/database.ts`: add `export class CjsEsmInteropError extends Error` with a self-describing message that points at the version-range and bug-spec references; replace the bare `(await import('sql.js')).default` read with a typed-namespace cast + `typeof initSqlJsFn !== 'function'` guard that throws the new error. Add a type-only `import type initSqlJs from 'sql.js'` to support the cast.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/db/database.test.ts`: add a new `describe('Database — CJS/ESM interop guard for sql.js', …)` with one test that does `vi.doMock('sql.js', () => ({ default: undefined }))`, asserts the rejection is `instanceof CjsEsmInteropError`, *and* asserts the error message matches `/CJS\/ESM interop/`. The two assertions together lock in both the class identity and the wording. `afterEach` calls `vi.doUnmock('sql.js')` so the mock doesn't leak into sibling tests.
+- [x] Prevention scan — app-side `optimizeDeps` uses: `grep -rn 'optimizeDeps' src/lib/ src/routes/ vite.config.ts` returns exactly the one (now-gated) site. No other cargo-cult excludes.
+- [x] Prevention scan — app-side dynamic imports reading `.default` unguarded: `grep -rn 'await import' src/lib/ src/routes/` returns exactly one match (the now-guarded `sql.js` site). No similar unguarded imports elsewhere.
+- [x] `docs/specs/bug-sql-js-browser-esm-spec.md`: flip status from `proposed` to `fixed in v0.79.2`, name the divergence from the spec's Option A/B recommendations, and point at Story J.y for the landed shape.
+- [x] No `features.md` / `tech-spec.md` updates — the bug was implementation-level (vite config + import-site), not requirements-level. No public-API surface changed.
+- [x] `CHANGELOG.md`: v0.79.2 Fixed entry covering the `optimizeDeps` scoping, the `CjsEsmInteropError` backstop, and the four green-check verifications.
+- [x] Bump version to v0.79.2 in `pyproject.toml` and `src/learningfoundry/__init__.py`. The `sveltekit_template/package.json` is intentionally pinned at `0.0.1` (template, not a published package).
+- [x] Verify: `pnpm exec vitest run` → 278 passed (was 277; +1 new contract test). `pnpm exec svelte-check` → 0 errors, 0 warnings. `pnpm exec vite build` → succeeds (confirms gated exclude doesn't break prod). `pyve test` skipped — asdf Python pin missing locally; the change is JS-only and the Python pipeline is untouched, so no Python-side regression risk.
+- [ ] **Follow-up — playwright browser-smoke test for `/{moduleId}/{lessonId}` against a generated `dist/`.** This is the missing test layer the bug spec names. Belongs in its own story (new e2e infra, sample curriculum, CI wiring); the contract test in `database.test.ts` is a unit-level proxy, not a substitute. Recommended for a J-tail follow-up or early Phase K.
+- [ ] **Follow-up — verify the dev-server fix with the d802-deep-learning consumer.** The in-repo `pnpm build` + svelte-check + vitest checks all pass, but the actual repro context is `learningfoundry preview` against a real curriculum. Schedule the consumer verification and capture the result against this story.
 
 ---
 

@@ -6,13 +6,25 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
-	// Keep sql.js out of vite's deps pre-bundle. The package's
-	// `sql-wasm.wasm` is a binary asset; vitest 4.x's optimizer parses
-	// it as JS and chokes on the `\0asm` magic header ("Cannot find
-	// package 'a'"). Excluding here covers both prod build and the
-	// test pre-bundle path — the per-test `test.deps.optimizer.web.exclude`
-	// alone is ineffective under vitest 4.x. Story J.w.
-	optimizeDeps: { exclude: ['sql.js'] },
+	// Keep sql.js out of vite's deps pre-bundle **in test mode only**.
+	// The package's `sql-wasm.wasm` is a binary asset; vitest 4.x's
+	// optimizer parses it as JS and chokes on the `\0asm` magic header
+	// ("Cannot find package 'a'"). The per-test
+	// `test.deps.optimizer.web.exclude` alone is ineffective under
+	// vitest 4.x, so this top-level exclude is required for vitest.
+	//
+	// **In dev/prod the exclude must NOT apply.** It disables Vite's
+	// CJS→ESM dep pre-bundling for sql.js, which is the layer that
+	// converts the package's UMD `dist/sql-wasm-browser.js` into a
+	// browser-loadable ESM module with a synthetic `default` export.
+	// Without that conversion, `(await import('sql.js')).default` is
+	// `undefined` in the dev-server browser for sql.js@1.13+, and
+	// `Database.getDb()` rejects with `CjsEsmInteropError` (see
+	// `src/lib/db/database.ts` and
+	// `docs/specs/bug-sql-js-browser-esm-spec.md`). Story J.w originally
+	// added the exclude unscoped; the present scoping was added during
+	// the bug-sql-js-browser-esm-spec debug cycle.
+	optimizeDeps: process.env.VITEST ? { exclude: ['sql.js'] } : undefined,
 	// Vitest-only: resolve `svelte` to its browser export so component
 	// `mount(...)` works in jsdom. Without this, Svelte 5 throws
 	// `lifecycle_function_unavailable: mount(...) is not available on the
