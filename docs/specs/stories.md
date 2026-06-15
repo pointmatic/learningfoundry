@@ -26,7 +26,47 @@ This is the authoritative cadence rule. **Do not extrapolate the bump magnitude 
 
 ---
 
+## Phase K: 
 
+In this phase we will complete unfinished work from previous phases and fix bugs while working through example use cases to validate the system. 
+
+---
+
+### Subphase K-1: NbFoundry Integration, and Bug Fixes
+
+- **nbfoundry real integration** — Replace `NbfoundryStub` with Marimo notebook generation when nbfoundry is published
+- **Cross-tab anti-clobber for the same `userId`.** Two tabs of the same browser, same user, can still last-writer-wins on the IDB blob — Web Locks `+` reload-on-write or BroadcastChannel-based leader election would solve it. Latent issue, distinct from this story; revisit when there's evidence of multi-tab learner workflows or sync work makes it forced. (Same scoping note as I.v.)
+
+### Story K.a: v0.79.3 — `learningfoundry preview` Hangs Silently on `pnpm install`, Then Reports an Empty Failure [Done]
+
+Debug-cycle story. Running `learningfoundry preview` against a `dist/` that needs dependencies printed `Installing Node dependencies in dist` and then produced no further output — an apparent silent hang. On Ctrl-C it reported `` Generation error: `pnpm install` failed in `dist`: `` with nothing after the colon.
+
+**Root cause:** [pipeline.py](../../src/learningfoundry/pipeline.py) ran the install step as `subprocess.run(["pnpm", "install"], cwd=output_dir, capture_output=True, text=True)` (no timeout). Capturing the output had two consequences: (1) pnpm's progress and any *interactive prompt* (pnpm 10 build-script approval, store/lock waits, registry auth) were piped away from the terminal while stdin stayed attached — so a prompting or slow install presented as a silent hang with no way to see why; (2) the non-zero-exit branch interpolated only `result.stderr` into the `GenerationError`. When the process is killed by Ctrl-C (or when pnpm writes its diagnostics to stdout rather than stderr), `result.stderr` is empty, yielding the dead-end `` failed in `dist`: `` message. The sibling `pnpm run dev` call in the same function already streamed to the terminal; the install call was the inconsistent one.
+
+**Why tests didn't catch it.** The existing `run_preview` tests (`TestRunPreviewSkipsInstall`) mock `subprocess.run` and assert *which* commands run for each `DepState`, but never assert *how* the install streams, nor exercise the non-zero-exit failure branch. The capture flag and the empty-stderr message were structurally invisible to the suite.
+
+**Fix:** drop `capture_output=True, text=True` from the install call so pnpm inherits the terminal (progress + prompts visible), matching `pnpm run dev`; and rewrite the failure message to name the exit code and point at the now-visible output instead of interpolating a possibly-empty captured stderr.
+
+**Tasks:**
+
+- [x] `src/learningfoundry/pipeline.py`: remove `capture_output=True, text=True` from the `pnpm install` `subprocess.run(...)`; add a comment explaining why the install must stream. Rewrite the `returncode != 0` `GenerationError` to `` `pnpm install` failed in `<dir>` (exit code N); see the pnpm output above.``
+- [x] `tests/test_pipeline.py`: add `TestRunPreviewInstallVisibility` with two regression tests — (a) the install call does not pass `capture_output=True`; (b) a non-zero install with empty stderr raises a `GenerationError` whose message doesn't dead-end at an empty colon and surfaces the exit code. Both fail pre-fix (test (b) reproduces the exact `` failed in `dist`: `` message); both pass post-fix.
+- [x] Prevention scan — other captured/long-running subprocess calls: `grep -rn 'subprocess.run\|capture_output' src/learningfoundry/` returns only the two pipeline calls (install now streams; `pnpm run dev` already streamed). No other instance of the anti-pattern in our code; the only other hits are vendored under `node_modules/`.
+- [x] Full suite green: `pyve test` → 413 passed, no regressions.
+- [x] No `features.md` / `tech-spec.md` change — the bug was implementation-level (subprocess wiring), no requirements ambiguity, no public-API surface change.
+- [ ] **Follow-up — friendly Ctrl-C handling in the `preview` CLI command.** Streaming surfaces *why* an install is stuck, but a genuinely wedged install still needs a manual Ctrl-C, which now propagates a `KeyboardInterrupt` through the CLI. A future story could catch it in [cli.py](../../src/learningfoundry/cli.py)'s `preview` for a clean `Interrupted.` message. A bounded install `timeout` was considered and **rejected**: it risks killing valid cold-cache installs. Its own story.
+- [x] `CHANGELOG.md`: v0.79.3 (summary of fixes).
+- [x] Bump version to v0.79.3 in `pyproject.toml` and `src/learningfoundry/__init__.py`. The `sveltekit_template/package.json` remains pinned at `0.0.1` (template, not a published package).
+
+---
+
+### Subphase K-2: Assessment Scoring, Reporting, and Bug Fixes
+
+- **`AssessmentScore` shape + `assessment_scores` table reconciliation — capture in `project-essentials.md` once J.u lands.** Story J.u's investigation task picks between "add `(module_id, assessment_id)` columns to the existing `assessment_scores` table" and "introduce a separate `module_assessment_scores` table." Whichever path lands, the rationale and the why-not of the rejected alternative belong in [project-essentials.md](project-essentials.md) under "Domain Conventions" alongside the existing "Assessment scores — aggregate only in learningfoundry" entry. Deferred from the J sub-phase project-essentials sweep because the choice isn't concrete yet; capture it as part of J.u's wrap-up or a follow-up cleanup story rather than letting it slip.
+- **Curriculum completion screen** — "Course Complete" celebration page reached after the last lesson's Finish
+
+
+---
 
 ## Future
 
@@ -38,15 +78,11 @@ This section captures items intentionally deferred from the active phases above:
 The `archive_stories` mode preserves this section verbatim when archiving stories.md.
 -->
 
-- **Cross-tab anti-clobber for the same `userId`.** Two tabs of the same browser, same user, can still last-writer-wins on the IDB blob — Web Locks `+` reload-on-write or BroadcastChannel-based leader election would solve it. Latent issue, distinct from this story; revisit when there's evidence of multi-tab learner workflows or sync work makes it forced. (Same scoping note as I.v.)
-- **`AssessmentScore` shape + `assessment_scores` table reconciliation — capture in `project-essentials.md` once J.u lands.** Story J.u's investigation task picks between "add `(module_id, assessment_id)` columns to the existing `assessment_scores` table" and "introduce a separate `module_assessment_scores` table." Whichever path lands, the rationale and the why-not of the rejected alternative belong in [project-essentials.md](project-essentials.md) under "Domain Conventions" alongside the existing "Assessment scores — aggregate only in learningfoundry" entry. Deferred from the J sub-phase project-essentials sweep because the choice isn't concrete yet; capture it as part of J.u's wrap-up or a follow-up cleanup story rather than letting it slip.
 - **lmentry integration** — Direct LLM invocation for content generation (currently done externally)
-- **nbfoundry real integration** — Replace `NbfoundryStub` with Marimo notebook generation when nbfoundry is published
 - **d3foundry real integration** — Replace `D3foundryStub` with D3.js visualization generation when d3foundry is published
 - **Reset button** — Course / module / lesson progress reset; defined in sub-plan, deferred from I.j
 - **Lesson-level `locked` override** — Per-lesson explicit lock/unlock field in `curriculum.yml`; module-level and sequential rules cover v1 cases
 - **Locked lesson tooltip** — Explanation shown when a learner clicks a locked lesson item
-- **Curriculum completion screen** — "Course Complete" celebration page reached after the last lesson's Finish
 - **Non-YouTube video providers** — Vimeo, self-hosted; VideoBlock currently dispatches `videocomplete` via YouTube IFrame API or viewport fallback only
 - **Progress export/import** — Sync or backup learner progress
 - **`lessonresume` lifecycle event** — Revisits to lessons already at `complete`. Distinct from `lessonopen` (which fires on every mount including resumes) because it carries the additional invariant "previously completed." Useful for analytics on review behaviour. Deferred from FR-P15 / Story I.p — the data is derivable today from `(getLessonProgress before mount).status === 'complete'`, so the event is sugar rather than new capability.

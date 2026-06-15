@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.79.3] - 2026-06-15
+
+Fix `learningfoundry preview` appearing to hang silently during the `pnpm install` step and then reporting an empty failure on Ctrl-C. The install step captured pnpm's output (with no timeout) while leaving stdin attached, so progress and any interactive prompt were hidden — a prompting or slow install looked like a silent hang — and a non-zero exit produced `` `pnpm install` failed in `dist`: `` with nothing after the colon. Fixed via Story K.a.
+
+### Fixed
+
+- **`pipeline.py` — `pnpm install` now streams to the terminal.** The install `subprocess.run(...)` dropped `capture_output=True, text=True`, so pnpm inherits the terminal exactly like the sibling `pnpm run dev` call. Download progress and any interactive prompt (pnpm 10 build-script approval, store/lock waits, registry auth) are now visible instead of being piped away into a silent hang.
+- **`pipeline.py` — actionable install-failure message.** The `returncode != 0` branch no longer interpolates the (often empty) captured `result.stderr`. It now reads `` `pnpm install` failed in `<dir>` (exit code N); see the pnpm output above. `` — so a real failure or a Ctrl-C no longer dead-ends at a bare colon.
+
+### Verified
+
+- `pyve test` → 413 passed (was 411; +2 new regression tests in `TestRunPreviewInstallVisibility`, which fail pre-fix and pass post-fix).
+- Prevention scan: `grep -rn 'subprocess.run\|capture_output' src/learningfoundry/` returns only the two pipeline calls (install now streams; `pnpm run dev` already streamed). No other instance of the anti-pattern in learningfoundry code.
+
 ## [0.79.2] - 2026-06-02
 
 Fix sql.js browser-ESM init failure in the SvelteKit template's dev-server preview path. Module and lesson routes were returning 500 in `learningfoundry preview` because `(await import('sql.js')).default` was `undefined` in the browser. Diagnosed in `docs/specs/bug-sql-js-browser-esm-spec.md`; fixed via Story J.y.
