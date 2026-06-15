@@ -242,15 +242,19 @@ def run_preview(
         logger.info("Dependencies up to date — skipping pnpm install.")
     else:
         logger.info("Installing Node dependencies in %s", output_dir)
+        # Stream pnpm's output straight to the terminal (no capture_output)
+        # so the developer sees download progress and — critically — any
+        # interactive prompt pnpm raises. Capturing the output hid both,
+        # turning a prompting/slow install into an apparent silent hang and
+        # leaving the failure message with an empty captured stderr.
         result = subprocess.run(
             ["pnpm", "install"],
             cwd=output_dir,
-            capture_output=True,
-            text=True,
         )
         if result.returncode != 0:
             raise GenerationError(
-                f"`pnpm install` failed in `{output_dir}`:\n{result.stderr}"
+                f"`pnpm install` failed in `{output_dir}` "
+                f"(exit code {result.returncode}); see the pnpm output above."
             )
 
     _ensure_sql_wasm(output_dir)

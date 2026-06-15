@@ -21,6 +21,7 @@ Fix sql.js browser-ESM init failure in the SvelteKit template's dev-server previ
 - `pnpm exec vitest run` → 278 passed (was 277; +1 new contract test for the CJS/ESM interop guard).
 - `pnpm exec svelte-check` → 0 errors, 0 warnings.
 - `pnpm exec vite build` → succeeds (confirms the gated `optimizeDeps.exclude` doesn't break prod build; the J.w comment's "covers both prod build" framing was incorrect).
+- `pyve test` → 411 passed (Python pipeline regression check; bootstrapped the testenv editable install first since the testenv had been recently reinitialized).
 - Manual: dev-server `/{moduleId}/{lessonId}` route renders without 500 in the d802-deep-learning consumer (verification scheduled with the consumer team — captured as a `[ ]` follow-up).
 
 ## [0.79.1] - 2026-05-22

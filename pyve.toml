@@ -1,0 +1,11 @@
+pyve_schema = "3.0"
+
+[project]
+name = "learningfoundry"
+
+[env.root]
+purpose = "utility"
+
+[env.testenv]
+purpose = "test"
+default = true

@@ -273,6 +273,79 @@ class TestRunPreviewSkipsInstall:
         )
 
 
+class TestRunPreviewInstallVisibility:
+    """``pnpm install`` must stream to the developer's terminal and fail
+    legibly.
+
+    Regression for the "install hangs with no output, then reports an empty
+    `pnpm install failed` on Ctrl-C" bug. The install step used to run with
+    ``capture_output=True`` (no timeout), which (a) hid pnpm's progress and
+    any interactive prompt so a stuck install looked like a silent hang, and
+    (b) interpolated only ``result.stderr`` into the error — empty when the
+    process is interrupted — yielding ``pnpm install failed in dist:`` with
+    nothing after the colon. The sibling ``pnpm run dev`` call always
+    streamed; the install call should behave the same way.
+    """
+
+    @staticmethod
+    def _install_call(mock_run: MagicMock):  # type: ignore[no-untyped-def]
+        for call in mock_run.call_args_list:
+            args = call.args[0] if call.args else call.kwargs.get("args", [])
+            if isinstance(args, list) and args[:2] == ["pnpm", "install"]:
+                return call
+        return None
+
+    def test_install_output_streams_to_terminal(self, tmp_path: Path) -> None:
+        """The install subprocess must inherit the terminal (no captured
+        output), so pnpm's progress and any prompt reach the developer."""
+        with (
+            patch("learningfoundry.pipeline.run_build"),
+            patch("learningfoundry.pipeline._ensure_sql_wasm"),
+            patch(
+                "learningfoundry.generator.check_dep_state",
+                return_value=DepState.FIRST_BUILD,
+            ),
+            patch("learningfoundry.pipeline.subprocess.run") as mock_sub,
+        ):
+            mock_sub.return_value = MagicMock(returncode=0, stderr="")
+            run_preview(VALID_CURRICULUM, tmp_path / "out")
+
+        install = self._install_call(mock_sub)
+        assert install is not None, "pnpm install must run on FIRST_BUILD"
+        assert not install.kwargs.get("capture_output"), (
+            "pnpm install must stream to the terminal (capture_output must "
+            "not be True) so progress and interactive prompts are visible "
+            "instead of a silent hang"
+        )
+
+    def test_install_failure_message_is_actionable(self, tmp_path: Path) -> None:
+        """A non-zero install (incl. Ctrl-C, which leaves stderr empty) must
+        produce a message that names the exit code and points at the visible
+        output — never a bare ``failed in dist:`` with nothing after it."""
+        from learningfoundry.exceptions import GenerationError
+
+        with (
+            patch("learningfoundry.pipeline.run_build"),
+            patch("learningfoundry.pipeline._ensure_sql_wasm"),
+            patch(
+                "learningfoundry.generator.check_dep_state",
+                return_value=DepState.FIRST_BUILD,
+            ),
+            patch("learningfoundry.pipeline.subprocess.run") as mock_sub,
+        ):
+            # Mimic an interrupted install: non-zero exit, empty stderr.
+            mock_sub.return_value = MagicMock(returncode=1, stderr="")
+            with pytest.raises(GenerationError) as excinfo:
+                run_preview(VALID_CURRICULUM, tmp_path / "out")
+
+        message = str(excinfo.value)
+        assert not message.rstrip().endswith(":"), (
+            "failure message must not dead-end at an empty colon when stderr "
+            f"is empty; got: {message!r}"
+        )
+        assert "1" in message, "message should surface the pnpm exit code"
+
+
 class TestRunPreviewProvisionsWasm:
     """`run_preview` must guarantee `static/sql-wasm.wasm` exists in the
     output directory before the dev server starts, regardless of whether
