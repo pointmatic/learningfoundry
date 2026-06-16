@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 500" font-family="Georgia, 'Times New Roman', serif" font-size="13" role="img" aria-label="Idealized Bass diffusion curves: top panel shows cumulative adopters N(t) following a logistic S-curve from 0 to m; bottom panel shows the rate of new adoptions dN/dt rising to a peak at t* and decaying back toward zero.">
+  <rect width="700" height="500" fill="white"/>
+
+  <!-- TOP PANEL: cumulative N(t) -->
+  <g>
+    <text x="370" y="16" text-anchor="middle" font-weight="bold" font-size="14">Cumulative adopters N(t)</text>
+
+    <!-- axes -->
+    <line x1="60" y1="200" x2="680" y2="200" stroke="#333" stroke-width="1.5"/>
+    <line x1="60" y1="30"  x2="60"  y2="200" stroke="#333" stroke-width="1.5"/>
+
+    <!-- y-axis ticks/labels -->
+    <line x1="55" y1="200" x2="60" y2="200" stroke="#333"/>
+    <text x="50" y="204" text-anchor="end">0</text>
+    <line x1="55" y1="115" x2="60" y2="115" stroke="#333"/>
+    <text x="50" y="119" text-anchor="end">m/2</text>
+    <line x1="55" y1="30"  x2="60" y2="30"  stroke="#333"/>
+    <text x="50" y="34"  text-anchor="end">m</text>
+
+    <!-- saturation asymptote -->
+    <line x1="60" y1="30" x2="680" y2="30" stroke="#aaa" stroke-dasharray="4,4" stroke-width="1"/>
+
+    <!-- cumulative curve -->
+    <polyline points="60,200 91,193.5 122,184.4 153,172.1 184,156.4 215,137.7 246,117.2 277,96.8 308,77.9 339,62.1 370,49.6 401,40.6 432,33.8 463,29.2 494,26.1 525,24.2 556,22.6 587,21.7 618,21.1 649,20.7 680,20.5"
+              fill="none" stroke="#1a4d8f" stroke-width="2.2"/>
+  </g>
+
+  <!-- BOTTOM PANEL: rate dN/dt -->
+  <g>
+    <text x="370" y="276" text-anchor="middle" font-weight="bold" font-size="14">Rate of new adoptions dN/dt</text>
+
+    <!-- axes -->
+    <line x1="60" y1="460" x2="680" y2="460" stroke="#333" stroke-width="1.5"/>
+    <line x1="60" y1="290" x2="60"  y2="460" stroke="#333" stroke-width="1.5"/>
+
+    <!-- y-axis ticks/labels -->
+    <line x1="55" y1="460" x2="60" y2="460" stroke="#333"/>
+    <text x="50" y="464" text-anchor="end">0</text>
+    <line x1="55" y1="300" x2="60" y2="300" stroke="#333"/>
+    <text x="50" y="304" text-anchor="end">peak</text>
+
+    <!-- t* indicator -->
+    <line x1="246" y1="300" x2="246" y2="460" stroke="#aaa" stroke-dasharray="3,3" stroke-width="1"/>
+    <text x="246" y="296" text-anchor="middle" font-style="italic" font-size="12" fill="#555">t*</text>
+
+    <!-- rate curve -->
+    <polyline points="60,418.5 91,400.7 122,378.2 153,352.3 184,326.8 215,307.4 246,299.9 277,306.7 308,325.7 339,351.0 370,377.1 401,399.6 432,417.6 463,431.5 494,440.6 525,446.5 556,451.4 587,454.3 618,456.4 649,457.6 680,458.5"
+              fill="none" stroke="#c14e3d" stroke-width="2.2"/>
+
+    <!-- x-axis ticks -->
+    <line x1="60"  y1="460" x2="60"  y2="465" stroke="#333"/>
+    <text x="60"  y="479" text-anchor="middle">0</text>
+    <line x1="215" y1="460" x2="215" y2="465" stroke="#333"/>
+    <text x="215" y="479" text-anchor="middle">5</text>
+    <line x1="370" y1="460" x2="370" y2="465" stroke="#333"/>
+    <text x="370" y="479" text-anchor="middle">10</text>
+    <line x1="525" y1="460" x2="525" y2="465" stroke="#333"/>
+    <text x="525" y="479" text-anchor="middle">15</text>
+    <line x1="680" y1="460" x2="680" y2="465" stroke="#333"/>
+    <text x="680" y="479" text-anchor="middle">20</text>
+    <text x="370" y="496" text-anchor="middle" font-style="italic">time t</text>
+  </g>
+
+  <!-- parameter caption -->
+  <text x="680" y="496" text-anchor="end" font-size="11" fill="#666" font-style="italic">p = 0.03, q = 0.4, m = 1</text>
+</svg>

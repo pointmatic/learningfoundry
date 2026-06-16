@@ -1,0 +1,73 @@
+version: "1.0.0"
+
+curriculum:
+  title: "The Viral Equation: A Quantitative Field Guide to Why Songs and Dances Spread"
+  description: "This three-module course presents a quantitative framework for understanding why some songs, dances, and short-form videos become culturally permanent while ten thousand similar artifacts vanish within a week. Drawing on diffusion modeling, cognitive psychology, and the empirical literature on memetic competition, we develop a working mathematical vocabulary for cultural virality — and then stress-test it against one of the strangest natural experiments in twentieth-century pop music. Suitable for marketers, data scientists, content strategists, and the generally curious."
+  locking: 
+    sequential: true
+    lesson_sequential: true
+
+  modules:
+
+    - id: mathematics-of-virality
+      title: "A. The Mathematics of Musical Virality"
+      description: "Foundational frameworks for understanding cultural diffusion: arousal-driven sharing, the Bass adoption model, the epidemiological reproduction number, and the cognitive science of musical memory."
+      lessons:
+
+        - id: diffusion-of-cultural-artifacts
+          title: "1. Pop Culture Shift"
+          content_blocks:
+            - type: text
+              ref: content/viral-equation/m1-l1.md
+
+        - id: why-some-songs-refuse-to-die
+          title: "2. Zombie Music Tracks"
+          content_blocks:
+            - type: text
+              ref: content/viral-equation/m1-l2.md
+
+
+    - id: when-the-model-breaks
+      title: "B. When the Model Breaks: A Case Study in Memetic Resurrection"
+      description: "Stress-testing the framework against an anomalous case in late-twentieth-century pop music whose empirical history violates standard diffusion assumptions and requires a two-layer revision of the model."
+      lessons:
+
+        - id: the-anomaly-example
+          title: "1. The Anomaly"
+          content_blocks:
+            - type: video
+              url: "https://www.youtube.com/watch?v=b9x-4JxSxjQ"
+            - type: text
+              ref: content/viral-equation/m2-l1-b2.md
+
+        - id: the-anomaly-named
+          title: "2. Understanding the Anomaly"
+          content_blocks:
+            - type: video
+              url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+            - type: text
+              ref: content/viral-equation/m2-l2.md
+
+        - id: twenty-years-later
+          title: "3. Twenty Years Later"
+          content_blocks:
+            - type: text
+              ref: content/viral-equation/m2-l3.md
+
+
+    - id: phenomenon-to-person
+      title: "C. From Phenomenon to Person: The Limits of Quantification"
+      description: "From the diffusion model to the man at the centre of it: what the quantitative framework cannot capture, and why the case the framework has been describing is not actually an artifact at all."
+      lessons:
+
+        - id: the-boy-and-the-walk-away
+          title: "1. Pop Star and Beyond"
+          content_blocks:
+            - type: text
+              ref: content/viral-equation/m3-l1.md
+
+        - id: the-second-act
+          title: "2. The Second Act"
+          content_blocks:
+            - type: text
+              ref: content/viral-equation/m3-l2.md

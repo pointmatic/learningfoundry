@@ -5,7 +5,15 @@ name = "learningfoundry"
 
 [env.root]
 purpose = "utility"
+backend = "venv"
 
 [env.testenv]
 purpose = "test"
+backend = "venv"
 default = true
+
+[env.demo]
+purpose = "utility"
+backend = "venv"
+lazy = true
+path = "demo"
