@@ -27,13 +27,10 @@ def stub_exercise(ref_path: Path) -> dict:  # type: ignore[type-arg]
         "ref": str(ref_path),
         "status": "stub",
         "title": f"Exercise: {ref_path.stem}",
-        "instructions": (
+        "description": (
             f"<p>Exercise placeholder for <code>{ref_path}</code>. "
             "nbfoundry integration pending.</p>"
         ),
-        "sections": [],
-        "expected_outputs": [],
-        "assets": [],
         "hints": [],
         "environment": None,
     }

@@ -7,18 +7,21 @@ from pathlib import Path
 from learningfoundry.integrations.nbfoundry_stub import NbfoundryStub, stub_exercise
 
 # Keys required by the ExerciseContent TypeScript interface in lib/types/index.ts
+# (Story K.j.1 banner shape — `instructions`→`description`; the static
+# `sections`/`expected_outputs`/`assets` fields are retired with Option C).
 _EXERCISE_CONTENT_KEYS = {
     "type",
     "source",
     "ref",
     "status",
     "title",
-    "instructions",
-    "sections",
-    "expected_outputs",
+    "description",
     "hints",
     "environment",
 }
+
+# Retired Option-B fields the banner shape must no longer emit.
+_RETIRED_KEYS = {"instructions", "sections", "expected_outputs", "assets"}
 
 
 class TestNbfoundryStub:
@@ -49,11 +52,11 @@ class TestNbfoundryStub:
     def test_title_contains_stem(self) -> None:
         assert "mod-01-exercise-01" in self.result["title"]
 
-    def test_sections_is_list(self) -> None:
-        assert isinstance(self.result["sections"], list)
+    def test_description_is_str(self) -> None:
+        assert isinstance(self.result["description"], str)
 
-    def test_expected_outputs_is_list(self) -> None:
-        assert isinstance(self.result["expected_outputs"], list)
+    def test_drops_retired_static_fields(self) -> None:
+        assert _RETIRED_KEYS.isdisjoint(self.result.keys())
 
     def test_hints_is_list(self) -> None:
         assert isinstance(self.result["hints"], list)

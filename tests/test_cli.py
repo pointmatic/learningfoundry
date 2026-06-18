@@ -462,6 +462,8 @@ class TestLaunch:
             patch(
                 "learningfoundry.launch.classify_port", return_value="ours"
             ),
+            # An `ours` port has a live pid; the shared stop helper checks it.
+            patch("learningfoundry.launch.pid_alive", return_value=True),
             patch("learningfoundry.launch.terminate_pid") as terminate,
             patch("learningfoundry.launch.subprocess.Popen") as popen,
         ):
@@ -541,3 +543,84 @@ class TestLaunch:
         assert result.exit_code == EXIT_VALIDATION
         assert "nope" in result.output
         assert "mnist-cnn" in result.output
+
+
+# ---------------------------------------------------------------------------
+# stop (Story K.i.4)
+# ---------------------------------------------------------------------------
+
+
+def _write_pidfile(tmp_path: Path, port: int, pid: int, exercise_id: str) -> Path:
+    path = tmp_path / ".learningfoundry" / f"launch-{port}.pid"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "pid": pid,
+                "exercise_id": exercise_id,
+                "port": port,
+                "mode": "edit",
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+class TestStop:
+    def test_stop_by_id_terminates_and_removes_pidfile(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _write_launch_manifest(tmp_path)
+        pidfile = _write_pidfile(tmp_path, 2718, 999, "mnist-cnn")
+        with (
+            patch("learningfoundry.launch.pid_alive", return_value=True),
+            patch("learningfoundry.launch.terminate_pid") as terminate,
+        ):
+            result = runner.invoke(
+                main, ["stop", "mnist-cnn", "--dir", str(tmp_path)]
+            )
+        assert result.exit_code == 0, result.output
+        terminate.assert_called_once_with(999)
+        assert not pidfile.exists()
+        assert "mnist-cnn" in result.output
+
+    def test_stop_all_iterates_every_pidfile(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _write_launch_manifest(tmp_path)
+        pf1 = _write_pidfile(tmp_path, 2718, 999, "mnist-cnn")
+        pf2 = _write_pidfile(tmp_path, 2719, 888, "linreg")
+        with (
+            patch("learningfoundry.launch.pid_alive", return_value=True),
+            patch("learningfoundry.launch.terminate_pid") as terminate,
+        ):
+            result = runner.invoke(main, ["stop", "--dir", str(tmp_path)])
+        assert result.exit_code == 0, result.output
+        killed = {call.args[0] for call in terminate.call_args_list}
+        assert killed == {999, 888}
+        assert not pf1.exists()
+        assert not pf2.exists()
+
+    def test_stop_by_id_with_no_pidfile_is_noop_success(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _write_launch_manifest(tmp_path)
+        with patch("learningfoundry.launch.terminate_pid") as terminate:
+            result = runner.invoke(
+                main, ["stop", "mnist-cnn", "--dir", str(tmp_path)]
+            )
+        # No launch-owned process for this port → nothing killed, exit 0.
+        assert result.exit_code == 0
+        terminate.assert_not_called()
+
+    def test_stop_all_with_no_pidfiles_touches_nothing(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _write_launch_manifest(tmp_path)
+        with patch("learningfoundry.launch.terminate_pid") as terminate:
+            result = runner.invoke(main, ["stop", "--dir", str(tmp_path)])
+        assert result.exit_code == 0
+        # A foreign process holding a port has no pidfile, so it is never
+        # touched — stop acts solely through launch-owned pidfiles.
+        terminate.assert_not_called()

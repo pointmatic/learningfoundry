@@ -296,6 +296,26 @@ export class ProgressRepo {
 		}
 	}
 
+	/**
+	 * Read the persisted status for an exercise, or `null` if it has never been
+	 * recorded. The banner uses this on load to derive its completed slate
+	 * (Story K.j.1). Resolves `null` when the wasm asset is missing.
+	 */
+	async getExerciseStatus(exerciseRef: string): Promise<LessonStatus | null> {
+		try {
+			const db = await this.#database.getDb();
+			const result = db.exec(
+				`SELECT status FROM exercise_status WHERE exercise_ref = ?`,
+				[exerciseRef]
+			);
+			if (!result.length || !result[0].values.length) return null;
+			return result[0].values[0][0] as LessonStatus;
+		} catch (err) {
+			if (isWasmMissing(err)) return null;
+			throw err;
+		}
+	}
+
 	// -------------------------------------------------------------------
 	// Reset (course-scoped)
 	// -------------------------------------------------------------------

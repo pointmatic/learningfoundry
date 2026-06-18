@@ -256,6 +256,43 @@ describe('getAssessmentScore by (moduleId, assessmentId) (Story J.u)', () => {
 	});
 });
 
+describe('getExerciseStatus (Story K.j.1)', () => {
+	let repo: ProgressRepo;
+	beforeEach(() => {
+		execMock.mockClear();
+		repo = makeRepo();
+	});
+
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('reads status from exercise_status with the exercise_ref where clause', async () => {
+		execMock.mockReturnValueOnce([]);
+		await repo.getExerciseStatus('mod-01-ex');
+		expect(execMock).toHaveBeenCalledTimes(1);
+		const sql = String(execMock.mock.calls[0][0]);
+		expect(sql).toMatch(/FROM exercise_status/);
+		expect(sql).toMatch(/WHERE exercise_ref = \?/);
+		const params = execMock.mock.calls[0][1] as unknown[];
+		expect(params).toEqual(['mod-01-ex']);
+	});
+
+	it('returns the persisted status when a row exists', async () => {
+		execMock.mockReturnValueOnce([
+			{ columns: ['status'], values: [['complete']] }
+		]);
+		const result = await repo.getExerciseStatus('mod-01-ex');
+		expect(result).toBe('complete');
+	});
+
+	it('returns null when no row matches', async () => {
+		execMock.mockReturnValueOnce([]);
+		const result = await repo.getExerciseStatus('never-started');
+		expect(result).toBeNull();
+	});
+});
+
 describe('getModuleProgress assessmentScores (Story J.u)', () => {
 	let repo: ProgressRepo;
 	beforeEach(() => {
@@ -347,6 +384,11 @@ describe('ProgressRepo — WasmAssetMissingError handling (Story I.bb)', () => {
 	it('updateExerciseStatus resolves quietly when wasm is missing', async () => {
 		const repo = makeRepoWithBrokenDb();
 		await expect(repo.updateExerciseStatus('ex1', 'complete')).resolves.toBeUndefined();
+	});
+
+	it('getExerciseStatus returns null when wasm is missing', async () => {
+		const repo = makeRepoWithBrokenDb();
+		await expect(repo.getExerciseStatus('ex1')).resolves.toBeNull();
 	});
 
 	it('resetProgress resolves quietly when wasm is missing', async () => {

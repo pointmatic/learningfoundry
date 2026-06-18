@@ -330,10 +330,7 @@ def launch(exercise_id: str, launch_dir: Path, log_level: str) -> None:
         ):
             click.echo("Left the running exercise in place.")
             return
-        existing = _launch.read_pidfile(launch_dir, spec.port)
-        if existing is not None:
-            _launch.terminate_pid(existing.pid)
-            _launch.remove_pidfile(launch_dir, spec.port)
+        _launch.stop_launch_on_port(launch_dir, spec.port)
 
     pid = _launch.spawn_detached(_launch.marimo_argv(spec), launch_dir)
     _launch.write_pidfile(
@@ -349,3 +346,41 @@ def launch(exercise_id: str, launch_dir: Path, log_level: str) -> None:
         f"Launched `{spec.id}` ({spec.mode}) → http://localhost:{spec.port}"
     )
     click.echo(f"Stop it with: learningfoundry stop {spec.id}")
+
+
+# ---------------------------------------------------------------------------
+# stop
+# ---------------------------------------------------------------------------
+
+@main.command()
+@click.argument("exercise_id", required=False)
+@_launch_dir_option
+@_log_level_option
+def stop(exercise_id: str | None, launch_dir: Path, log_level: str) -> None:
+    """Stop a launch-owned marimo notebook (all of them if no id is given)."""
+    _setup_logging(level=log_level)
+
+    from learningfoundry import launch as _launch
+
+    if exercise_id is not None:
+        try:
+            spec = _launch.resolve_launch_spec(launch_dir, exercise_id)
+        except LaunchError as exc:
+            click.echo(f"Stop error: {exc}", err=True)
+            sys.exit(EXIT_VALIDATION)
+        stopped = _launch.stop_launch_on_port(launch_dir, spec.port)
+        if stopped is not None:
+            click.echo(f"Stopped `{stopped.exercise_id}` (port {stopped.port}).")
+        else:
+            click.echo(f"No running exercise found for `{exercise_id}`.")
+        return
+
+    # No id → stop every launch-owned marimo.
+    ports = _launch.launched_ports(launch_dir)
+    if not ports:
+        click.echo("No running exercises.")
+        return
+    for port in ports:
+        stopped = _launch.stop_launch_on_port(launch_dir, port)
+        if stopped is not None:
+            click.echo(f"Stopped `{stopped.exercise_id}` (port {stopped.port}).")

@@ -311,3 +311,39 @@ def terminate_pid(pid: int) -> None:
         os.kill(pid, signal.SIGTERM)
     except ProcessLookupError:
         pass  # already gone — nothing to do
+
+
+def stop_launch_on_port(manifest_dir: Path, port: int) -> PidfileEntry | None:
+    """Stop the launch-owned marimo recorded for ``port``, if any.
+
+    Returns the stopped :class:`PidfileEntry`, or ``None`` if nothing
+    launch-owned was running (no pidfile, or a stale one whose process is
+    already gone — which is cleaned up either way). A port with no pidfile is a
+    *foreign* process and is never touched. Shared by ``launch``'s replace path
+    and the ``stop`` command.
+    """
+    entry = read_pidfile(manifest_dir, port)
+    if entry is None:
+        return None
+    if pid_alive(entry.pid):
+        terminate_pid(entry.pid)
+        remove_pidfile(manifest_dir, port)
+        return entry
+    # Stale pidfile — the process already exited; just clean up.
+    remove_pidfile(manifest_dir, port)
+    return None
+
+
+def launched_ports(manifest_dir: Path) -> list[int]:
+    """Return the ports of all launch pidfiles under ``manifest_dir``, sorted.
+
+    Empty if ``.learningfoundry/`` does not exist. Filenames that do not parse
+    as ``launch-<int>.pid`` are skipped.
+    """
+    ports: list[int] = []
+    for path in (manifest_dir / _PIDFILE_DIR).glob("launch-*.pid"):
+        try:
+            ports.append(int(path.stem.removeprefix("launch-")))
+        except ValueError:
+            continue
+    return sorted(ports)

@@ -43,31 +43,20 @@ export interface AssessmentAnswer {
 	[key: string]: unknown;
 }
 
-// A single code/scaffold section of an exercise. `editable: true` marks a
-// learner insertion point; v1 renders all sections read-only (the flag is
-// reserved for the Marimo-WASM future). Hidden Coupling: mirrors the Python
-// compiled-exercise dict (nbfoundry BR-1) — keep in lockstep.
-export interface ExerciseSection {
-	title: string;
-	description: string;
-	code: string;
-	editable: boolean;
-}
-
-// Expected-output entries are a discriminated union on `type`. `image`
-// carries a relative `path` (staged at /exercises/<id>/<path>) + required
-// `alt`; `text` and `table` carry inline `content`.
-export type ExpectedOutput =
-	| { description: string; type: 'image'; path: string; alt: string }
-	| { description: string; type: 'text'; content: string }
-	| { description: string; type: 'table'; content: string };
-
 export interface ExerciseEnvironment {
 	python_version: string;
 	dependencies: string[];
 	setup_instructions: string;
 }
 
+// Story K.j.1 — Option C banner shape. The `ready` renderer is a banner that
+// drives the `learningfoundry launch` CLI; it no longer displays static
+// sections/expected_outputs (the live marimo notebook carries the cells and
+// rendered outputs). `mode`/`port` are ready-only — the resolver injects them
+// for `status: ready`; a stub has no notebook to launch. The component derives
+// the launch command (`learningfoundry launch <id>`) and URL
+// (`http://localhost:<port>`); they are not stored. Hidden Coupling: mirrors
+// the Python compiled-exercise dict (nbfoundry BR-1) — keep in lockstep.
 export interface ExerciseContent {
 	type: 'exercise';
 	source: string;
@@ -75,12 +64,11 @@ export interface ExerciseContent {
 	id: string;
 	status: string;
 	title: string;
-	instructions: string;
-	sections: ExerciseSection[];
-	expected_outputs: ExpectedOutput[];
-	assets: string[];
+	description: string;
 	hints: string[];
 	environment: ExerciseEnvironment | null;
+	mode?: 'edit' | 'run';
+	port?: number;
 }
 
 export interface VisualizationContent {

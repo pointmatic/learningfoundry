@@ -225,28 +225,52 @@ The side-effecting verb — orchestrate K.i.1 + K.i.2, spawn marimo detached, ho
 - [x] `tests/test_cli.py` (CliRunner; mock `Popen`/`which`/`classify_port`) + `tests/test_launch.py` (`spawn_detached`/`terminate_pid` units): `free` → spawns exact argv + writes pidfile; `foreign` → refuses (`EXIT_RUNTIME`, no `Popen`); `ours` → `y` kills old + spawns / `n` aborts untouched; marimo missing → hint + no `Popen`; unknown id → K.i.1 error. **489 passed** (was 480; +9); ruff + mypy clean.
 - [x] No version bump (phase-bundled; rides K.j).
 
-### Story K.i.4: `learningfoundry stop [<exercise-id>]` command [Planned]
+### Story K.i.4: `learningfoundry stop [<exercise-id>]` command [Done]
 
 Teardown — kill the launch-owned marimo via its pidfile, never a foreign process. Unversioned (rides K.j).
 
 **Tasks:**
 
-- [ ] `launch.py` `terminate_pid(pid)` — **already landed in K.i.3** (the replace path forced it); K.i.4 only consumes it.
-- [ ] `cli.py` `stop` command: optional `exercise_id`, `--dir`. With id → resolve port → read pidfile → if live & ours `terminate_pid` + `remove_pidfile`; else clean stale / report "nothing running." Without id → iterate `.learningfoundry/launch-*.pid`, stop each launch-owned marimo.
-- [ ] `tests/test_cli.py`: stop-by-id terminates + removes pidfile (mock `os.kill`); stop-all iterates every pidfile; stop with no pidfile → success no-op; never touches a port with no launch pidfile.
-- [ ] No version bump (phase-bundled; rides K.j).
+- [x] `launch.py` `terminate_pid(pid)` — landed in K.i.3 (the replace path forced it); K.i.4 consumes it.
+- [x] `launch.py` shared helpers: `stop_launch_on_port(manifest_dir, port) -> PidfileEntry | None` (live pidfile → `terminate_pid` + `remove_pidfile` + return entry; stale → clean + `None`; absent → `None`) and `launched_ports(manifest_dir) -> list[int]` (globs `.learningfoundry/launch-*.pid`, sorted, empty if no dir). **Refactor:** `launch`'s `ours` replace path now routes through `stop_launch_on_port` (DRY — both verbs share one teardown).
+- [x] `cli.py` `stop` command: optional `exercise_id`, shared `--dir`. With id → `resolve_launch_spec` → `stop_launch_on_port`; reports stopped/`No running exercise found`. Without id → `launched_ports` → stop each; `No running exercises` when none. `LaunchError` → `EXIT_VALIDATION`.
+- [x] `tests/test_cli.py` (4) + `tests/test_launch.py` (5): stop-by-id terminates + removes pidfile (mock `pid_alive`/`terminate_pid`); stop-all iterates every pidfile (`{999, 888}` killed); stop with no pidfile → success no-op; stop-all with no pidfiles touches nothing (foreign ports have no pidfile → never killed); `stop_launch_on_port` live/stale/absent; `launched_ports` parse + empty. **498 passed** (was 489; +9); ruff + mypy clean.
+- [x] No version bump (phase-bundled; rides K.j).
 
-### Story K.j: v0.83.0 — `ExerciseBlock` banner (Open in a new window) + retire static renderer [Planned]
+### Story K.j: v0.83.0 — `ExerciseBlock` banner + retire static renderer — split into K.j.1–K.j.2
 
-Final story; owns the **v0.83.0** release for the whole subphase. The frontend `ready` renderer becomes the 4-state banner card (Copy CLI → Open Exercise → Mark Complete → done) and the static sections/expected_outputs renderer + dead `ExerciseContent` fields are removed. *Flesh fully at its gate.*
+**Split pre-implementation** (per [`_phase-letters.md`](../project-guide/templates/modes/_phase-letters.md) § "Sub-numbered stories" → *Pre-implementation split*): the bare `K.j` heading is dropped; the frontend feature lands in **K.j.1**, the subphase **v0.83.0** release in **K.j.2**. The split keeps K.j.1's cross-language implementation context focused and gives a clean release checkpoint; K.j.2 (last story) owns the bump.
 
-**Tasks (sketch):**
+**Context.** K.g/K.h moved the build output to Option C (`description` + a runnable notebook, no static `sections`/`expected_outputs`), but the frontend `ExerciseContent` type + `ExerciseBlock.svelte` still read the Option-B fields — so a real `ready` exercise currently renders with `undefined` instructions and empty sections. K.j reconciles the frontend to Option C: the `ready` renderer becomes the 4-state banner that drives the `learningfoundry launch`/`stop` CLI (Story K.i) and the dead static fields are removed.
 
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts` `ExerciseContent`: replace `sections`/`expected_outputs` with the banner shape (title/description/hints/`launch_command`/`url`/mode/id); drop the now-dead fields.
-- [ ] `ExerciseBlock.svelte` `ready` branch → 4-state banner: **Copy CLI Command** (clipboard `learningfoundry launch <id>`, transient "Copied ✓") → **Open Exercise ↗** (new tab to `http://localhost:<port>`) → **Mark as Complete** (writes `exercise_status`, fires completion — reuses K.f wiring) → complete slate (derived on load from `exercise_status`). Command text stays visible/re-copyable. Stub still renders the placeholder.
-- [ ] `vitest`: 4-state flow; clipboard writes the exact `learningfoundry launch <id>` string; Open targets the right URL; Mark Complete records `exercise_status` + fires events; stub placeholder.
-- [ ] Update `docs/specs/features.md` FR-6 + `README.md` authoring section (the launch flow + `learningfoundry launch`/`stop`); `tech-spec.md` `ExerciseContent` banner shape.
-- [ ] `CHANGELOG.md` + **version bump to v0.83.0** in `pyproject.toml` and `src/learningfoundry/__init__.py` (the subphase release).
+**Decisions (locked):**
+
+- **`launch_command` / `url` are derived in the component** from `id` / `port`, not stored on the content — matches the resolver's "composes `http://localhost:<port>` from `port`" comment and keeps `curriculum.json` lean. The resolver already injects `id` / `status` / `mode` / `port` onto `ready` content (K.h).
+- **Two additions beyond the original sketch:** (a) `stub_exercise()` (Python) emits the same dead Option-B fields and must move to the banner shape with the TS type; (b) `progressRepo.getExerciseStatus` — a new **reader** the "complete slate derived on load" requirement needs (today only the writer `updateExerciseStatus` exists).
+
+### Story K.j.1: `ExerciseBlock` banner feature + retire static renderer [Done]
+
+The frontend reconciliation to Option C — type + Python stub + a `getExerciseStatus` reader + the 4-state banner component + tests. Everything stays green (vitest + svelte-check + Python). Unversioned (rides K.j.2).
+
+**Tasks:**
+
+- [x] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts` `ExerciseContent` → banner shape `{ type, source, ref, id, status, title, description, hints, environment, mode?, port? }`; removed `instructions`/`sections`/`expected_outputs`/`assets` and deleted the unused `ExerciseSection` + `ExpectedOutput` types. **`mode`/`port` are optional** (ready-only — a stub has no notebook to launch).
+- [x] `src/learningfoundry/integrations/nbfoundry_stub.py` `stub_exercise()` → banner shape: `description` (not `instructions`); dropped `sections`/`expected_outputs`/`assets`; kept `title`/`hints`/`environment`/`status`. `test_nbfoundry_stub.py` updated (`_EXERCISE_CONTENT_KEYS` + a `_RETIRED_KEYS` disjoint guard); the resolver stub-equality test auto-adapts (uses `stub_exercise` directly).
+- [x] `src/learningfoundry/sveltekit_template/src/lib/db/progress.ts` `getExerciseStatus(exerciseRef): Promise<LessonStatus | null>` — `SELECT status FROM exercise_status WHERE exercise_ref = ?`; wasm-missing → `null` (mirrors `updateExerciseStatus`). +4 `progress.test.ts` tests.
+- [x] `ExerciseBlock.svelte` `ready` branch → launch banner: `onMount` derives `completed` from `getExerciseStatus(content.id) === 'complete'`; renders the derived `learningfoundry launch <id>` command + **Copy** (`navigator.clipboard.writeText`, transient "Copied ✓"); **Open Exercise ↗** (`<a target="_blank">` → derived `http://localhost:<port>`); **Mark as Complete** (existing K.f wiring); completed slate (`Exercise complete ✓`, replaces the button). Command stays visible/re-copyable. Stub → `PlaceholderBlock` unchanged.
+- [x] `ExerciseBlock.test.ts` rewritten (7 tests): exact command shown; Copy writes `learningfoundry launch <id>` + "Copied"; Open href `http://localhost:2718` + `_blank`; description+hints; Mark Complete persists + fires both callbacks; complete-on-load slate; stub placeholder. **vitest 289** (was 285; +4 net), **svelte-check 0/0**; **pyve test 498**; ruff + mypy clean.
+- [x] No version bump (phase-bundled; rides K.j.2).
+
+### Story K.j.2: v0.83.0 — docs sweep + subphase release [Planned]
+
+The release ceremony for the whole Subphase K-2 (K.g–K.j): docs reconciled to Option C, then the single **v0.83.0** bump. Owns the subphase release.
+
+**Tasks:**
+
+- [ ] `docs/specs/features.md` FR-6 + `README.md` authoring section: the Option-C launch flow + `learningfoundry launch`/`stop`.
+- [ ] `docs/specs/tech-spec.md`: `ExerciseContent` banner shape (replaces the Option-B `sections`/`expected_outputs` description).
+- [ ] `CHANGELOG.md` v0.83.0 entry covering the K.g–K.j subphase (Option C: notebook staging + manifest + `launch`/`stop` CLI + banner renderer).
+- [ ] **Version bump to v0.83.0** in `pyproject.toml` + `src/learningfoundry/__init__.py` (the subphase release).
 
 ---
 

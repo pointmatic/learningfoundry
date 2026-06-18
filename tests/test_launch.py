@@ -18,6 +18,7 @@ from learningfoundry.launch import (
     LaunchSpec,
     PidfileEntry,
     classify_port,
+    launched_ports,
     marimo_argv,
     pidfile_path,
     port_in_use,
@@ -25,6 +26,7 @@ from learningfoundry.launch import (
     remove_pidfile,
     resolve_launch_spec,
     spawn_detached,
+    stop_launch_on_port,
     terminate_pid,
     write_pidfile,
 )
@@ -292,3 +294,68 @@ class TestTerminatePid:
             "learningfoundry.launch.os.kill", side_effect=ProcessLookupError
         ):
             terminate_pid(4242)  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# stop_launch_on_port
+# ---------------------------------------------------------------------------
+
+
+class TestStopLaunchOnPort:
+    def test_live_pidfile_terminates_removes_returns_entry(
+        self, tmp_path: Path
+    ) -> None:
+        entry = PidfileEntry(
+            pid=999, exercise_id="mnist-cnn", port=2718, mode="edit"
+        )
+        write_pidfile(tmp_path, entry)
+        with (
+            patch("learningfoundry.launch.pid_alive", return_value=True),
+            patch("learningfoundry.launch.terminate_pid") as terminate,
+        ):
+            result = stop_launch_on_port(tmp_path, 2718)
+        terminate.assert_called_once_with(999)
+        assert result == entry
+        assert not pidfile_path(tmp_path, 2718).exists()
+
+    def test_stale_pidfile_removed_without_terminate(
+        self, tmp_path: Path
+    ) -> None:
+        write_pidfile(
+            tmp_path,
+            PidfileEntry(pid=999, exercise_id="x", port=2718, mode="edit"),
+        )
+        with (
+            patch("learningfoundry.launch.pid_alive", return_value=False),
+            patch("learningfoundry.launch.terminate_pid") as terminate,
+        ):
+            result = stop_launch_on_port(tmp_path, 2718)
+        terminate.assert_not_called()
+        assert result is None
+        assert not pidfile_path(tmp_path, 2718).exists()
+
+    def test_absent_pidfile_is_noop(self, tmp_path: Path) -> None:
+        with patch("learningfoundry.launch.terminate_pid") as terminate:
+            assert stop_launch_on_port(tmp_path, 2718) is None
+        terminate.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# launched_ports
+# ---------------------------------------------------------------------------
+
+
+class TestLaunchedPorts:
+    def test_lists_ports_from_pidfiles_sorted(self, tmp_path: Path) -> None:
+        write_pidfile(
+            tmp_path,
+            PidfileEntry(pid=1, exercise_id="a", port=2719, mode="edit"),
+        )
+        write_pidfile(
+            tmp_path,
+            PidfileEntry(pid=2, exercise_id="b", port=2718, mode="run"),
+        )
+        assert launched_ports(tmp_path) == [2718, 2719]
+
+    def test_empty_when_no_launch_dir(self, tmp_path: Path) -> None:
+        assert launched_ports(tmp_path) == []
