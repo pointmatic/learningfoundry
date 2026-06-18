@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.83.0] - 2026-06-18
+
+**Option C — live marimo exercises** (Subphase K-2, Stories K.g–K.j). The single release for the subphase: nbfoundry now compiles a `ready` exercise to a runnable **marimo notebook** instead of a static `sections`/`expected_outputs` dict (which rendered as inert source in a `<pre>` — no executed cells, plots, or metrics). learningfoundry stages the notebook + an `exercises-manifest.json` sidecar, ships a learner-side `launch`/`stop` CLI that owns the notebook's lifecycle, and the frontend `ready` renderer becomes a launch banner.
+
+### Added
+
+- **`learningfoundry launch <id>` / `learningfoundry stop [<id>]` CLI** (Stories K.i.1–K.i.4) — the learner-side runtime that owns a `ready` exercise's marimo lifecycle (a static page cannot spawn an OS process). `launch` resolves the notebook path / `mode` / port from `exercises-manifest.json`, socket-probes the port, manages a port-keyed pidfile under `.learningfoundry/`, and spawns `marimo edit|run <notebook> --headless -p <port> --no-token` detached; it offers to replace a **launch-owned** marimo on the port but never blind-kills a **foreign** process. `stop <id>` tears down one exercise; bare `stop` stops all launch-owned notebooks. Cross-platform Python (`marimo` is a learner-runtime dependency found via `PATH`, never imported by the build).
+- **Notebook staging + `exercises-manifest.json`** (Story K.h) — the resolver pulls `notebook_source` out of the banner content into an `ExerciseArtifact`; the generator writes each notebook to `exercises/<id>/<id>.py` (outside the web root) and the `id → {notebook_path, mode, port}` manifest sidecar at the project root.
+- **`ExerciseBlock.mode`** (`edit` | `run`, default `edit`; Story K.g) — the author's per-exercise choice of how `launch` serves the notebook (editable notebook vs. read-only app).
+- **`progressRepo.getExerciseStatus(exerciseRef)`** (Story K.j.1) — reads the persisted `exercise_status` so the banner derives its completed slate on load.
+
+### Changed
+
+- **nbfoundry contract → Option C** (Story K.g) — `compile_exercise` returns `{title, description, hints, environment, notebook_source}` (consumer-dependency-spec BR-1); the codegen MUST be torch-free (torch is a learner-runtime dependency only). The pass-through `NbfoundryProvider` carries the new dict unchanged.
+- **`ExerciseBlock.svelte` `ready` renderer → launch banner** (Story K.j.1) — Copy the `learningfoundry launch <id>` command (transient "Copied ✓") → Open Exercise ↗ (new tab to `http://localhost:<port>`) → Mark as Complete (persists `exercise_status`, fires the completion callbacks) → completed slate (derived on load). Stub status still renders the placeholder.
+- **`ExerciseContent` TS type + `stub_exercise()` → banner shape** (Story K.j.1) — `description` replaces `instructions`; `mode`/`port` are ready-only optionals; the resolver injects `id`/`status`/`mode`/`port` onto `ready` content.
+
+### Removed
+
+- **The Option-B static-display path** (Stories K.h, K.j.1) — `ExerciseContent.sections`/`expected_outputs`/`assets`, the `ExerciseSection`/`ExpectedOutput` TS types, and the K.e `static/exercises/<id>/` image-asset staging. The live notebook renders its own cells and outputs at run time.
+
+### Notes
+
+- **Phase-bundled release.** Stories K.g–K.j ran unversioned; this single **minor** bump (v0.83.0) ships the whole subphase. Future: Marimo-WASM in-browser execution (Option A) for non-GPU exercises and graded `submission` (cell-output scoring) remain deferred — the banner/launch contract is forward-compatible.
+
+### Verified
+
+- `pyve test` → 498 passed. `npx vitest run` → 289 passed. `svelte-check` → 0 errors / 0 warnings. `ruff` + `mypy src/` clean.
+
 ## [0.82.0] - 2026-06-18
 
 `ExerciseBlock` ready renderer + real `ExerciseContent` types (Story K.f), the third and final story of the Subphase K-1 nbfoundry bundle. A `ready` exercise now renders inline in the SvelteKit frontend (manual-completion flavor) instead of drawing only instructions + hints; graded `submission` remains deferred to `## Future`.

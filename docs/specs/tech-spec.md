@@ -541,8 +541,11 @@ def resolve_curriculum(
     - exercise blocks: `status: ready` (default) delegates to
       exercise_provider; `status: stub` emits stub_exercise() directly
       (no provider call, no nbfoundry import) (Story K.d). A `ready`
-      exercise's compiled `assets: list[str]` aggregate onto
-      ResolvedCurriculum.assets under `exercises/<id>/<path>` (Story K.e)
+      exercise's compiled `notebook_source` is popped into an
+      ExerciseArtifact (staged to `exercises/<id>/<id>.py` + the
+      `exercises-manifest.json` sidecar by the generator); `id`/`status`/
+      `mode`/`port` are injected onto the banner content (Stories K.g–K.h,
+      Option C — the K.e static-asset aggregation was retired)
     - visualization blocks: delegate to visualization_provider
 
     Raises ContentResolutionError on missing files (markdown or referenced
@@ -706,8 +709,10 @@ class ExerciseProvider(Protocol):
     def compile_exercise(self, ref_path: Path, base_dir: Path) -> dict:
         """
         Compile an exercise YAML file into a renderable exercise dict.
-        Returns exercise content (instructions, code scaffolding, expected outputs).
-        Raises IntegrationError on parse/validation failure.
+        Returns Option-C banner content + the runnable marimo notebook:
+        {title, description, hints, environment, notebook_source}
+        (consumer-dependency-spec BR-1). Raises IntegrationError on
+        parse/validation failure.
         """
         ...
 
@@ -795,10 +800,8 @@ def stub_exercise(ref_path: Path) -> dict:
         "ref": str(ref_path),
         "status": "stub",
         "title": f"Exercise: {ref_path.stem}",
-        "instructions": f"<p>Exercise placeholder for <code>{ref_path}</code>. "
-                        "nbfoundry integration pending.</p>",
-        "sections": [],
-        "expected_outputs": [],
+        "description": f"<p>Exercise placeholder for <code>{ref_path}</code>. "
+                       "nbfoundry integration pending.</p>",
         "hints": [],
         "environment": None,
     }
@@ -1182,38 +1185,26 @@ export interface AssessmentManifest {
   questions: Question[];
 }
 
+// Story K.j.1 — Option C banner shape. The `ready` renderer is a banner that
+// drives the `learningfoundry launch` CLI (it no longer displays static
+// sections/expected_outputs — the live marimo notebook carries the cells and
+// rendered outputs). The component derives the launch command
+// (`learningfoundry launch <id>`) and URL (`http://localhost:<port>`).
 export interface ExerciseContent {
   type: "exercise";
   source: string;
   ref: string;
-  id: string;                 // Story K.f — resolver-injected; the
-                              // /exercises/<id>/<path> URL namespace + the
-                              // `exerciseRef` progress key.
+  id: string;                 // Story K.f — resolver-injected; the build-output
+                              // notebook namespace (exercises/<id>/<id>.py) +
+                              // the `exerciseRef` progress key.
   status: "ready" | "stub";
   title: string;
-  instructions: string;
-  sections: ExerciseSection[];
-  expected_outputs: ExpectedOutput[];
-  assets: string[];           // Story K.e — relative paths staged under
-                              // static/exercises/<id>/.
+  description: string;
   hints: string[];
   environment: ExerciseEnvironment | null;
+  mode?: "edit" | "run";      // ready-only — resolver-injected (Story K.h)
+  port?: number;              // ready-only — marimo server port
 }
-
-export interface ExerciseSection {
-  title: string;
-  description: string;
-  code: string;
-  editable: boolean;          // v1 renders read-only; reserved for WASM future
-}
-
-// Discriminated union on `type` (Story K.f): `image` carries a relative
-// `path` (staged at /exercises/<id>/<path>) + required `alt`; `text` / `table`
-// carry inline `content`.
-export type ExpectedOutput =
-  | { description: string; type: "image"; path: string; alt: string }
-  | { description: string; type: "text"; content: string }
-  | { description: string; type: "table"; content: string };
 
 export interface ExerciseEnvironment {
   python_version: string;

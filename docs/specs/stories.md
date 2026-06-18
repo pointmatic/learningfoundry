@@ -261,16 +261,17 @@ The frontend reconciliation to Option C — type + Python stub + a `getExerciseS
 - [x] `ExerciseBlock.test.ts` rewritten (7 tests): exact command shown; Copy writes `learningfoundry launch <id>` + "Copied"; Open href `http://localhost:2718` + `_blank`; description+hints; Mark Complete persists + fires both callbacks; complete-on-load slate; stub placeholder. **vitest 289** (was 285; +4 net), **svelte-check 0/0**; **pyve test 498**; ruff + mypy clean.
 - [x] No version bump (phase-bundled; rides K.j.2).
 
-### Story K.j.2: v0.83.0 — docs sweep + subphase release [Planned]
+### Story K.j.2: v0.83.0 — docs sweep + subphase release [Done]
 
 The release ceremony for the whole Subphase K-2 (K.g–K.j): docs reconciled to Option C, then the single **v0.83.0** bump. Owns the subphase release.
 
 **Tasks:**
 
-- [ ] `docs/specs/features.md` FR-6 + `README.md` authoring section: the Option-C launch flow + `learningfoundry launch`/`stop`.
-- [ ] `docs/specs/tech-spec.md`: `ExerciseContent` banner shape (replaces the Option-B `sections`/`expected_outputs` description).
-- [ ] `CHANGELOG.md` v0.83.0 entry covering the K.g–K.j subphase (Option C: notebook staging + manifest + `launch`/`stop` CLI + banner renderer).
-- [ ] **Version bump to v0.83.0** in `pyproject.toml` + `src/learningfoundry/__init__.py` (the subphase release).
+- [x] `docs/specs/features.md`: FR-6 (nbfoundry integration → banner/launch), the CLI list (+`launch`/`stop`), and non-goal #9 (Option C, Stories K.d–K.j).
+- [x] `README.md`: new `### learningfoundry launch / stop` CLI-reference section (learner-side; `--dir`; conflict/foreign policy; `marimo` learner-runtime note) + rewrote "Authoring nbfoundry exercises" to Option C (live marimo + `learningfoundry launch`, `mode`, `id`-as-notebook-namespace; retired the `static/exercises/<id>/` asset framing).
+- [x] `docs/specs/tech-spec.md`: `ExerciseContent` → banner shape (dropped `ExerciseSection`/`ExpectedOutput`); also reconciled the residual Option-B-stale spots (`compile_exercise` docstring, resolver exercise-block description re K.e asset-agg, `stub_exercise` example).
+- [x] `CHANGELOG.md` `[0.83.0]` entry covering the K.g–K.j subphase (Option C: contract + notebook staging + manifest + `launch`/`stop` CLI + banner renderer; Added/Changed/Removed/Notes/Verified).
+- [x] **Version bump to v0.83.0** in `pyproject.toml` + `src/learningfoundry/__init__.py`. Verified: `pyve test` → 498 passed; CLI `--version` → `0.83.0`; no stray `0.82.0`. (Frontend unchanged in this story — K.j.1's vitest 289 / svelte-check 0-0 stand.)
 
 ---
 

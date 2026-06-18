@@ -180,6 +180,27 @@ This serves the SvelteKit project from source via Vite's dev server; it does **n
 
 ---
 
+### `learningfoundry launch` / `learningfoundry stop`
+
+Run a `ready` exercise's marimo notebook locally. These are **learner-side** commands — run from inside the generated app (where `build` writes `exercises-manifest.json`), not from the author's repo. The generated app is static and a browser page can't spawn a process, so the exercise's banner asks the learner to copy and run `learningfoundry launch <id>`.
+
+```
+Usage: learningfoundry launch [OPTIONS] EXERCISE_ID
+       learningfoundry stop [OPTIONS] [EXERCISE_ID]
+
+Options:
+  --dir PATH              Directory holding exercises-manifest.json (the
+                          generated app's root).  [default: .]
+  --log-level LEVEL       Logging verbosity.  [default: INFO]
+  --help                  Show this message and exit.
+```
+
+`launch <id>` resolves the notebook path / `mode` / port from the manifest, checks the port, then spawns `marimo edit|run <notebook> --headless -p <port> --no-token` detached (so it outlives the CLI) and prints the local URL. If the port is already held by a **launch-owned** marimo it offers to replace it; a **foreign** process on the port is never killed. `stop <id>` tears down that exercise's notebook; bare `stop` stops every launch-owned notebook.
+
+> **`marimo` is a learner-runtime dependency**, not a learningfoundry dependency — `launch` finds it on `PATH` (it is never imported by the build). Install it alongside the exercise's other run requirements (e.g. `pip install marimo torch`); the banner lists them. A missing `marimo` yields an install hint, not a traceback.
+
+---
+
 ## Curriculum YAML Format
 
 ```yaml
@@ -670,9 +691,12 @@ questions:
 
 ### Authoring nbfoundry exercises
 
-[nbfoundry](https://github.com/pointmatic/nbfoundry) is the exercise provider — scaffolded, model-training exercises that render inline in a lesson with code-scaffold sections, expected outputs, hints, and local-run instructions, plus a "Mark as Complete" control. In v1 the exercise is **informational**: the learner runs the code in their own local environment (JupyterLab, Marimo, VS Code) and marks it complete. In-browser execution and graded submission are deferred to future versions; the authored YAML does not change when they land.
+[nbfoundry](https://github.com/pointmatic/nbfoundry) is the exercise provider — scaffolded, model-training exercises. Under the hood (Option C) nbfoundry compiles each exercise to a **runnable marimo notebook**; learningfoundry stages it at build time and the lesson renders a **launch banner**. The learner copies the `learningfoundry launch <id>` command, runs it to start the notebook locally, opens it in a new tab, works through the cells, and clicks **Mark as Complete**. The exercise runs in the learner's own Python environment, so PyTorch and other heavy dependencies stay out of the build and the browser. In-browser (Marimo-WASM) execution and graded submission are deferred to future versions; the authored YAML does not change when they land.
 
-**What you need.** `pip install learningfoundry[nbfoundry]` installs the Python builder side (the [`nbfoundry` PyPI package](https://pypi.org/project/nbfoundry/)) so `learningfoundry build` can compile exercise YAML. Like `[quizazz]`, it is an optional extra — plain `pip install learningfoundry` does not pull it in, and building a curriculum with a `ready` exercise that references `source: nbfoundry` without the extra fails with an `ImportError` and an install hint.
+**What you need.**
+
+- *Build side:* `pip install learningfoundry[nbfoundry]` installs the [`nbfoundry` PyPI package](https://pypi.org/project/nbfoundry/) so `learningfoundry build` can compile exercise YAML into the notebook. Like `[quizazz]`, it is an optional extra — plain `pip install learningfoundry` does not pull it in, and a `ready` exercise referencing `source: nbfoundry` without it fails the build with an `ImportError` and an install hint.
+- *Learner side:* running the exercise needs **`marimo`** (plus the exercise's own dependencies, e.g. `torch`) on the learner's `PATH`. `learningfoundry launch` finds `marimo` there — it is a **learner-runtime** dependency, never imported by the build. The banner lists the exercise's prerequisites.
 
 **Referencing an exercise.** Add an `exercise` content block to a lesson:
 
@@ -682,22 +706,25 @@ content_blocks:
     source: nbfoundry
     ref: exercises/mod-01/cnn-classifier.yml   # located under --base-dir
     status: ready                              # "ready" (default) | "stub"
+    mode: edit                                 # "edit" (default) | "run"
     # id: cnn-classifier                       # optional; see below
 ```
 
-- **`status: ready`** (the default) compiles the exercise through nbfoundry at build time. A typo'd `ref` fails the build **loud** rather than silently degrading to a placeholder.
+- **`status: ready`** (the default) compiles the exercise to a notebook at build time. A typo'd `ref` fails the build **loud** rather than silently degrading to a placeholder.
 - **`status: stub`** renders the "nbfoundry integration pending" placeholder card — the explicit "not built yet" opt-in while you scaffold the curriculum. No nbfoundry call, no install needed for stub-only curricula.
+- **`mode`** chooses how `learningfoundry launch` serves the notebook: **`edit`** (the default) opens marimo's editable notebook (the learner writes code into the scaffold); **`run`** opens it as a read-only app. It is the same notebook either way — the choice is pedagogical.
 
-**How `id` works.** Every exercise has an `id` that is two things at once: the **build-output asset namespace** (`static/exercises/<id>/…`, where expected-output images and other assets are staged) and the **progress key** (`exerciseRef`) recorded in the in-browser database. When you omit `id:`, it is auto-derived from the `ref` filename **stem** (`exercises/mod-01/cnn-classifier.yml` → `cnn-classifier`). The `id` must be **unique across the whole curriculum** — not just within a module.
+**How `id` works.** Every exercise has an `id` that is two things at once: the **notebook namespace** (the build writes the marimo notebook to `exercises/<id>/<id>.py` and indexes it in `exercises-manifest.json`, which `learningfoundry launch <id>` reads) and the **progress key** (`exerciseRef`) recorded in the in-browser database. When you omit `id:`, it is auto-derived from the `ref` filename **stem** (`exercises/mod-01/cnn-classifier.yml` → `cnn-classifier`). The `id` must be **unique across the whole curriculum** — not just within a module.
 
-**Organizing source freely vs. the flat output.** The `id` namespaces the *output*; it does **not** constrain where you organize *source* content. You can lay out exercise YAML and its assets however you like under `--base-dir` — nbfoundry locates them via the relative `ref` and the asset paths inside the compiled dict — and learningfoundry stages every referenced asset into the flat `static/exercises/<id>/<path>` tree:
+**Organizing source freely.** The `id` namespaces the *output notebook*; it does **not** constrain where you organize *source* content. Lay out exercise YAML however you like under `--base-dir` — nbfoundry locates it via the relative `ref`:
 
 ```
-# Source (organize however you like):           # Build output (flat, id-namespaced):
-exercises/mod-01/cnn-classifier.yml             static/exercises/cnn-classifier/loss-curve.png
-exercises/mod-01/assets/loss-curve.png          static/exercises/cnn-classifier/sample.csv
-exercises/shared/sample.csv
+# Source (organize however you like):     # Build output (id-namespaced notebook):
+exercises/mod-01/cnn-classifier.yml       dist/exercises/cnn-classifier/cnn-classifier.py
+exercises/mod-02/intro.yml                dist/exercises/intro/intro.py
 ```
+
+The notebook renders its own plots, tables, and metrics when it runs — there is no separate image-staging step (that was the retired Option-B static-display path).
 
 **The stem-collision case.** Because the auto-derived `id` is just the filename stem, two exercises whose `ref` files share a stem collide — even in different modules:
 
@@ -706,7 +733,7 @@ exercises/shared/sample.csv
 # mod-02 lesson:  ref: exercises/mod-02/intro.yml   → id "intro"   ❌ build error
 ```
 
-This is a **loud build-time error**, not a silent overwrite (two exercises would otherwise share one asset URL + progress key). Fix it by setting an explicit `id:` on at least one:
+This is a **loud build-time error**, not a silent overwrite (two exercises would otherwise share one notebook path + progress key). Fix it by setting an explicit `id:` on at least one:
 
 ```yaml
   - type: exercise
@@ -715,7 +742,7 @@ This is a **loud build-time error**, not a silent overwrite (two exercises would
     id: mod-02-intro          # explicit, curriculum-unique
 ```
 
-**Why a stable `id` matters.** Set an explicit `id:` when you expect to **reorganize source content** later. Because the `id` is both the asset URL namespace and the progress key, keeping it stable while you move or rename the underlying `ref` file preserves both the staged asset URLs *and* learners' recorded completion — whereas relying on the auto-derived stem means a rename silently changes the `id` and orphans prior progress.
+**Why a stable `id` matters.** Set an explicit `id:` when you expect to **reorganize source content** later. Because the `id` is both the notebook namespace and the progress key, keeping it stable while you move or rename the underlying `ref` file preserves both the `learningfoundry launch <id>` command *and* learners' recorded completion — whereas relying on the auto-derived stem means a rename silently changes the `id` and orphans prior progress.
 
 ### Assessments
 
