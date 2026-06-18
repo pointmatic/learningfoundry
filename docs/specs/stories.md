@@ -213,16 +213,17 @@ The OS-interaction layer, isolated and mockable: "is the port busy, is the marim
 - [x] `tests/test_launch.py` (+12 tests): pidfile round-trip / path layout / parent-dir creation / missing+malformed→`None` / idempotent remove; `port_in_use` true/false (mock socket); `classify_port` ours/foreign/free + stale-pidfile cleanup (mock `pid_alive`, `port_in_use`). **480 passed** (was 468; +12); ruff + mypy clean.
 - [x] No version bump (phase-bundled; rides K.j).
 
-### Story K.i.3: `learningfoundry launch <exercise-id>` command [Planned]
+### Story K.i.3: `learningfoundry launch <exercise-id>` command [Done]
 
 The side-effecting verb — orchestrate K.i.1 + K.i.2, spawn marimo detached, honor the conflict policy. Unversioned (rides K.j).
 
 **Tasks:**
 
-- [ ] `cli.py` `launch` command: `exercise_id` arg, `--dir` (default `.`), `--log-level`. Flow: `resolve_launch_spec` → `shutil.which("marimo")` guard → `classify_port`: `free` spawn; `ours` confirm-replace (stop old → spawn); `foreign` refuse. Spawn detached `Popen(marimo_argv(spec))`, `write_pidfile`, echo `http://localhost:<port>`.
-- [ ] `cli.py` `EXIT_RUNTIME = 5`; map `LaunchError` subclasses to exit codes (unknown id / missing manifest → `EXIT_VALIDATION`; marimo-missing / port-foreign → `EXIT_RUNTIME`).
-- [ ] `tests/test_cli.py` (CliRunner; mock `Popen`/`which`/`classify_port`/socket): `free` → spawns with exact argv + writes pidfile; `foreign` → refuses (nonzero, no `Popen`); `ours` → `y` replaces / `N` aborts; marimo missing → install hint, no `Popen`; unknown id → K.i.1 error surfaced.
-- [ ] No version bump (phase-bundled; rides K.j).
+- [x] `launch.py` `spawn_detached(argv, cwd) -> int` (POSIX `start_new_session=True` / Windows `CREATE_NEW_PROCESS_GROUP|DETACHED_PROCESS`, `sys.platform`-guarded; returns pid) **and `terminate_pid(pid)`** — *pulled forward from K.i.4* because the `ours` replace path (stop-old-then-spawn) is a hard consumer (POSIX `SIGTERM`, already-gone → no-op; Windows `taskkill`).
+- [x] `cli.py` `launch` command: `exercise_id` arg, shared `_launch_dir_option` `--dir` (default `.`), `--log-level`. Flow: `resolve_launch_spec` → `shutil.which("marimo")` guard → `classify_port`: `free` spawn; `ours` `click.confirm` replace (read pidfile → `terminate_pid` → `remove_pidfile` → spawn); `foreign` refuse. `spawn_detached(marimo_argv(spec), launch_dir)`, `write_pidfile`, echo `http://localhost:<port>` + a `learningfoundry stop` hint.
+- [x] `cli.py` `EXIT_RUNTIME = 5`; `LaunchError` (unknown id / missing manifest / malformed manifest) → `EXIT_VALIDATION`; marimo-missing / port-foreign → `EXIT_RUNTIME`.
+- [x] `tests/test_cli.py` (CliRunner; mock `Popen`/`which`/`classify_port`) + `tests/test_launch.py` (`spawn_detached`/`terminate_pid` units): `free` → spawns exact argv + writes pidfile; `foreign` → refuses (`EXIT_RUNTIME`, no `Popen`); `ours` → `y` kills old + spawns / `n` aborts untouched; marimo missing → hint + no `Popen`; unknown id → K.i.1 error. **489 passed** (was 480; +9); ruff + mypy clean.
+- [x] No version bump (phase-bundled; rides K.j).
 
 ### Story K.i.4: `learningfoundry stop [<exercise-id>]` command [Planned]
 
@@ -230,7 +231,7 @@ Teardown — kill the launch-owned marimo via its pidfile, never a foreign proce
 
 **Tasks:**
 
-- [ ] `launch.py` `terminate_pid(pid: int) -> None` — cross-platform (`os.kill(pid, SIGTERM)` POSIX / `taskkill`|ctypes Windows).
+- [ ] `launch.py` `terminate_pid(pid)` — **already landed in K.i.3** (the replace path forced it); K.i.4 only consumes it.
 - [ ] `cli.py` `stop` command: optional `exercise_id`, `--dir`. With id → resolve port → read pidfile → if live & ours `terminate_pid` + `remove_pidfile`; else clean stale / report "nothing running." Without id → iterate `.learningfoundry/launch-*.pid`, stop each launch-owned marimo.
 - [ ] `tests/test_cli.py`: stop-by-id terminates + removes pidfile (mock `os.kill`); stop-all iterates every pidfile; stop with no pidfile → success no-op; never touches a port with no launch pidfile.
 - [ ] No version bump (phase-bundled; rides K.j).

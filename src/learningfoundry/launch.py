@@ -17,7 +17,10 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import socket
+import subprocess
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
@@ -261,3 +264,50 @@ def classify_port(manifest_dir: Path, port: int) -> PortStatus:
         # Stale pidfile — its process is gone; clean it up before probing.
         remove_pidfile(manifest_dir, port)
     return "foreign" if port_in_use(port) else "free"
+
+
+# ---------------------------------------------------------------------------
+# Process lifecycle (K.i.3) — spawn / terminate
+# ---------------------------------------------------------------------------
+
+
+def spawn_detached(argv: list[str], cwd: Path) -> int:
+    """Spawn ``argv`` as a detached background process; return its pid.
+
+    Detached so the marimo server outlives the short-lived ``launch`` CLI
+    process — the learner gets their shell back immediately. ``cwd`` is the
+    launch directory so the notebook's relative path (and any data/assets it
+    reads) resolve from the app root.
+    """
+    if sys.platform == "win32":  # pragma: no cover - Windows only
+        proc = subprocess.Popen(
+            argv,
+            cwd=str(cwd),
+            creationflags=(
+                subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
+                | subprocess.DETACHED_PROCESS  # type: ignore[attr-defined]
+            ),
+            close_fds=True,
+        )
+    else:
+        proc = subprocess.Popen(argv, cwd=str(cwd), start_new_session=True)
+    return proc.pid
+
+
+def terminate_pid(pid: int) -> None:
+    """Ask the process ``pid`` to terminate (idempotent if already gone).
+
+    POSIX sends ``SIGTERM`` (graceful); Windows shells out to ``taskkill``.
+    A process that has already exited is treated as success.
+    """
+    if sys.platform == "win32":  # pragma: no cover - Windows only
+        subprocess.run(
+            ["taskkill", "/F", "/PID", str(pid)],
+            check=False,
+            capture_output=True,
+        )
+        return
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass  # already gone — nothing to do

@@ -2,13 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 """Tests for the CLI build and validate commands."""
 
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
 
-from learningfoundry.cli import EXIT_CONFIG, EXIT_RESOLUTION, EXIT_VALIDATION, main
+from learningfoundry.cli import (
+    EXIT_CONFIG,
+    EXIT_RESOLUTION,
+    EXIT_RUNTIME,
+    EXIT_VALIDATION,
+    main,
+)
 from learningfoundry.exceptions import (
     ContentResolutionError,
     CurriculumValidationError,
@@ -346,3 +353,191 @@ class TestPreviewCommand:
                 ["preview", "--config", str(VALID_CURRICULUM)],
             )
         assert result.exit_code == 3
+
+
+# ---------------------------------------------------------------------------
+# launch (Story K.i.3)
+# ---------------------------------------------------------------------------
+
+
+def _write_launch_manifest(tmp_path: Path) -> None:
+    manifest = {
+        "mnist-cnn": {
+            "notebook_path": "exercises/mnist-cnn/mnist-cnn.py",
+            "mode": "edit",
+            "port": 2718,
+        }
+    }
+    (tmp_path / "exercises-manifest.json").write_text(
+        json.dumps(manifest), encoding="utf-8"
+    )
+
+
+_EXPECTED_ARGV = [
+    "marimo",
+    "edit",
+    "exercises/mnist-cnn/mnist-cnn.py",
+    "--headless",
+    "-p",
+    "2718",
+    "--no-token",
+]
+
+
+class TestLaunch:
+    def test_free_port_spawns_marimo_and_writes_pidfile(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _write_launch_manifest(tmp_path)
+        with (
+            patch(
+                "learningfoundry.cli.shutil.which",
+                return_value="/usr/local/bin/marimo",
+            ),
+            patch(
+                "learningfoundry.launch.classify_port", return_value="free"
+            ),
+            patch("learningfoundry.launch.subprocess.Popen") as popen,
+        ):
+            popen.return_value.pid = 12345
+            result = runner.invoke(
+                main, ["launch", "mnist-cnn", "--dir", str(tmp_path)]
+            )
+
+        assert result.exit_code == 0, result.output
+        args, kwargs = popen.call_args
+        assert args[0] == _EXPECTED_ARGV
+        assert kwargs["cwd"] == str(tmp_path)
+
+        pidfile = tmp_path / ".learningfoundry" / "launch-2718.pid"
+        assert pidfile.exists()
+        data = json.loads(pidfile.read_text())
+        assert data["pid"] == 12345
+        assert data["exercise_id"] == "mnist-cnn"
+        assert "localhost:2718" in result.output
+
+    def test_foreign_port_refuses_and_does_not_spawn(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _write_launch_manifest(tmp_path)
+        with (
+            patch(
+                "learningfoundry.cli.shutil.which",
+                return_value="/usr/local/bin/marimo",
+            ),
+            patch(
+                "learningfoundry.launch.classify_port", return_value="foreign"
+            ),
+            patch("learningfoundry.launch.subprocess.Popen") as popen,
+        ):
+            result = runner.invoke(
+                main, ["launch", "mnist-cnn", "--dir", str(tmp_path)]
+            )
+
+        assert result.exit_code == EXIT_RUNTIME
+        popen.assert_not_called()
+
+    def test_ours_replace_confirmed_kills_old_and_spawns(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _write_launch_manifest(tmp_path)
+        pidfile = tmp_path / ".learningfoundry" / "launch-2718.pid"
+        pidfile.parent.mkdir(parents=True)
+        pidfile.write_text(
+            json.dumps(
+                {
+                    "pid": 999,
+                    "exercise_id": "mnist-cnn",
+                    "port": 2718,
+                    "mode": "edit",
+                }
+            ),
+            encoding="utf-8",
+        )
+        with (
+            patch(
+                "learningfoundry.cli.shutil.which",
+                return_value="/usr/local/bin/marimo",
+            ),
+            patch(
+                "learningfoundry.launch.classify_port", return_value="ours"
+            ),
+            patch("learningfoundry.launch.terminate_pid") as terminate,
+            patch("learningfoundry.launch.subprocess.Popen") as popen,
+        ):
+            popen.return_value.pid = 12345
+            result = runner.invoke(
+                main,
+                ["launch", "mnist-cnn", "--dir", str(tmp_path)],
+                input="y\n",
+            )
+
+        assert result.exit_code == 0, result.output
+        terminate.assert_called_once_with(999)
+        popen.assert_called_once()
+        assert json.loads(pidfile.read_text())["pid"] == 12345
+
+    def test_ours_replace_declined_aborts(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _write_launch_manifest(tmp_path)
+        pidfile = tmp_path / ".learningfoundry" / "launch-2718.pid"
+        pidfile.parent.mkdir(parents=True)
+        pidfile.write_text(
+            json.dumps(
+                {
+                    "pid": 999,
+                    "exercise_id": "mnist-cnn",
+                    "port": 2718,
+                    "mode": "edit",
+                }
+            ),
+            encoding="utf-8",
+        )
+        with (
+            patch(
+                "learningfoundry.cli.shutil.which",
+                return_value="/usr/local/bin/marimo",
+            ),
+            patch(
+                "learningfoundry.launch.classify_port", return_value="ours"
+            ),
+            patch("learningfoundry.launch.subprocess.Popen") as popen,
+        ):
+            result = runner.invoke(
+                main,
+                ["launch", "mnist-cnn", "--dir", str(tmp_path)],
+                input="n\n",
+            )
+
+        assert result.exit_code == 0
+        popen.assert_not_called()
+        # The running exercise's pidfile is left untouched.
+        assert json.loads(pidfile.read_text())["pid"] == 999
+
+    def test_marimo_not_installed_errors_with_hint(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _write_launch_manifest(tmp_path)
+        with (
+            patch("learningfoundry.cli.shutil.which", return_value=None),
+            patch("learningfoundry.launch.subprocess.Popen") as popen,
+        ):
+            result = runner.invoke(
+                main, ["launch", "mnist-cnn", "--dir", str(tmp_path)]
+            )
+
+        assert result.exit_code == EXIT_RUNTIME
+        assert "marimo" in result.output.lower()
+        popen.assert_not_called()
+
+    def test_unknown_exercise_id_exits_validation(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _write_launch_manifest(tmp_path)
+        result = runner.invoke(
+            main, ["launch", "nope", "--dir", str(tmp_path)]
+        )
+        assert result.exit_code == EXIT_VALIDATION
+        assert "nope" in result.output
+        assert "mnist-cnn" in result.output

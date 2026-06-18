@@ -1,6 +1,7 @@
 # Copyright 2026 Pointmatic
 # SPDX-License-Identifier: Apache-2.0
 
+import shutil
 import sys
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from learningfoundry.exceptions import (
     CurriculumValidationError,
     CurriculumVersionError,
     GenerationError,
+    LaunchError,
     SchemaExtensionError,
 )
 from learningfoundry.logging_config import setup_logging as _setup_logging
@@ -24,6 +26,7 @@ EXIT_VALIDATION = 1
 EXIT_RESOLUTION = 2
 EXIT_GENERATION = 3
 EXIT_CONFIG = 4
+EXIT_RUNTIME = 5
 
 
 # ---------------------------------------------------------------------------
@@ -270,3 +273,79 @@ def preview(
         sys.exit(EXIT_CONFIG)
 
     click.echo(f"Preview server started at http://localhost:{port}")
+
+
+# ---------------------------------------------------------------------------
+# launch
+# ---------------------------------------------------------------------------
+
+_launch_dir_option = click.option(
+    "--dir",
+    "launch_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=Path("."),
+    show_default=True,
+    help=(
+        "Directory holding `exercises-manifest.json` (the generated app's "
+        "root). Defaults to the current directory."
+    ),
+)
+
+
+@main.command()
+@click.argument("exercise_id")
+@_launch_dir_option
+@_log_level_option
+def launch(exercise_id: str, launch_dir: Path, log_level: str) -> None:
+    """Launch an exercise's marimo notebook locally."""
+    _setup_logging(level=log_level)
+
+    from learningfoundry import launch as _launch
+
+    try:
+        spec = _launch.resolve_launch_spec(launch_dir, exercise_id)
+    except LaunchError as exc:
+        click.echo(f"Launch error: {exc}", err=True)
+        sys.exit(EXIT_VALIDATION)
+
+    if shutil.which("marimo") is None:
+        click.echo(
+            "marimo not found on PATH. It is a learner-runtime dependency — "
+            "install it (e.g. `pip install marimo`) to run exercises.",
+            err=True,
+        )
+        sys.exit(EXIT_RUNTIME)
+
+    status = _launch.classify_port(launch_dir, spec.port)
+    if status == "foreign":
+        click.echo(
+            f"Port {spec.port} is in use by another process. Refusing to "
+            "kill it — free the port (or stop that process) and retry.",
+            err=True,
+        )
+        sys.exit(EXIT_RUNTIME)
+    if status == "ours":
+        if not click.confirm(
+            f"An exercise is already running on port {spec.port}. Replace it?"
+        ):
+            click.echo("Left the running exercise in place.")
+            return
+        existing = _launch.read_pidfile(launch_dir, spec.port)
+        if existing is not None:
+            _launch.terminate_pid(existing.pid)
+            _launch.remove_pidfile(launch_dir, spec.port)
+
+    pid = _launch.spawn_detached(_launch.marimo_argv(spec), launch_dir)
+    _launch.write_pidfile(
+        launch_dir,
+        _launch.PidfileEntry(
+            pid=pid,
+            exercise_id=spec.id,
+            port=spec.port,
+            mode=spec.mode,
+        ),
+    )
+    click.echo(
+        f"Launched `{spec.id}` ({spec.mode}) → http://localhost:{spec.port}"
+    )
+    click.echo(f"Stop it with: learningfoundry stop {spec.id}")

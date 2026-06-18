@@ -3,6 +3,7 @@
 """Tests for the marimo launch runtime (Story K.i)."""
 
 import json
+import signal
 from pathlib import Path
 from unittest.mock import patch
 
@@ -23,6 +24,8 @@ from learningfoundry.launch import (
     read_pidfile,
     remove_pidfile,
     resolve_launch_spec,
+    spawn_detached,
+    terminate_pid,
     write_pidfile,
 )
 
@@ -253,3 +256,39 @@ class TestClassifyPort:
         ):
             assert classify_port(tmp_path, 2718) == "free"
         assert not pidfile_path(tmp_path, 2718).exists()
+
+
+# ---------------------------------------------------------------------------
+# spawn_detached
+# ---------------------------------------------------------------------------
+
+
+class TestSpawnDetached:
+    def test_spawns_with_argv_cwd_and_new_session(self, tmp_path: Path) -> None:
+        with patch("learningfoundry.launch.subprocess.Popen") as popen:
+            popen.return_value.pid = 4242
+            pid = spawn_detached(["marimo", "edit", "x.py"], tmp_path)
+        assert pid == 4242
+        args, kwargs = popen.call_args
+        assert args[0] == ["marimo", "edit", "x.py"]
+        assert kwargs["cwd"] == str(tmp_path)
+        # Detached so marimo outlives the short-lived `launch` CLI process.
+        assert kwargs.get("start_new_session") is True
+
+
+# ---------------------------------------------------------------------------
+# terminate_pid
+# ---------------------------------------------------------------------------
+
+
+class TestTerminatePid:
+    def test_sends_sigterm(self) -> None:
+        with patch("learningfoundry.launch.os.kill") as kill:
+            terminate_pid(4242)
+        kill.assert_called_once_with(4242, signal.SIGTERM)
+
+    def test_already_dead_is_noop(self) -> None:
+        with patch(
+            "learningfoundry.launch.os.kill", side_effect=ProcessLookupError
+        ):
+            terminate_pid(4242)  # must not raise
