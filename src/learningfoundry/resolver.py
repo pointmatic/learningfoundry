@@ -356,6 +356,18 @@ def _resolve_block(
                 content = stub_exercise(Path(block.ref))
             else:
                 content = exercise_provider.compile_exercise(Path(block.ref), base_dir)
+                # Stage asset files the compiled exercise references (Story
+                # K.e). They travel as relative paths in `assets: list[str]`
+                # and land under the exercise's `id` namespace
+                # (`static/exercises/<id>/<path>`), deduped on `dest_relative`
+                # via the shared aggregator. `block.id` is guaranteed by the
+                # schema's auto-gen validator.
+                for rel in content.get("assets") or []:
+                    dest_relative = f"exercises/{block.id}/{rel}"
+                    assets_by_dest.setdefault(
+                        dest_relative,
+                        Asset(source=base_dir / rel, dest_relative=dest_relative),
+                    )
             return ResolvedContentBlock(
                 type="exercise", source=block.source, ref=block.ref, content=content
             )

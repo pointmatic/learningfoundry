@@ -165,6 +165,85 @@ class TestContentBlockTypes:
                 }
             )
 
+
+def _curriculum_def_with_exercises(specs: list[dict]) -> dict:  # type: ignore[type-arg]
+    """Build a CurriculumDef payload with one exercise block per module
+    (so id uniqueness is genuinely tested curriculum-wide, not per-module)."""
+    modules = []
+    for i, spec in enumerate(specs, 1):
+        block: dict = {"type": "exercise", "source": "nbfoundry", "ref": spec["ref"]}
+        if "id" in spec:
+            block["id"] = spec["id"]
+        modules.append(
+            {
+                "id": f"mod-{i:02d}",
+                "title": f"M{i}",
+                "lessons": [
+                    {"id": f"lesson-{i:02d}", "title": "L", "content_blocks": [block]}
+                ],
+            }
+        )
+    return {"title": "T", "modules": modules}
+
+
+class TestExerciseId:
+    """Story K.e — ExerciseBlock.id is the build-output namespace
+    (static/exercises/<id>/) and the progress key (exerciseRef). Auto-derived
+    from the ref stem when omitted; unique across the whole curriculum (not
+    just per-module); a stem collision fails loud so the author sets an
+    explicit id (mirrors the AssessmentDefinition.id precedent, Story J.r)."""
+
+    def test_id_defaults_to_ref_stem(self) -> None:
+        block = ExerciseBlock.model_validate(
+            {
+                "type": "exercise",
+                "source": "nbfoundry",
+                "ref": "exercises/mod-01-exercise-01.yml",
+            }
+        )
+        assert block.id == "mod-01-exercise-01"
+
+    def test_explicit_id_is_kept(self) -> None:
+        block = ExerciseBlock.model_validate(
+            {
+                "type": "exercise",
+                "source": "nbfoundry",
+                "ref": "exercises/whatever.yml",
+                "id": "custom-id",
+            }
+        )
+        assert block.id == "custom-id"
+
+    def test_distinct_ids_validate(self) -> None:
+        cd = CurriculumDef.model_validate(
+            _curriculum_def_with_exercises(
+                [{"ref": "exercises/a.yml"}, {"ref": "exercises/b.yml"}]
+            )
+        )
+        assert [b.id for m in cd.modules for lsn in m.lessons
+                for b in lsn.content_blocks] == ["a", "b"]
+
+    def test_duplicate_explicit_ids_across_curriculum_raise(self) -> None:
+        with pytest.raises(ValidationError, match="[Dd]uplicate exercise id"):
+            CurriculumDef.model_validate(
+                _curriculum_def_with_exercises(
+                    [
+                        {"ref": "exercises/a.yml", "id": "dup"},
+                        {"ref": "exercises/b.yml", "id": "dup"},
+                    ]
+                )
+            )
+
+    def test_colliding_ref_stems_across_curriculum_raise(self) -> None:
+        # Same filename stem in different folders → same auto-derived id →
+        # collision → fail loud (author must set an explicit id).
+        with pytest.raises(ValidationError, match="[Dd]uplicate exercise id"):
+            CurriculumDef.model_validate(
+                _curriculum_def_with_exercises(
+                    [{"ref": "mod-01/intro.yml"}, {"ref": "mod-02/intro.yml"}]
+                )
+            )
+
     def test_visualization_block(self) -> None:
         block = VisualizationBlock.model_validate(
             {

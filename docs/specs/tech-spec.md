@@ -358,6 +358,12 @@ class ExerciseBlock(BaseModel):
     type: str = "exercise"
     source: str                     # "nbfoundry"
     ref: str                        # Path to nbfoundry exercise YAML
+    id: str | None = None           # Story K.e — build-output namespace
+                                    # (static/exercises/<id>/) + progress key.
+                                    # Auto-derived from the `ref` stem when
+                                    # omitted; unique CURRICULUM-WIDE (enforced
+                                    # on CurriculumDef); a stem collision fails
+                                    # loud so the author sets an explicit id.
     status: Literal["stub", "ready"] = "ready"  # Story K.d — resolver-owned
                                     # switch: "ready" compiles via
                                     # NbfoundryProvider (fail-loud on bad ref);
@@ -533,7 +539,9 @@ def resolve_curriculum(
     - assessment blocks: delegate to assessment_provider
     - exercise blocks: `status: ready` (default) delegates to
       exercise_provider; `status: stub` emits stub_exercise() directly
-      (no provider call, no nbfoundry import) (Story K.d)
+      (no provider call, no nbfoundry import) (Story K.d). A `ready`
+      exercise's compiled `assets: list[str]` aggregate onto
+      ResolvedCurriculum.assets under `exercises/<id>/<path>` (Story K.e)
     - visualization blocks: delegate to visualization_provider
 
     Raises ContentResolutionError on missing files (markdown or referenced
@@ -905,16 +913,21 @@ def generate_app(
          - pnpm-lock.yaml
          - build
          - .svelte-kit
-         - static/content   (image assets copied by step 3)
+         - static/content     (image assets copied by step 3)
+         - static/exercises   (nbfoundry exercise assets copied by step 3, Story K.e)
+         - static/sql-wasm.wasm
     2. Write curriculum.json into output_dir/static/, containing the full
        resolved curriculum structure (modules, lessons, content blocks with
        resolved content). The `assets` field on ResolvedCurriculum is
        intentionally stripped — it carries on-disk Path objects (not JSON
        serialisable) and is consumed only by the next step.
     3. Copy each Asset record from ResolvedCurriculum.assets into
-       output_dir/static/<dest_relative>. Idempotent: a destination file
-       whose size matches the source is left untouched (the content-hashed
-       path makes matching size a strong identity signal).
+       output_dir/static/<dest_relative>. Two dest_relative shapes flow
+       through the same loop: content-hashed image paths
+       (`content/<sha256[:12]>/<basename>`) and non-hashed exercise paths
+       (`exercises/<id>/<path>`, Story K.e). Idempotent: a destination file
+       whose size matches the source is left untouched — an exact identity
+       signal for hashed paths, a cheap heuristic for exercise paths.
 
     If output_dir exists, the log message is INFO-level and notes which
     state directories are being preserved.
@@ -1001,7 +1014,7 @@ curriculum:
 
 The `ResolvedCurriculum` dataclass tree (see `resolver.py` above) is serialized to `curriculum.json` in the generated SvelteKit project for the frontend to consume.
 
-In addition to the module/lesson/content tree, `ResolvedCurriculum` carries an `assets: list[Asset]` field — the deduped union of every image asset referenced by any text block's markdown. Each `Asset` is a `(source: Path, dest_relative: str)` pair where `dest_relative = "content/<sha256[:12]>/<basename>"`. The list is consumed by `generator.generate_app()` to copy files into `output_dir/static/`; it is **stripped before serialisation to curriculum.json** because it carries `Path` objects (not JSON-serialisable) and the SvelteKit frontend only ever needs the rewritten URL embedded in the lesson markdown — never the original source path.
+In addition to the module/lesson/content tree, `ResolvedCurriculum` carries an `assets: list[Asset]` field — the deduped (on `dest_relative`) union of two asset sources: every image asset referenced by any text block's markdown (`dest_relative = "content/<sha256[:12]>/<basename>"`), and every file a compiled `ready` exercise lists in its `assets: list[str]` (`dest_relative = "exercises/<id>/<path>"`, Story K.e). Each `Asset` is a `(source: Path, dest_relative: str)` pair. The list is consumed by `generator.generate_app()` to copy files into `output_dir/static/`; it is **stripped before serialisation to curriculum.json** because it carries `Path` objects (not JSON-serialisable) and the SvelteKit frontend only ever needs the rewritten URL (markdown) or the runtime-composed `/exercises/<id>/<path>` URL (K.f renderer) — never the original source path.
 
 ### curriculum.json (generated, consumed by SvelteKit)
 

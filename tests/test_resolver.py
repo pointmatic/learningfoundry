@@ -608,6 +608,90 @@ class TestExerciseStatusSwitch:
             resolve_curriculum(c, tmp_path, assessment_provider=MagicMock())
 
 
+class TestExerciseAssetStaging:
+    """Story K.e — a compiled `ready` exercise's `assets: list[str]` are
+    staged into `static/exercises/<id>/<path>` via the shared assets_by_dest
+    aggregator (deduped on `dest_relative`). Stub exercises carry no assets
+    and stage nothing."""
+
+    def _exercise(self, **extra: object) -> dict:  # type: ignore[type-arg]
+        block = {"type": "exercise", "source": "nbfoundry", "ref": "exercises/e.yml"}
+        block.update(extra)
+        return block
+
+    def test_ready_exercise_assets_emit_namespaced_records(
+        self, tmp_path: Path
+    ) -> None:
+        mock_ex = MagicMock()
+        mock_ex.compile_exercise.return_value = {
+            "status": "ready",
+            "assets": ["data/img.png", "weights/model.pt"],
+        }
+        c = _curriculum_with_blocks([self._exercise(status="ready")])
+        result = resolve_curriculum(
+            c, tmp_path,
+            assessment_provider=MagicMock(),
+            exercise_provider=mock_ex,
+            visualization_provider=MagicMock(),
+        )
+        by_dest = {a.dest_relative: a for a in result.assets}
+        assert set(by_dest) == {
+            "exercises/e/data/img.png",
+            "exercises/e/weights/model.pt",
+        }
+        assert by_dest["exercises/e/data/img.png"].source == tmp_path / "data/img.png"
+
+    def test_explicit_id_namespaces_assets(self, tmp_path: Path) -> None:
+        mock_ex = MagicMock()
+        mock_ex.compile_exercise.return_value = {
+            "status": "ready",
+            "assets": ["fig.png"],
+        }
+        c = _curriculum_with_blocks([self._exercise(id="custom", status="ready")])
+        result = resolve_curriculum(
+            c, tmp_path,
+            assessment_provider=MagicMock(),
+            exercise_provider=mock_ex,
+            visualization_provider=MagicMock(),
+        )
+        assert {a.dest_relative for a in result.assets} == {"exercises/custom/fig.png"}
+
+    def test_ready_exercise_without_assets_stages_nothing(
+        self, tmp_path: Path
+    ) -> None:
+        mock_ex = MagicMock()
+        mock_ex.compile_exercise.return_value = {"status": "ready"}  # no `assets` key
+        c = _curriculum_with_blocks([self._exercise()])
+        result = resolve_curriculum(
+            c, tmp_path,
+            assessment_provider=MagicMock(),
+            exercise_provider=mock_ex,
+            visualization_provider=MagicMock(),
+        )
+        assert result.assets == []
+
+    def test_stub_exercise_stages_nothing(self, tmp_path: Path) -> None:
+        c = _curriculum_with_blocks([self._exercise(status="stub")])
+        result = resolve_curriculum(c, tmp_path, assessment_provider=MagicMock())
+        assert result.assets == []
+
+    def test_same_asset_listed_twice_is_deduped(self, tmp_path: Path) -> None:
+        mock_ex = MagicMock()
+        mock_ex.compile_exercise.return_value = {
+            "status": "ready",
+            "assets": ["fig.png", "fig.png"],
+        }
+        c = _curriculum_with_blocks([self._exercise(status="ready")])
+        result = resolve_curriculum(
+            c, tmp_path,
+            assessment_provider=MagicMock(),
+            exercise_provider=mock_ex,
+            visualization_provider=MagicMock(),
+        )
+        assert len(result.assets) == 1
+        assert result.assets[0].dest_relative == "exercises/e/fig.png"
+
+
 class TestVisualizationBlockResolution:
     def test_delegates_to_visualization_provider(self, tmp_path: Path) -> None:
         mock_vis = MagicMock()

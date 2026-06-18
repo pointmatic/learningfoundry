@@ -27,6 +27,11 @@ _TEMPLATE_DIR = Path(__file__).parent / "sveltekit_template"
 # rebuild — keeps `learningfoundry preview` snappy when only markdown
 # text changed and no new images were introduced.
 #
+# `static/exercises` is preserved for the same reason for nbfoundry exercise
+# assets (staged non-hashed under `static/exercises/<id>/<path>`, Story K.e),
+# so a rebuild that didn't touch a given exercise's assets leaves them in
+# place.
+#
 # `static/sql-wasm.wasm` is preserved because it is gitignored and not
 # shipped in the template — `pipeline._ensure_sql_wasm` is the single
 # owner that provisions it from `node_modules/`. Preserving the file
@@ -38,6 +43,7 @@ _PRESERVED_PATHS: tuple[str, ...] = (
     "build",
     ".svelte-kit",
     "static/content",
+    "static/exercises",
     "static/sql-wasm.wasm",
 )
 
@@ -238,9 +244,13 @@ def _copy_assets(resolved: ResolvedCurriculum, output_dir: Path) -> None:
     """Copy each ``Asset`` to ``output_dir/static/<dest_relative>``.
 
     Idempotent: a destination file whose size matches the source is left
-    untouched. Because ``dest_relative`` is content-hashed
-    (``content/<sha256[:12]>/<basename>``), a matching size on a path with a
-    matching hash implies matching content — re-copying would be wasted I/O.
+    untouched. For content-hashed image paths
+    (``content/<sha256[:12]>/<basename>``) a matching size on a matching-hash
+    path implies matching content, so the skip is exact. For non-hashed
+    exercise paths (``exercises/<id>/<path>``, Story K.e) the size check is a
+    cheap heuristic — a same-size edit to a staged exercise asset would be
+    skipped; the `static/exercises` preservation across rebuilds plus the
+    stable `id` namespace make that an acceptable trade for fast rebuilds.
     """
     if not resolved.assets:
         return

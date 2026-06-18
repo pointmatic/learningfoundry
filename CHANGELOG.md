@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.81.0] - 2026-06-18
+
+Exercise `id` + asset staging (Story K.e), the second of the Subphase K-1 bundle. A compiled `ready` exercise's referenced asset files are now staged into `static/exercises/<id>/<path>`, where `id` is the build-output namespace and the progress key — auto-derived from the `ref` stem and unique curriculum-wide.
+
+### Added
+
+- **`ExerciseBlock.id: str | None = None`** in `schema_v1.py`. Auto-derived from the `ref` filename stem when omitted; uniqueness enforced **curriculum-wide** on `CurriculumDef` (the id is a `static/exercises/<id>/` URL + progress key, not just per-module). A stem collision between two exercises — even in different modules — fails loud at parse time so the author sets an explicit `id`. Mirrors the `AssessmentDefinition.id` auto-gen precedent (Story J.r).
+- **Exercise asset staging in the resolver.** After compiling a `ready` exercise, the resolver reads the dict's `assets: list[str]` and emits `Asset(source=base_dir/path, dest_relative="exercises/<id>/<path>")` into the shared `assets_by_dest` aggregator (deduped on `dest_relative`). `stub` exercises carry no assets and stage nothing.
+- **`static/exercises` added to the generator's `_PRESERVED_PATHS`**, so previously-staged exercise assets survive a `learningfoundry build` re-run. The existing asset-copy loop stages exercise assets unchanged (it writes any `dest_relative`).
+
+### Changed
+
+- **Generalized the `Asset` dedup note and `_copy_assets` docstring** to cover both content-hashed image paths and non-hashed exercise paths (the dedup key is `dest_relative` for both; the size-based copy skip is exact for hashed paths, a cheap heuristic for exercise paths).
+
+### Verified
+
+- `pyve test` → 450 passed (was 437; +13 new tests across `test_schema_v1.py`, `test_resolver.py`, `test_generator.py`). No regressions.
+- `ruff check` clean; `mypy src/` clean.
+
 ## [0.80.0] - 2026-06-18
 
 Real nbfoundry exercise integration (Story K.d), the first of the Subphase K-1 bundle. Now that nbfoundry is published, `ready` exercise blocks compile through a real `NbfoundryProvider`; stub-vs-real selection is a per-block `status` field handled in the resolver, defaulting to `ready` so a typo'd `ref` fails loud instead of silently degrading to a placeholder.

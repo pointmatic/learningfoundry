@@ -98,7 +98,7 @@ Feature → **minor** bump per Version Cadence.
 - [x] Update `docs/specs/tech-spec.md` `ExerciseBlock` schema + `integrations/` listing to include `NbfoundryProvider` and the `status` field; kept `protocols.py` ↔ [consumer-dependency-spec.md](nbfoundry/consumer-dependency-spec.md) in sync (distribution table, versioning note, testing matrix).
 - [x] `CHANGELOG.md` + version bump to v0.80.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
 
-### Story K.e: v0.81.0 — Exercise `id` + asset staging into `static/exercises/<id>/` [Planned]
+### Story K.e: v0.81.0 — Exercise `id` + asset staging into `static/exercises/<id>/` [Done]
 
 Second story of the bundle. Adds the explicit exercise `id` and the asset-staging pipeline step the integration needs. The `id` is the **build-output namespace** (`static/exercises/<id>/…`) and the progress key (`exerciseRef`) — it does **not** constrain where the author organizes source content (that stays free, located by the existing relative `ref`). Asset files referenced by a compiled exercise travel as relative paths in the dict's `assets: list[str]`; the pipeline copies them into the static output (per consumer-dependency-spec BR-5).
 
@@ -106,12 +106,12 @@ Feature → **minor** bump.
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/schema_v1.py` `ExerciseBlock`: add `id: str | None = None`, auto-derived from the `ref` stem when omitted, with **curriculum-wide** uniqueness enforced at parse time (the `id` is the asset URL + progress key, so it must be unique across the whole curriculum, not just per-module). Mirror the `AssessmentDefinition.id` auto-gen precedent (Story J.r); a stem collision fails loud and the author sets an explicit `id`.
-- [ ] `src/learningfoundry/resolver.py`: after compiling a `ready` exercise, read the dict's `assets: list[str]` and emit `Asset(source=base_dir/path, dest_relative="exercises/<id>/<path>")` into the existing `assets_by_dest` aggregator. Generalize the `Asset` docstring/dedup note — the dedup key is `dest_relative`, which holds for non-hashed exercise paths too.
-- [ ] `src/learningfoundry/generator.py`: add `"static/exercises"` to `_PRESERVED_PATHS` alongside `static/content`; confirm the existing asset-copy loop stages exercise assets unchanged (it already writes any `dest_relative`).
-- [ ] `tests/`: resolver emits the expected `Asset` records for an exercise's `assets[]`; generator copies them to `static/exercises/<id>/<path>`; `id` auto-derivation + curriculum-wide uniqueness (collision → parse error); stub exercises (empty `assets`) stage nothing.
-- [ ] Update `docs/specs/tech-spec.md`: document `static/exercises/<id>/` staging in the generator section and the `id` field in the `ExerciseBlock` schema.
-- [ ] `CHANGELOG.md` + version bump to v0.81.0 (developer-driven release step).
+- [x] `src/learningfoundry/schema_v1.py` `ExerciseBlock`: add `id: str | None = None`, auto-derived from the `ref` stem (via an `autogen_id` model_validator) when omitted, with **curriculum-wide** uniqueness enforced at parse time (new `CurriculumDef.check_unique_exercise_ids` validator — the `id` is the asset URL + progress key, so it must be unique across the whole curriculum, not just per-module). Mirrors the `AssessmentDefinition.id` auto-gen precedent (Story J.r); a stem collision fails loud and the author sets an explicit `id`.
+- [x] `src/learningfoundry/resolver.py`: after compiling a `ready` exercise, reads the dict's `assets: list[str]` and emits `Asset(source=base_dir/path, dest_relative="exercises/<id>/<path>")` into the existing `assets_by_dest` aggregator. Generalized the `Asset` docstring/dedup note — the dedup key is `dest_relative`, which holds for non-hashed exercise paths too.
+- [x] `src/learningfoundry/generator.py`: added `"static/exercises"` to `_PRESERVED_PATHS` alongside `static/content`; confirmed (via test) the existing asset-copy loop stages exercise assets unchanged (it already writes any `dest_relative`); generalized the `_copy_assets` docstring for the non-hashed path.
+- [x] `tests/`: resolver emits the expected `Asset` records for an exercise's `assets[]` (+ explicit-id namespacing + same-path dedup); generator copies them to `static/exercises/<id>/<path>` + preserves them across rebuild; `id` auto-derivation + curriculum-wide uniqueness (explicit-dup and stem-collision → parse error); stub exercises (and ready-without-assets) stage nothing.
+- [x] Updated `docs/specs/tech-spec.md`: documented `static/exercises/<id>/` staging in the generator section (preserved set + step 3) and the `ResolvedCurriculum.assets` prose, and added the `id` field to the `ExerciseBlock` schema.
+- [x] `CHANGELOG.md` + version bump to v0.81.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
 
 ### Story K.f: v0.82.0 — `ExerciseBlock` ready renderer (manual-completion) + real `ExerciseContent` types [Planned]
 

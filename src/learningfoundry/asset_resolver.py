@@ -85,11 +85,20 @@ _PASSTHROUGH_PREFIXES: tuple[str, ...] = (
 class Asset:
     """A single asset that must be copied into the generated project.
 
+    ``dest_relative`` is the dedup key wherever Assets aggregate (the
+    resolver's ``assets_by_dest`` map): two records with the same
+    destination collapse to one copy. This holds both for the content-hashed
+    markdown-image paths produced here (``content/<sha256[:12]>/<basename>``,
+    where a matching hash implies matching bytes) and for the **non-hashed**
+    exercise-asset paths the resolver emits (``exercises/<id>/<path>``,
+    Story K.e) — same key, same dedup semantics.
+
     Attributes:
         source: Absolute path to the source file on disk.
         dest_relative: Destination path relative to the generated project's
-            ``static/`` directory (e.g. ``"content/abc123def456/diagram.png"``).
-            Always uses forward slashes — this becomes a URL fragment too.
+            ``static/`` directory (e.g. ``"content/abc123def456/diagram.png"``
+            or ``"exercises/mod-01-exercise-01/data/sample.csv"``). Always
+            uses forward slashes — this becomes a URL fragment too.
     """
 
     source: Path

@@ -676,3 +676,60 @@ class TestStaticContentPreserved:
         generate_app(_make_resolved(), out, template_dir=TEMPLATE_DIR)
         assert previous.is_file()
         assert previous.read_bytes() == b"old-asset-bytes"
+
+
+class TestExerciseAssetCopy:
+    """Story K.e — exercise assets (non-hashed dest `exercises/<id>/<path>`)
+    are staged by the same copy loop as content-hashed image assets."""
+
+    BYTES = b"sample-exercise-asset-bytes"
+    DEST = "exercises/mod-01-exercise-01/data/sample.csv"
+
+    def _resolved_with_exercise_asset(self, source: Path) -> ResolvedCurriculum:
+        from learningfoundry.asset_resolver import Asset
+
+        resolved = _make_resolved()
+        resolved.assets = [Asset(source=source, dest_relative=self.DEST)]
+        return resolved
+
+    def test_exercise_asset_copied_into_static_exercises(
+        self, tmp_path: Path
+    ) -> None:
+        source = tmp_path / "src" / "sample.csv"
+        source.parent.mkdir()
+        source.write_bytes(self.BYTES)
+
+        out = tmp_path / "app"
+        generate_app(
+            self._resolved_with_exercise_asset(source),
+            out,
+            template_dir=TEMPLATE_DIR,
+        )
+
+        dest = out / "static" / self.DEST
+        assert dest.is_file()
+        assert dest.read_bytes() == self.BYTES
+
+
+class TestStaticExercisesPreserved:
+    """`static/exercises/` must be in `_PRESERVED_PATHS` so previously-staged
+    exercise assets survive a `learningfoundry build` re-run (Story K.e)."""
+
+    def test_static_exercises_listed_in_preserved_paths(self) -> None:
+        from learningfoundry.generator import _PRESERVED_PATHS
+
+        assert "static/exercises" in _PRESERVED_PATHS
+
+    def test_existing_static_exercises_survives_rebuild(
+        self, tmp_path: Path
+    ) -> None:
+        out = tmp_path / "app"
+        generate_app(_make_resolved(), out, template_dir=TEMPLATE_DIR)
+
+        previous = out / "static" / "exercises" / "ex-01" / "data.csv"
+        previous.parent.mkdir(parents=True)
+        previous.write_bytes(b"old-exercise-bytes")
+
+        generate_app(_make_resolved(), out, template_dir=TEMPLATE_DIR)
+        assert previous.is_file()
+        assert previous.read_bytes() == b"old-exercise-bytes"

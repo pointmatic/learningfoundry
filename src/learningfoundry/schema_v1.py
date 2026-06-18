@@ -3,6 +3,7 @@
 """Pydantic models for curriculum YAML v1 schema."""
 
 import re
+from pathlib import Path
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -131,6 +132,15 @@ class ExerciseBlock(StrictModel):
     type: Literal["exercise"]
     source: str
     ref: str
+    # Build-output namespace (`static/exercises/<id>/…`) + progress key
+    # (`exerciseRef`) (Story K.e). Auto-derived from the `ref` stem when
+    # omitted; uniqueness is enforced **curriculum-wide** on `CurriculumDef`
+    # (the id is a URL + progress key, not just per-module). A stem collision
+    # fails loud and the author sets an explicit `id`. Mirrors the
+    # `AssessmentDefinition.id` auto-gen precedent (Story J.r). The id does
+    # not constrain where the author organizes source content — that stays
+    # located by the relative `ref`.
+    id: str | None = None
     # Single switch (Story K.d), handled in the resolver — not the provider.
     # `ready` (default) compiles via NbfoundryProvider; a typo'd `ref` fails
     # loud rather than silently degrading to a placeholder (fail-fast / OR-1).
@@ -138,6 +148,15 @@ class ExerciseBlock(StrictModel):
     # provider call, no nbfoundry import. The value space is kept identical
     # to the compiled-dict `status` and the TS type (Hidden Coupling).
     status: Literal["stub", "ready"] = "ready"
+
+    @model_validator(mode="after")
+    def autogen_id(self) -> Self:
+        """Derive ``id`` from the ``ref`` filename stem when the author
+        omits it. Curriculum-wide uniqueness of the final id set is asserted
+        on ``CurriculumDef`` (Story K.e)."""
+        if self.id is None:
+            self.id = Path(self.ref).stem
+        return self
 
 
 class VisualizationBlock(StrictModel):
@@ -340,6 +359,33 @@ class CurriculumDef(StrictModel):
                     )
                 seen_lesson_ids.add(lesson.id)
 
+        return self
+
+    @model_validator(mode="after")
+    def check_unique_exercise_ids(self) -> "CurriculumDef":
+        """Assert exercise ids are unique across the whole curriculum
+        (Story K.e). Each ``ExerciseBlock.id`` is already populated by the
+        block's own auto-gen validator (ref stem) by the time this runs, so
+        a stem collision between two exercises — even in different modules —
+        surfaces here as a loud parse-time error rather than two exercises
+        silently sharing one ``static/exercises/<id>/`` namespace and
+        progress key."""
+        seen: set[str] = set()
+        for module in self.modules:
+            for lesson in module.lessons:
+                for block in lesson.content_blocks:
+                    if not isinstance(block, ExerciseBlock):
+                        continue
+                    assert block.id is not None  # auto-gen guarantees this
+                    if block.id in seen:
+                        raise ValueError(
+                            f"Duplicate exercise id `{block.id}`. Exercise ids "
+                            "must be unique across the whole curriculum — the id "
+                            "is the `static/exercises/<id>/` asset URL and the "
+                            "progress key. Set an explicit `id:` to disambiguate "
+                            "exercises whose `ref` filenames share a stem."
+                        )
+                    seen.add(block.id)
         return self
 
 
