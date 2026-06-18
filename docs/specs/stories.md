@@ -32,7 +32,7 @@ In this phase we will complete unfinished work from previous phases and fix bugs
 
 ---
 
-### Subphase K-1: NbFoundry Integration, and Bug Fixes
+## Subphase K-1: NbFoundry Integration, and Bug Fixes
 
 - **nbfoundry real integration** — Replace `NbfoundryStub` with Marimo notebook generation when nbfoundry is published
 - **Cross-tab anti-clobber for the same `userId`.** Two tabs of the same browser, same user, can still last-writer-wins on the IDB blob — Web Locks `+` reload-on-write or BroadcastChannel-based leader election would solve it. Latent issue, distinct from this story; revisit when there's evidence of multi-tab learner workflows or sync work makes it forced. (Same scoping note as I.v.)
@@ -58,9 +58,32 @@ Debug-cycle story. Running `learningfoundry preview` against a `dist/` that need
 - [x] `CHANGELOG.md`: v0.79.3 (summary of fixes).
 - [x] Bump version to v0.79.3 in `pyproject.toml` and `src/learningfoundry/__init__.py`. The `sveltekit_template/package.json` remains pinned at `0.0.1` (template, not a published package).
 
+### Story K.b: Fix stale `tech-spec.md` "WASM Binary Handling" doc [Done]
+
+Doc-accuracy fix, surfaced during Story K.a's spec-review pass. [tech-spec.md](tech-spec.md)'s "WASM Binary Handling" section still described the pre-Story-I.cc mechanism — wasm "copied … during `pnpm install` via a postinstall script" — and an outdated `locateFile` form. Both had drifted from the implemented code: the postinstall hook was replaced by `pipeline._ensure_sql_wasm` (runs every preview/build regardless of `DepState`; raises `GenerationError` if the source is missing), and the frontend uses `locateFile: () => '/sql-wasm.wasm'` ([database.ts:204](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts#L204)), not `(file) => \`/${file}\``. No version bump (doc-only; rides the next code release).
+
+**Tasks:**
+
+- [x] `docs/specs/tech-spec.md` "WASM Binary Handling": replace the postinstall-script description with the `_ensure_sql_wasm` mechanism (every-build provisioning, content-stale size check, `GenerationError` on missing source, Story I.cc replacement note) and correct the `locateFile` form to `() => '/sql-wasm.wasm'`.
+- [x] Cross-checked against [pipeline.py `_ensure_sql_wasm`](../../src/learningfoundry/pipeline.py), [database.ts](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts), and the `project-essentials.md` "single owner of the asset" note — all three now agree.
+- [x] No code/test change — documentation only.
+
+### Story K.c: Promote sql.js robustness-patterns doc to active; archive the bug post-mortem [Done]
+
+Doc-curation follow-up to K.b's link-rot finding. Two sql.js docs had inverted lifecycles: `bug-sql-js-browser-esm-spec.md` (a *resolved* single-bug post-mortem, fully superseded by Story J.y + CHANGELOG) sat active in `docs/specs/`, while `sql-js-wasm-robustness.md` (the reusable patterns reference, linked from the Future item and `project-essentials.md`) had been renamed and archived — leaving its live links broken and its own relative links off by one directory level. The reusable reference is the one worth keeping active; the post-mortem belongs in the archive. The developer performed the file moves (un-archive + restore the `sql-js-wasm-robustness.md` name → live links auto-heal; move the bug spec to `.archive/`); this story migrates the one durable lesson from the post-mortem into the patterns doc. No version bump (doc-only; rides the next code release).
+
+**Tasks:**
+
+- [x] (developer) Un-archive and restore `docs/specs/sql-js-wasm-robustness.md` (original name → the `stories.md` Future item and `project-essentials.md` links resolve again; the doc's own `../../src/...` links are correct from `docs/specs/`). Move `bug-sql-js-browser-esm-spec.md` → `docs/specs/.archive/`.
+- [x] Migrate the durable nugget into [sql-js-wasm-robustness.md](sql-js-wasm-robustness.md): add **Pattern F — CJS/ESM interop guard for the `initSqlJs` import** (the sql.js 1.13+ UMD browser-ESM breakage, the compounding `optimizeDeps.exclude` interaction, the two-part fix: VITEST-scoped exclude + typed `CjsEsmInteropError` guard), faithful to [database.ts:197-202](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts#L197-L202) and [vite.config.ts:27](../../src/learningfoundry/sveltekit_template/vite.config.ts#L27).
+- [x] Add a cross-reference table row for the interop guard (Story J.y); extend the intro scope note; update "When to revisit" §3 to record that the export-shape drift already fired once (J.y) and now points at Patterns A **and** F. Pattern F links to the archived post-mortem for the full root-cause writeup.
+- [x] Links verified: the two live references (`stories.md` Future item, `project-essentials.md` Story I.cc note) resolve to the restored path; no link edits needed after the rename.
+- [x] No code/test change — documentation only.
+- [ ] **Follow-up (optional) — cross-link from the archived bug spec back to Pattern F.** A one-line "superseded by `sql-js-wasm-robustness.md` Pattern F" banner atop `.archive/bug-sql-js-browser-esm-spec.md` would orient anyone who lands on the post-mortem directly. Low value (archived, low traffic); deferred.
+
 ---
 
-### Subphase K-2: Assessment Scoring, Reporting, and Bug Fixes
+## Subphase K-2: Assessment Scoring, Reporting, and Bug Fixes
 
 - **`AssessmentScore` shape + `assessment_scores` table reconciliation — capture in `project-essentials.md` once J.u lands.** Story J.u's investigation task picks between "add `(module_id, assessment_id)` columns to the existing `assessment_scores` table" and "introduce a separate `module_assessment_scores` table." Whichever path lands, the rationale and the why-not of the rejected alternative belong in [project-essentials.md](project-essentials.md) under "Domain Conventions" alongside the existing "Assessment scores — aggregate only in learningfoundry" entry. Deferred from the J sub-phase project-essentials sweep because the choice isn't concrete yet; capture it as part of J.u's wrap-up or a follow-up cleanup story rather than letting it slip.
 - **Curriculum completion screen** — "Course Complete" celebration page reached after the last lesson's Finish

@@ -1,6 +1,6 @@
 # sql.js + WASM + IndexedDB — Robustness Patterns
 
-Scope-specific reference for any project that uses [sql.js](https://github.com/sql-js/sql.js) (SQLite compiled to WebAssembly, persisted to IndexedDB) in a browser app. Captures gotchas, fixes, and design decisions discovered while building learningfoundry's progress-recording layer (Stories I.v through I.bb, v0.55.0–v0.63.0).
+Scope-specific reference for any project that uses [sql.js](https://github.com/sql-js/sql.js) (SQLite compiled to WebAssembly, persisted to IndexedDB) in a browser app. Captures gotchas, fixes, and design decisions discovered while building learningfoundry's progress-recording layer (Stories I.v through I.bb, v0.55.0–v0.63.0; Pattern F added later from Story J.y, v0.79.2).
 
 **Read this before:** wiring sql.js into a new project, or reviewing a sql.js integration in a host SvelteKit app (`<QuizBlock>`-style embed) where you don't own the asset pipeline.
 
@@ -147,6 +147,37 @@ For app-shell projects: a `dbInit` writable store driven by a one-shot `initiali
 
 For embedded-component projects (the host owns the layout): expose the typed error to the host via an `onerror` callback prop or a `CustomEvent` on the component root, optionally render an internal banner inside the component bounds as a fallback. **Do not** install a layout-level singleton store from inside an embed component — you don't own the host's reactive graph.
 
+### Pattern F: CJS/ESM interop guard for the `initSqlJs` import
+
+`initSqlJs` is loaded via a dynamic `import('sql.js')`, and the shape of what comes back is **not stable across sql.js versions or Vite build modes**. sql.js 1.13+ ships `dist/sql-wasm-browser.js` as a UMD wrapper whose initializer is exported only through the CommonJS branch (`module.exports = initSqlJs; module.exports.default = initSqlJs`). In a pure browser-ESM context none of those branches runs, so `(await import('sql.js')).default` is `undefined` and the next line throws the unactionable `TypeError: initSqlJsFn is not a function`.
+
+What makes this a *trap* rather than an obvious version bug is that it composes with **Pattern C's `optimizeDeps.exclude: ['sql.js']`**. That exclude (added so vitest's dep-optimizer doesn't choke on the wasm binary) *also* disables Vite's CJS→ESM dep pre-bundling at dev-server time — and that pre-bundling layer was the thing silently synthesizing the missing `default` export. So the exclude is correct for tests and *wrong* for dev/prod, and the failure only surfaced once sql.js stopped happening to work by accident.
+
+Two-part fix:
+
+1. **Scope the optimizer exclude to test mode only**, so dev/prod regain CJS-interop pre-bundling. See [vite.config.ts:27](../../src/learningfoundry/sveltekit_template/vite.config.ts#L27):
+
+   ```ts
+   optimizeDeps: process.env.VITEST ? { exclude: ['sql.js'] } : undefined,
+   ```
+
+2. **Guard the import site with a typed error**, so the *next* drift surfaces a self-describing failure instead of a 500. See [database.ts:64, 197-202](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts#L197-L202):
+
+   ```ts
+   const mod = (await import('sql.js')) as unknown as {
+       default?: typeof initSqlJs;
+   };
+   const initSqlJsFn = mod.default;
+   if (typeof initSqlJsFn !== 'function') {
+       throw new CjsEsmInteropError();
+   }
+   const SQL = await initSqlJsFn({ locateFile: () => WASM_ASSET_URL });
+   ```
+
+**Why a typed error, not a console warning:** `CjsEsmInteropError` is the import-time sibling of Pattern A's `WasmAssetMissingError`. Pattern A guards the *asset* (is `/sql-wasm.wasm` fetchable?); Pattern F guards the *module shape* (did the import expose a callable initializer?). Both convert an opaque failure into a named, greppable one that points the next maintainer straight at the right axis.
+
+This pattern postdates the original I.v–I.bb body — it was added in Story J.y (v0.79.2) after sql.js floated from `^1.12.0` to 1.14.1. Full root-cause writeup, including the rejected fix options (a sub-1.13 pin is unreachable on npm), lives in the archived bug post-mortem: [.archive/bug-sql-js-browser-esm-spec.md](.archive/bug-sql-js-browser-esm-spec.md).
+
 ---
 
 ## Decisions left to the project
@@ -181,6 +212,7 @@ These are the axes where the right answer depends on app shape; don't pre-bake t
 |---------|------|-------|
 | `WasmAssetMissingError` class | [database.ts:39-50](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts#L39-L50) | I.aa (v0.61.0) |
 | HEAD-fetch precheck | [database.ts:154-167](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts#L154-L167) | I.aa |
+| CJS/ESM interop guard (`CjsEsmInteropError`) | [database.ts:64, 197-202](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts#L197-L202), [vite.config.ts:27](../../src/learningfoundry/sveltekit_template/vite.config.ts#L27) | J.y (v0.79.2) |
 | Init memoization | [database.ts:96-113, 134-152](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts) | I.v (v0.55.0) |
 | Per-user partitioning + legacy migration | [database.ts:206-236](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts#L206-L236), [user-id.ts](../../src/learningfoundry/sveltekit_template/src/lib/db/user-id.ts) | I.x (v0.58.0) |
 | Build-time WASM provisioning | [pipeline.py `_ensure_sql_wasm`](../../src/learningfoundry/pipeline.py) | I.aa |
@@ -195,5 +227,5 @@ These are the axes where the right answer depends on app shape; don't pre-bake t
 
 - A *third* sql.js consumer appears in the Pointmatic codebase. Two consumers don't justify a shared library; three usually do.
 - learningfoundry and quizazz independently grow features that mirror each other (schema versioning, multi-DB, sync). That's the signal that the abstraction shape has firmed up enough to extract.
-- A new sql.js release changes the failure semantics (e.g., the module-level cache behavior, the `locateFile` contract, the wasm filename). Review Pattern A and update the precheck.
+- A new sql.js release changes the failure semantics (e.g., the module-level cache behavior, the `locateFile` contract, the wasm filename, **or the module export shape**). This already fired once: sql.js 1.13+ broke the browser-ESM import (Story J.y), which is what Pattern F now guards. Review Patterns A **and F** and update the precheck / interop guard.
 - Browser quota / `QuotaExceededError` becomes a real user complaint. Add a "What this doesn't cover" → in-scope migration.
