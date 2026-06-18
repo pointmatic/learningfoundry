@@ -124,6 +124,47 @@ class TestContentBlockTypes:
         )
         assert block.source == "nbfoundry"
 
+    def test_exercise_block_status_defaults_to_ready(self) -> None:
+        # Default `ready` so a real exercise with a typo'd ref fails loud
+        # (fail-fast / OR-1) instead of silently degrading to a placeholder.
+        block = ExerciseBlock.model_validate(
+            {"type": "exercise", "source": "nbfoundry", "ref": "exercises/e.yml"}
+        )
+        assert block.status == "ready"
+
+    def test_exercise_block_status_stub_is_explicit_opt_in(self) -> None:
+        block = ExerciseBlock.model_validate(
+            {
+                "type": "exercise",
+                "source": "nbfoundry",
+                "ref": "exercises/e.yml",
+                "status": "stub",
+            }
+        )
+        assert block.status == "stub"
+
+    def test_exercise_block_status_ready_explicit(self) -> None:
+        block = ExerciseBlock.model_validate(
+            {
+                "type": "exercise",
+                "source": "nbfoundry",
+                "ref": "exercises/e.yml",
+                "status": "ready",
+            }
+        )
+        assert block.status == "ready"
+
+    def test_exercise_block_rejects_unknown_status(self) -> None:
+        with pytest.raises(ValidationError):
+            ExerciseBlock.model_validate(
+                {
+                    "type": "exercise",
+                    "source": "nbfoundry",
+                    "ref": "exercises/e.yml",
+                    "status": "done",
+                }
+            )
+
     def test_visualization_block(self) -> None:
         block = VisualizationBlock.model_validate(
             {

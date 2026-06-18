@@ -131,6 +131,13 @@ class ExerciseBlock(StrictModel):
     type: Literal["exercise"]
     source: str
     ref: str
+    # Single switch (Story K.d), handled in the resolver — not the provider.
+    # `ready` (default) compiles via NbfoundryProvider; a typo'd `ref` fails
+    # loud rather than silently degrading to a placeholder (fail-fast / OR-1).
+    # `stub` is the explicit "not built yet" opt-in → placeholder dict, no
+    # provider call, no nbfoundry import. The value space is kept identical
+    # to the compiled-dict `status` and the TS type (Hidden Coupling).
+    status: Literal["stub", "ready"] = "ready"
 
 
 class VisualizationBlock(StrictModel):

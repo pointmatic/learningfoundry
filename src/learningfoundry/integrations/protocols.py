@@ -3,9 +3,10 @@
 """Provider protocols defining integration contracts for learningfoundry."""
 
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 
+@runtime_checkable
 class AssessmentProvider(Protocol):
     def compile_assessment(self, ref_path: Path, base_dir: Path) -> dict:  # type: ignore[type-arg]
         """Compile an assessment YAML file into a renderable manifest dict.
@@ -16,6 +17,7 @@ class AssessmentProvider(Protocol):
         ...
 
 
+@runtime_checkable
 class ExerciseProvider(Protocol):
     def compile_exercise(self, ref_path: Path, base_dir: Path) -> dict:  # type: ignore[type-arg]
         """Compile an exercise YAML file into a renderable exercise dict.
@@ -26,6 +28,7 @@ class ExerciseProvider(Protocol):
         ...
 
 
+@runtime_checkable
 class VisualizationProvider(Protocol):
     def compile_visualization(self, ref_path: Path, base_dir: Path) -> dict:  # type: ignore[type-arg]
         """Compile a visualization definition into a renderable artifact dict.

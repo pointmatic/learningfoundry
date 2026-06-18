@@ -79,7 +79,56 @@ Doc-curation follow-up to K.b's link-rot finding. Two sql.js docs had inverted l
 - [x] Add a cross-reference table row for the interop guard (Story J.y); extend the intro scope note; update "When to revisit" §3 to record that the export-shape drift already fired once (J.y) and now points at Patterns A **and** F. Pattern F links to the archived post-mortem for the full root-cause writeup.
 - [x] Links verified: the two live references (`stories.md` Future item, `project-essentials.md` Story I.cc note) resolve to the restored path; no link edits needed after the rename.
 - [x] No code/test change — documentation only.
-- [ ] **Follow-up (optional) — cross-link from the archived bug spec back to Pattern F.** A one-line "superseded by `sql-js-wasm-robustness.md` Pattern F" banner atop `.archive/bug-sql-js-browser-esm-spec.md` would orient anyone who lands on the post-mortem directly. Low value (archived, low traffic); deferred.
+- [x] **Follow-up (optional) — cross-link from the archived bug spec back to Pattern F.** A one-line "superseded by `sql-js-wasm-robustness.md` Pattern F" banner atop `.archive/bug-sql-js-browser-esm-spec.md` would orient anyone who lands on the post-mortem directly. Low value (archived, low traffic); deferred.
+
+### Story K.d: v0.80.0 — Real `NbfoundryProvider` + `[nbfoundry]` extra + `status` handling [Done]
+
+First story of the NbFoundry integration bundle (see [phase-k-1-nbfoundry-integration-plan.md](phase-k-1-nbfoundry-integration-plan.md)). Now that nbfoundry is published, add a real `ExerciseProvider` that delegates to `nbfoundry.compile_exercise`. Selection is per-block via a `status: stub | ready` field on the exercise block — reusing the existing `status` value space (the same word the compiled dict and `ExerciseBlock.svelte` already use), not a new property. `status` is the **single switch**, handled in the resolver: a `stub` block emits a placeholder dict directly (no provider call, no nbfoundry import); a `ready` block is compiled by the one `NbfoundryProvider`. There is **no two-provider fork** — `NbfoundryStub` is demoted to a test double / explicit injectable (e.g. a "no-notebooks" global override), not a routing target. Default `ready`, so a real exercise with a typo'd `ref` fails loud (fail-fast / OR-1) instead of silently degrading to a placeholder; `status: stub` is the explicit "not built yet" opt-in. Python-only and shippable alone — the existing thin `ready` renderer keeps drawing instructions+hints until K.f.
+
+Feature → **minor** bump per Version Cadence.
+
+**Tasks:**
+
+- [x] `src/learningfoundry/integrations/nbfoundry.py` (new file, copyright header): `NbfoundryProvider` mirroring [`QuizazzProvider`](../../src/learningfoundry/integrations/quizazz.py). Keep `compile_exercise(ref_path, base_dir)` **signature-identical** to the `ExerciseProvider` protocol and nbfoundry's API — do **not** add a `status` param (it would diverge from `nbfoundry.compile_exercise(yaml_path, base_dir)` and break the protocol-match contract test; `status` is handled in the resolver, not here). Lazy `from nbfoundry import compile_exercise`; `ImportError` with a `pip install learningfoundry[nbfoundry]` hint; wrap any nbfoundry exception in `IntegrationError` citing `ref_path`. `NbfoundryStub` is retained as a test double / injectable only — not the default, not status-routed.
+- [x] `pyproject.toml`: add `[project.optional-dependencies].nbfoundry = ["nbfoundry>=0.1"]` (floor mirrors the existing `quizazz>=0.1` extra, per developer decision) + a mypy `ignore_missing_imports` override for `nbfoundry`.
+- [x] `src/learningfoundry/schema_v1.py` `ExerciseBlock`: add `status: Literal["stub", "ready"] = "ready"`. Keep the input enum's value space identical to the compiled-dict `status` and the TS type (Hidden Coupling: Pydantic input ↔ dict ↔ TS).
+- [x] `src/learningfoundry/resolver.py`: handle `block.status` in one place — `"stub"` → emit the placeholder dict via a single factory (extracted `NbfoundryStub`'s placeholder logic into a module-level `stub_exercise(ref)` helper in `nbfoundry_stub.py` that both the resolver and the retained `NbfoundryStub` call); else → `exercise_provider.compile_exercise(ref, base_dir)`. One injected provider (default `NbfoundryProvider`); the stub path makes no provider call and imports no nbfoundry, so an all-`stub` curriculum never imports it. The status switch lives in the resolver, **not** in the provider method.
+- [x] `tests/test_integrations/test_nbfoundry.py` (new): mock `nbfoundry.compile_exercise` (mirror `test_quizazz.py` — no nbfoundry install needed); cover delegation, `IntegrationError` wrapping, and the missing-package `ImportError` hint. Contract test asserts `NbfoundryProvider` satisfies the `ExerciseProvider` protocol — both a mypy-checked typed assignment (signature) and a runtime `isinstance` (the protocols are now `@runtime_checkable`).
+- [x] `tests/` resolver coverage: `status: stub` emits the placeholder without invoking the provider (and without importing nbfoundry); `status: ready` (and default) invokes `NbfoundryProvider`; a `ready` block whose `ref` is missing fails loud (no silent stub fallback). Also covers the default-provider swap (a default-provider `ready` block routes to the real provider, not the stub).
+- [x] Update `docs/specs/tech-spec.md` `ExerciseBlock` schema + `integrations/` listing to include `NbfoundryProvider` and the `status` field; kept `protocols.py` ↔ [consumer-dependency-spec.md](nbfoundry/consumer-dependency-spec.md) in sync (distribution table, versioning note, testing matrix).
+- [x] `CHANGELOG.md` + version bump to v0.80.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+
+### Story K.e: v0.81.0 — Exercise `id` + asset staging into `static/exercises/<id>/` [Planned]
+
+Second story of the bundle. Adds the explicit exercise `id` and the asset-staging pipeline step the integration needs. The `id` is the **build-output namespace** (`static/exercises/<id>/…`) and the progress key (`exerciseRef`) — it does **not** constrain where the author organizes source content (that stays free, located by the existing relative `ref`). Asset files referenced by a compiled exercise travel as relative paths in the dict's `assets: list[str]`; the pipeline copies them into the static output (per consumer-dependency-spec BR-5).
+
+Feature → **minor** bump.
+
+**Tasks:**
+
+- [ ] `src/learningfoundry/schema_v1.py` `ExerciseBlock`: add `id: str | None = None`, auto-derived from the `ref` stem when omitted, with **curriculum-wide** uniqueness enforced at parse time (the `id` is the asset URL + progress key, so it must be unique across the whole curriculum, not just per-module). Mirror the `AssessmentDefinition.id` auto-gen precedent (Story J.r); a stem collision fails loud and the author sets an explicit `id`.
+- [ ] `src/learningfoundry/resolver.py`: after compiling a `ready` exercise, read the dict's `assets: list[str]` and emit `Asset(source=base_dir/path, dest_relative="exercises/<id>/<path>")` into the existing `assets_by_dest` aggregator. Generalize the `Asset` docstring/dedup note — the dedup key is `dest_relative`, which holds for non-hashed exercise paths too.
+- [ ] `src/learningfoundry/generator.py`: add `"static/exercises"` to `_PRESERVED_PATHS` alongside `static/content`; confirm the existing asset-copy loop stages exercise assets unchanged (it already writes any `dest_relative`).
+- [ ] `tests/`: resolver emits the expected `Asset` records for an exercise's `assets[]`; generator copies them to `static/exercises/<id>/<path>`; `id` auto-derivation + curriculum-wide uniqueness (collision → parse error); stub exercises (empty `assets`) stage nothing.
+- [ ] Update `docs/specs/tech-spec.md`: document `static/exercises/<id>/` staging in the generator section and the `id` field in the `ExerciseBlock` schema.
+- [ ] `CHANGELOG.md` + version bump to v0.81.0 (developer-driven release step).
+
+### Story K.f: v0.82.0 — `ExerciseBlock` ready renderer (manual-completion) + real `ExerciseContent` types [Planned]
+
+Third story of the bundle. Builds out the `ready`-state renderer that [ExerciseBlock.svelte](../../src/learningfoundry/sveltekit_template/src/lib/components/ExerciseBlock.svelte) currently stubs (it draws only instructions + hints today). Manual-completion flavor only — graded submission is deferred to `## Future`.
+
+Feature → **minor** bump.
+
+**Tasks:**
+
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts` `ExerciseContent`: replace the `unknown[]` placeholders with real `sections` (title/description/code/editable) and `expected_outputs` (description/type/path|content/alt) shapes, plus `assets: string[]`. This is the Python-dict ↔ TS Hidden Coupling — keep it in lockstep with the compiled dict.
+- [ ] `ExerciseBlock.svelte` `ready` branch: render `sections` (code blocks, read-only in v1 — the `editable` flag is reserved for the WASM future), `expected_outputs` (text/table inline; `type: image` via runtime-composed `/exercises/${id}/${path}` with `alt` + `loading="lazy"`), and `hints`.
+- [ ] "Mark as Complete" control → fire the `complete` event `{ exerciseRef: id, status: "completed" }` → write `exercise_status` via the progress repo. (No scoring — `submission` is deferred.)
+- [ ] **Pin the open item:** confirm against the released nbfoundry whether the compiled dict carries a runnable-notebook location. If yes, surface it ("open `<relative-path>` and run locally"); if no, rely on the rendered `sections` + the learner's cloned curriculum repo. Record the resolution in this story.
+- [ ] `vitest` coverage: ready renderer draws sections/expected_outputs/hints; image outputs compose the `/exercises/<id>/<path>` URL; "Mark as Complete" fires the event and records `exercise_status`; stub status still renders the placeholder.
+- [ ] Update `docs/specs/features.md` FR-6 (nbfoundry integration) rendering behavior and `tech-spec.md` `ExerciseContent` types to match.
+- [ ] `README.md` — add an "Authoring nbfoundry exercises" section (author-facing) covering the end-to-end workflow: referencing an exercise (`source: nbfoundry`, `ref`, `status: stub|ready`), how `id` works (auto-derived from the `ref` stem, curriculum-wide unique), and **worked examples** of organizing content freely vs. the flat `static/exercises/<id>/` output — including the `exercise.yml`-stem collision case that forces an explicit `id`, and that a stable `id` keeps asset URLs + progress intact across source reorganization. (This is the author-facing home for the `id`-vs-source-layout guidance — instructive to the curriculum author, not an LLM must-know.)
+- [ ] `CHANGELOG.md` + version bump to v0.82.0 (developer-driven release step).
 
 ---
 
@@ -101,6 +150,9 @@ This section captures items intentionally deferred from the active phases above:
 The `archive_stories` mode preserves this section verbatim when archiving stories.md.
 -->
 
+- **Graded exercise submission.** The optional `submission` block (typed input fields + the locked `range`/`equals`/`contains_all` scoring formula + score storage). Deferred from Subphase K-1 — K.f ships the manual-completion ("Mark as Complete") path first. Forward-compatible by design: the `submission` schema is the author's success contract independent of *how* values are captured, so adding it later needs no exercise-YAML rewrites. Revisit after the manual-completion path proves out; it forces a score-storage decision (a score column on `exercise_status` vs. a parallel `exercise_scores` table mirroring `assessment_scores`). See [nbfoundry/consumer-dependency-spec.md](nbfoundry/consumer-dependency-spec.md) § submission block.
+- **Marimo WASM exercise embed ("Option A").** In-browser notebook execution via Pyodide, replacing the v1 local-run + manual-completion flow. Deferred from K-1; the v1 contract is forward-designed (the same `submission` schema is satisfied by Marimo cell outputs) so authored exercises don't need rewriting when it lands. Cons noted in the dependency spec: ~40MB Pyodide payload, cold-start latency, no PyTorch/GPU under WASM. Revisit for non-GPU exercises.
+- **Curriculum application bundle.** v1 distributes the entire curriculum (the LearningFoundry app + toolchain: quizazz, nbfoundry, DataRefinery, modelfoundry + all authored artifacts) via `git clone`. A packaged/installable application bundle is deferred until distribution beyond clone is needed.
 - **lmentry integration** — Direct LLM invocation for content generation (currently done externally)
 - **d3foundry real integration** — Replace `D3foundryStub` with D3.js visualization generation when d3foundry is published
 - **Reset button** — Course / module / lesson progress reset; defined in sub-plan, deferred from I.j

@@ -468,6 +468,146 @@ class TestExerciseBlockResolution:
         assert block.type == "exercise"
 
 
+class TestExerciseStatusSwitch:
+    """Story K.d — the resolver owns the `status` switch: `stub` emits the
+    placeholder via `stub_exercise` (no provider call, no nbfoundry import);
+    `ready` (and the default) compiles via the injected provider and fails
+    loud — never silently degrading to a placeholder."""
+
+    def test_stub_status_emits_placeholder_without_provider_call(
+        self, tmp_path: Path
+    ) -> None:
+        from learningfoundry.integrations.nbfoundry_stub import stub_exercise
+
+        mock_ex = MagicMock()
+        c = _curriculum_with_blocks(
+            [
+                {
+                    "type": "exercise",
+                    "source": "nbfoundry",
+                    "ref": "exercises/e.yml",
+                    "status": "stub",
+                }
+            ]
+        )
+        result = resolve_curriculum(
+            c, tmp_path,
+            assessment_provider=MagicMock(),
+            exercise_provider=mock_ex,
+            visualization_provider=MagicMock(),
+        )
+        mock_ex.compile_exercise.assert_not_called()
+        block = result.modules[0].lessons[0].content_blocks[0]
+        assert block.content == stub_exercise(Path("exercises/e.yml"))
+
+    def test_stub_status_never_imports_nbfoundry_with_default_provider(
+        self, tmp_path: Path
+    ) -> None:
+        # No injected provider → default NbfoundryProvider. An all-stub
+        # curriculum resolves cleanly even though nbfoundry is not installed,
+        # because the stub path makes no provider call (and thus no import).
+        c = _curriculum_with_blocks(
+            [
+                {
+                    "type": "exercise",
+                    "source": "nbfoundry",
+                    "ref": "exercises/e.yml",
+                    "status": "stub",
+                }
+            ]
+        )
+        result = resolve_curriculum(c, tmp_path, assessment_provider=MagicMock())
+        block = result.modules[0].lessons[0].content_blocks[0]
+        assert block.content["status"] == "stub"
+
+    def test_ready_status_invokes_provider(self, tmp_path: Path) -> None:
+        mock_ex = MagicMock()
+        mock_ex.compile_exercise.return_value = {"status": "ready", "title": "Ex"}
+        c = _curriculum_with_blocks(
+            [
+                {
+                    "type": "exercise",
+                    "source": "nbfoundry",
+                    "ref": "exercises/e.yml",
+                    "status": "ready",
+                }
+            ]
+        )
+        result = resolve_curriculum(
+            c, tmp_path,
+            assessment_provider=MagicMock(),
+            exercise_provider=mock_ex,
+            visualization_provider=MagicMock(),
+        )
+        mock_ex.compile_exercise.assert_called_once_with(
+            Path("exercises/e.yml"), tmp_path
+        )
+        block = result.modules[0].lessons[0].content_blocks[0]
+        assert block.content["status"] == "ready"
+
+    def test_default_status_invokes_provider(self, tmp_path: Path) -> None:
+        # No `status` key → defaults to `ready` → provider is called.
+        mock_ex = MagicMock()
+        mock_ex.compile_exercise.return_value = {"status": "ready"}
+        c = _curriculum_with_blocks(
+            [{"type": "exercise", "source": "nbfoundry", "ref": "exercises/e.yml"}]
+        )
+        resolve_curriculum(
+            c, tmp_path,
+            assessment_provider=MagicMock(),
+            exercise_provider=mock_ex,
+            visualization_provider=MagicMock(),
+        )
+        mock_ex.compile_exercise.assert_called_once()
+
+    def test_ready_block_failure_fails_loud_no_stub_fallback(
+        self, tmp_path: Path
+    ) -> None:
+        # A `ready` exercise whose ref can't be compiled must surface the
+        # error — not silently fall back to a placeholder (OR-1 fail-fast).
+        mock_ex = MagicMock()
+        mock_ex.compile_exercise.side_effect = FileNotFoundError(
+            "exercises/e.yml missing"
+        )
+        c = _curriculum_with_blocks(
+            [
+                {
+                    "type": "exercise",
+                    "source": "nbfoundry",
+                    "ref": "exercises/e.yml",
+                    "status": "ready",
+                }
+            ]
+        )
+        with pytest.raises(ContentResolutionError):
+            resolve_curriculum(
+                c, tmp_path,
+                assessment_provider=MagicMock(),
+                exercise_provider=mock_ex,
+                visualization_provider=MagicMock(),
+            )
+
+    def test_default_provider_is_nbfoundry_provider_not_stub(
+        self, tmp_path: Path
+    ) -> None:
+        # With the default provider and a `ready` block, compilation routes
+        # to the real NbfoundryProvider. nbfoundry is not installed, so it
+        # raises ImportError (wrapped) — proving the default is no longer the
+        # stub (which would have silently produced a placeholder).
+        c = _curriculum_with_blocks(
+            [
+                {
+                    "type": "exercise",
+                    "source": "nbfoundry",
+                    "ref": "exercises/e.yml",
+                    "status": "ready",
+                }
+            ]
+        )
+        with pytest.raises(ContentResolutionError, match="nbfoundry"):
+            resolve_curriculum(c, tmp_path, assessment_provider=MagicMock())
+
+
 class TestVisualizationBlockResolution:
     def test_delegates_to_visualization_provider(self, tmp_path: Path) -> None:
         mock_vis = MagicMock()

@@ -4,7 +4,7 @@
 
 from pathlib import Path
 
-from learningfoundry.integrations.nbfoundry_stub import NbfoundryStub
+from learningfoundry.integrations.nbfoundry_stub import NbfoundryStub, stub_exercise
 
 # Keys required by the ExerciseContent TypeScript interface in lib/types/index.ts
 _EXERCISE_CONTENT_KEYS = {
@@ -66,3 +66,32 @@ class TestNbfoundryStub:
             Path("exercises/mod-02-exercise-02.yml"), self.base
         )
         assert other["title"] != self.result["title"]
+
+
+class TestStubExerciseHelper:
+    """The placeholder dict is produced by a single module-level factory
+    (Story K.d) so both the resolver's `status: stub` path and the
+    retained `NbfoundryStub` share one source of truth — and the resolver
+    never has to import or call nbfoundry for a stub block."""
+
+    ref = Path("exercises/mod-01-exercise-01.yml")
+
+    def test_returns_dict_with_all_exercise_content_keys(self) -> None:
+        result = stub_exercise(self.ref)
+        assert isinstance(result, dict)
+        assert _EXERCISE_CONTENT_KEYS.issubset(result.keys())
+
+    def test_status_is_stub(self) -> None:
+        assert stub_exercise(self.ref)["status"] == "stub"
+
+    def test_title_and_ref_carry_the_path(self) -> None:
+        result = stub_exercise(self.ref)
+        assert "mod-01-exercise-01" in result["title"]
+        assert "mod-01-exercise-01" in result["ref"]
+
+    def test_stub_provider_delegates_to_helper(self) -> None:
+        # NbfoundryStub.compile_exercise is now a thin wrapper over the
+        # shared factory — both produce an identical placeholder.
+        assert NbfoundryStub().compile_exercise(self.ref, Path("/curriculum")) == (
+            stub_exercise(self.ref)
+        )

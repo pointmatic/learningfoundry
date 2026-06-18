@@ -110,8 +110,9 @@ def resolve_curriculum(
         base_dir: Root directory for resolving relative content paths.
         assessment_provider: Provider for assessment blocks. If None, uses
             ``QuizazzProvider`` (requires the ``quizazz`` package).
-        exercise_provider: Provider for ``exercise`` blocks. If None, uses
-            ``NbfoundryStub``.
+        exercise_provider: Provider for ``ready`` ``exercise`` blocks. If None,
+            uses ``NbfoundryProvider`` (requires the ``nbfoundry`` package).
+            ``stub`` blocks bypass the provider entirely (Story K.d).
         visualization_provider: Provider for ``visualization`` blocks. If None,
             uses ``D3foundryStub``.
 
@@ -127,9 +128,9 @@ def resolve_curriculum(
 
         assessment_provider = QuizazzProvider()
     if exercise_provider is None:
-        from learningfoundry.integrations.nbfoundry_stub import NbfoundryStub
+        from learningfoundry.integrations.nbfoundry import NbfoundryProvider
 
-        exercise_provider = NbfoundryStub()
+        exercise_provider = NbfoundryProvider()
     if visualization_provider is None:
         from learningfoundry.integrations.d3foundry_stub import D3foundryStub
 
@@ -345,7 +346,16 @@ def _resolve_block(
                 type="assessment", source=block.source, ref=block.ref, content=manifest
             )
         if isinstance(block, ExerciseBlock):
-            content = exercise_provider.compile_exercise(Path(block.ref), base_dir)
+            # Single `status` switch (Story K.d). `stub` → placeholder dict
+            # via the shared factory; no provider call, so an all-stub
+            # curriculum never imports nbfoundry. `ready` (default) compiles
+            # via the provider and fails loud on a bad ref (no stub fallback).
+            if block.status == "stub":
+                from learningfoundry.integrations.nbfoundry_stub import stub_exercise
+
+                content = stub_exercise(Path(block.ref))
+            else:
+                content = exercise_provider.compile_exercise(Path(block.ref), base_dir)
             return ResolvedContentBlock(
                 type="exercise", source=block.source, ref=block.ref, content=content
             )

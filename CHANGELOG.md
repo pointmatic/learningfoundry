@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.80.0] - 2026-06-18
+
+Real nbfoundry exercise integration (Story K.d), the first of the Subphase K-1 bundle. Now that nbfoundry is published, `ready` exercise blocks compile through a real `NbfoundryProvider`; stub-vs-real selection is a per-block `status` field handled in the resolver, defaulting to `ready` so a typo'd `ref` fails loud instead of silently degrading to a placeholder.
+
+### Added
+
+- **`NbfoundryProvider` (`integrations/nbfoundry.py`).** A real `ExerciseProvider` that lazy-imports and delegates to `nbfoundry.compile_exercise(ref_path, base_dir)`, returning its dict unchanged. Missing package → `ImportError` with a `pip install learningfoundry[nbfoundry]` hint; any nbfoundry error → `IntegrationError` citing `ref_path`. Signature-identical to the protocol — the `status` switch lives in the resolver, not the provider.
+- **`[nbfoundry]` optional-dependency extra (`nbfoundry>=0.1`)** in `pyproject.toml`, plus a mypy `ignore_missing_imports` override mirroring `quizazz`.
+- **`ExerciseBlock.status: Literal["stub", "ready"] = "ready"`** in `schema_v1.py`. `ready` (default) compiles via `NbfoundryProvider`; `stub` is the explicit "not built yet" opt-in.
+- **`stub_exercise(ref_path)` factory (`integrations/nbfoundry_stub.py`).** Single source of truth for the placeholder dict, shared by the resolver's `stub` path and the retained `NbfoundryStub`.
+
+### Changed
+
+- **Resolver owns the `status` switch.** `status: stub` emits `stub_exercise()` directly — no provider call, no nbfoundry import, so an all-stub curriculum never imports nbfoundry. `status: ready`/default compiles via the provider and fails loud on a bad ref. The default exercise provider is now `NbfoundryProvider` (was `NbfoundryStub`).
+- **`NbfoundryStub` demoted to a test double / "no-notebooks" injectable** — it is no longer the default provider and is never selected by the `status` switch.
+- **Provider protocols are now `@runtime_checkable`**, enabling runtime `isinstance` conformance assertions alongside the mypy-checked contract.
+
+### Verified
+
+- `pyve test` → 437 passed (was 413; +24 new tests across `test_nbfoundry.py`, `test_nbfoundry_stub.py`, `test_schema_v1.py`, `test_resolver.py`). No regressions.
+- `ruff check` clean; `mypy src/` clean. The protocol-match contract is enforced in CI via the resolver's `exercise_provider = NbfoundryProvider()` default assignment into an `ExerciseProvider`-typed slot.
+
 ## [0.79.3] - 2026-06-15
 
 Fix `learningfoundry preview` appearing to hang silently during the `pnpm install` step and then reporting an empty failure on Ctrl-C. The install step captured pnpm's output (with no timeout) while leaving stdin attached, so progress and any interactive prompt were hidden — a prompting or slow install looked like a silent hang — and a non-zero exit produced `` `pnpm install` failed in `dist`: `` with nothing after the colon. Fixed via Story K.a.

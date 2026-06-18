@@ -1,6 +1,8 @@
 <!-- Copyright (c) 2026 Michael Smith -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
+**Superseded by `docs/specs/sql-js-wasm-robustness.md` Pattern F**
+
 # LearningFoundry spec: `sql.js` browser ESM import breakage in preview
 
 Status: **fixed in v0.79.2** (Story J.y) — via Option E + Option C, not Option A or B. The Option A "pin to `>=1.12.0 <1.13.0`" recommendation in this spec is *unreachable* (the only sub-1.13 version on npm is `1.12.0`, and its emscripten runtime breaks the vitest+jsdom test infra). Option B's subpath import has the same Node-vs-browser bundle-flavor problem. The landed fix scopes [vite.config.ts](../../src/learningfoundry/sveltekit_template/vite.config.ts)'s `optimizeDeps.exclude: ['sql.js']` to `process.env.VITEST` only, restoring Vite's CJS→ESM dep pre-bundling in dev/prod while preserving the vitest 4.x WASM-magic-header workaround; combined with an Option C `CjsEsmInteropError` backstop in [database.ts](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts) for future-drift visibility. See Story J.y for details.

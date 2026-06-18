@@ -50,8 +50,9 @@ For requirements and behavior, see [`features.md`](features.md). For the impleme
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `quizazz` | `>=0.1` | Assessment YAML → JSON manifest compilation (first-party) |
+| `nbfoundry` | `>=0.1` | Exercise YAML → renderable exercise dict compilation (first-party) |
 
-nbfoundry is not yet published. learningfoundry defines an `ExerciseProvider` protocol; a stub implementation ships for v1. The real nbfoundry integration will be added when nbfoundry is available as a package.
+Both integrations are optional extras (`learningfoundry[quizazz]`, `learningfoundry[nbfoundry]`); the provider's lazy import raises a `pip install learningfoundry[<extra>]` hint when the package is absent. Exercise selection is per-block via the `status` field (Story K.d): a `ready` block compiles through `NbfoundryProvider`; a `stub` block emits a placeholder via `stub_exercise` and never imports nbfoundry. `NbfoundryStub` is retained only as a test double / explicit "no-notebooks" injectable — it is no longer the default provider.
 
 ### SvelteKit App Runtime Dependencies (`package.json`)
 
@@ -110,9 +111,10 @@ learningfoundry/
 │       ├── generator.py                    # SvelteKit project generation from resolved curriculum
 │       ├── integrations/
 │       │   ├── __init__.py
-│       │   ├── protocols.py                # AssessmentProvider, ExerciseProvider, and VisualizationProvider protocols
+│       │   ├── protocols.py                # AssessmentProvider, ExerciseProvider, and VisualizationProvider protocols (runtime_checkable)
 │       │   ├── quizazz.py                  # quizazz integration (delegates to quizazz.compile_assessment)
-│       │   ├── nbfoundry_stub.py           # Stub ExerciseProvider for v1
+│       │   ├── nbfoundry.py                # nbfoundry integration (delegates to nbfoundry.compile_exercise)
+│       │   ├── nbfoundry_stub.py           # stub_exercise() factory + NbfoundryStub test-double provider
 │       │   └── d3foundry_stub.py           # Stub VisualizationProvider for v1
 │       ├── exceptions.py                   # Project-specific exception hierarchy
 │       └── logging_config.py              # Logging setup (stdlib logging, structured formatters)
@@ -173,7 +175,8 @@ learningfoundry/
 │   ├── test_cli.py                         # CLI integration tests (build, validate, preview)
 │   └── test_integrations/
 │       ├── test_quizazz.py                 # quizazz integration (mocked builder calls)
-│       ├── test_nbfoundry_stub.py          # Stub exercise provider behavior
+│       ├── test_nbfoundry.py               # nbfoundry integration (mocked compile_exercise)
+│       ├── test_nbfoundry_stub.py          # stub_exercise() factory + NbfoundryStub behavior
 │       └── test_d3foundry_stub.py          # Stub visualization provider behavior
 │
 └── docs/
@@ -355,6 +358,11 @@ class ExerciseBlock(BaseModel):
     type: str = "exercise"
     source: str                     # "nbfoundry"
     ref: str                        # Path to nbfoundry exercise YAML
+    status: Literal["stub", "ready"] = "ready"  # Story K.d — resolver-owned
+                                    # switch: "ready" compiles via
+                                    # NbfoundryProvider (fail-loud on bad ref);
+                                    # "stub" emits a placeholder, no provider
+                                    # call, no nbfoundry import.
 
 class VisualizationBlock(BaseModel):
     type: str = "visualization"
@@ -523,7 +531,9 @@ def resolve_curriculum(
       (deduped globally by content hash).
     - video blocks: validate YouTube URL, pass through
     - assessment blocks: delegate to assessment_provider
-    - exercise blocks: delegate to exercise_provider
+    - exercise blocks: `status: ready` (default) delegates to
+      exercise_provider; `status: stub` emits stub_exercise() directly
+      (no provider call, no nbfoundry import) (Story K.d)
     - visualization blocks: delegate to visualization_provider
 
     Raises ContentResolutionError on missing files (markdown or referenced
@@ -666,10 +676,13 @@ def resolve_markdown_assets(
 
 ### `integrations/protocols.py` — Provider Protocols
 
+All three protocols are `@runtime_checkable` so provider conformance can be asserted at test time (`isinstance(provider, ExerciseProvider)`), complementing the mypy-checked typed-assignment contract test.
+
 ```python
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 from pathlib import Path
 
+@runtime_checkable
 class AssessmentProvider(Protocol):
     def compile_assessment(self, ref_path: Path, base_dir: Path) -> dict:
         """
@@ -679,6 +692,7 @@ class AssessmentProvider(Protocol):
         """
         ...
 
+@runtime_checkable
 class ExerciseProvider(Protocol):
     def compile_exercise(self, ref_path: Path, base_dir: Path) -> dict:
         """
@@ -688,6 +702,7 @@ class ExerciseProvider(Protocol):
         """
         ...
 
+@runtime_checkable
 class VisualizationProvider(Protocol):
     def compile_visualization(self, ref_path: Path, base_dir: Path) -> dict:
         """
@@ -723,35 +738,68 @@ class QuizazzProvider:
         ...
 ```
 
-### `integrations/nbfoundry_stub.py` — Stub Exercise Provider
+### `integrations/nbfoundry.py` — nbfoundry Integration (Story K.d)
 
 ```python
 from pathlib import Path
 from learningfoundry.integrations.protocols import ExerciseProvider
 
-class NbfoundryStub:
+class NbfoundryProvider:
     """
-    Stub ExerciseProvider for v1.
+    ExerciseProvider implementation backed by the nbfoundry package.
 
-    Returns a placeholder exercise dict with the ref path and a
-    "coming soon" message. The real nbfoundry integration will
-    generate Marimo applications for interactive model-training exercises.
+    Delegates to nbfoundry.compile_exercise() to produce a renderable
+    exercise dict from a single exercise YAML file. The `status` switch
+    (stub vs. ready) lives in the resolver, NOT here — compile_exercise is
+    kept signature-identical to the ExerciseProvider protocol and to
+    nbfoundry.compile_exercise so the protocol-match contract holds.
+    Do not add a `status` parameter.
     """
 
     def compile_exercise(self, ref_path: Path, base_dir: Path) -> dict:
-        return {
-            "type": "exercise",
-            "source": "nbfoundry",
-            "ref": str(ref_path),
-            "status": "stub",
-            "title": f"Exercise: {ref_path.stem}",
-            "instructions": f"<p>Exercise placeholder for <code>{ref_path}</code>. "
-                            "nbfoundry integration pending.</p>",
-            "sections": [],
-            "expected_outputs": [],
-            "hints": [],
-            "environment": None,
-        }
+        """
+        1. Lazy-import `compile_exercise` from the `nbfoundry` package
+           (raise ImportError with a `pip install learningfoundry[nbfoundry]`
+           hint if the optional dep is missing).
+        2. Call nbfoundry.compile_exercise(ref_path, base_dir) and return its dict.
+        3. Wrap any exception raised by nbfoundry in IntegrationError, citing ref_path.
+        """
+        ...
+```
+
+### `integrations/nbfoundry_stub.py` — Placeholder Factory + Test-Double Provider
+
+The placeholder dict for an un-built (`stub`) exercise is produced by the
+module-level `stub_exercise(ref_path)` factory. The resolver's `status: stub`
+path calls it directly (no provider call, no nbfoundry import), and the
+retained `NbfoundryStub` is a thin wrapper over the same factory. As of
+Story K.d, `NbfoundryStub` is **not** the default provider — it survives
+only as a test double / explicit "no-notebooks" injectable.
+
+```python
+from pathlib import Path
+
+def stub_exercise(ref_path: Path) -> dict:
+    return {
+        "type": "exercise",
+        "source": "nbfoundry",
+        "ref": str(ref_path),
+        "status": "stub",
+        "title": f"Exercise: {ref_path.stem}",
+        "instructions": f"<p>Exercise placeholder for <code>{ref_path}</code>. "
+                        "nbfoundry integration pending.</p>",
+        "sections": [],
+        "expected_outputs": [],
+        "hints": [],
+        "environment": None,
+    }
+
+class NbfoundryStub:
+    """Test-double / "no-notebooks" ExerciseProvider — delegates to
+    stub_exercise(). No longer the resolver default."""
+
+    def compile_exercise(self, ref_path: Path, base_dir: Path) -> dict:
+        return stub_exercise(ref_path)
 ```
 
 ### `integrations/d3foundry_stub.py` — Stub Visualization Provider
@@ -943,6 +991,7 @@ curriculum:
             - type: exercise
               source: nbfoundry
               ref: exercises/mod-01-exercise-01.yml
+              status: stub   # optional; default "ready" compiles via nbfoundry
             - type: visualization
               source: d3foundry
               ref: visualizations/mod-01-cnn-architecture.yml
