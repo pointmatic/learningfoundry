@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.82.0] - 2026-06-18
+
+`ExerciseBlock` ready renderer + real `ExerciseContent` types (Story K.f), the third and final story of the Subphase K-1 nbfoundry bundle. A `ready` exercise now renders inline in the SvelteKit frontend (manual-completion flavor) instead of drawing only instructions + hints; graded `submission` remains deferred to `## Future`.
+
+### Added
+
+- **`ExerciseBlock.svelte` ready renderer (manual completion).** Renders code-scaffold `sections` (read-only in v1; the `editable` flag marks learner insertion points but is reserved for the Marimo-WASM future), `expected_outputs` (`image` via the runtime-composed `/exercises/<id>/<path>` URL with `alt` + `loading="lazy"`; `text`/`table` inline), collapsible hints, and local-run setup instructions from `environment`. A "Mark as Complete" control persists `exercise_status` via `progressRepo.updateExerciseStatus(id, 'complete')`, fires a typed `oncomplete` event `{ exerciseRef: id, status: 'completed' }`, and contributes to lesson-level block completion through `ContentBlock`. `status: stub` still renders the placeholder card.
+- **Real `ExerciseContent` TypeScript types** (`lib/types/index.ts`): `ExerciseSection` (title/description/code/editable), the `ExpectedOutput` discriminated union (`image` with `path`+`alt`; `text`/`table` with `content`), `ExerciseEnvironment`, plus `assets: string[]` and the resolver-injected `id: string`. Kept in lockstep with the Python compiled-exercise dict (Hidden Coupling).
+
+### Changed
+
+- **Resolver injects the exercise `id` into the resolved content** (both stub and ready) so the frontend has the `/exercises/<id>/<path>` asset-URL namespace and the `exerciseRef` progress key. Authoritative over the compiled dict (nbfoundry doesn't know learningfoundry's id or an explicit author override).
+- **`stub_exercise()` factory now includes `assets: []`** so the `ExerciseContent` type invariant holds for stub content too (matches the documented stub shape).
+
+### Notes
+
+- **Pinned open item resolved (no notebook-location field).** The released-nbfoundry compiled dict carries no runnable-notebook location in the v1 (Option B / static) path — `marimo_wasm_bundle` is the Option-A future field. The renderer therefore surfaces the code-scaffold `sections` plus `environment.setup_instructions` and relies on the learner's cloned curriculum repo to run the exercise locally. Authoritative source: `docs/specs/nbfoundry/consumer-dependency-spec.md` BR-1 + § "v1 Rendering Behavior".
+
+### Verified
+
+- `pyve test` → 453 passed (was 450; +3 resolver id-injection tests). `npx vitest run` → 285 passed (+7 `ExerciseBlock.test.ts`). `svelte-check` → 0 errors. `ruff` + `mypy src/` clean.
+
 ## [0.81.0] - 2026-06-18
 
 Exercise `id` + asset staging (Story K.e), the second of the Subphase K-1 bundle. A compiled `ready` exercise's referenced asset files are now staged into `static/exercises/<id>/<path>`, where `id` is the build-output namespace and the progress key — auto-derived from the `ref` stem and unique curriculum-wide.

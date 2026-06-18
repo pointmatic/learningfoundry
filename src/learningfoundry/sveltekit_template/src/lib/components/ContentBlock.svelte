@@ -45,7 +45,10 @@
 		onassessmentcomplete={handleBlockComplete}
 	/>
 {:else if block.type === 'exercise'}
-	<ExerciseBlock content={block.content as ExerciseContent} />
+	<ExerciseBlock
+		content={block.content as ExerciseContent}
+		onexercisecomplete={handleBlockComplete}
+	/>
 {:else if block.type === 'visualization'}
 	<VisualizationBlock content={block.content as VisualizationContent} />
 {:else}

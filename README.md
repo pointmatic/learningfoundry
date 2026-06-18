@@ -34,7 +34,7 @@ A curriculum engine that turns a YAML curriculum definition into a deployable Sv
 - **Text** — Markdown content rendered in the browser
 - **Video** — YouTube embeds
 - **Assessment** — Interactive assessments via [quizazz](https://github.com/pointmatic/quizazz) (optional)
-- **Exercise** — Executable notebooks via nbfoundry (stub provided)
+- **Exercise** — Scaffolded model-training exercises via [nbfoundry](https://github.com/pointmatic/nbfoundry) (optional; `status: stub` for not-yet-built)
 - **Visualization** — D3-based charts via d3foundry (stub provided)
 
 Learner progress is persisted locally in SQLite (via sql.js) — no backend required.
@@ -47,10 +47,12 @@ Learner progress is persisted locally in SQLite (via sql.js) — no backend requ
 pip install learningfoundry
 ```
 
-**With optional quizazz support:**
+**With optional integration extras:**
 
 ```bash
-pip install "learningfoundry[quizazz]"
+pip install "learningfoundry[quizazz]"    # assessments
+pip install "learningfoundry[nbfoundry]"  # exercises
+pip install "learningfoundry[quizazz,nbfoundry]"
 ```
 
 **Requirements:**
@@ -237,10 +239,13 @@ curriculum:
               source: quizazz
               ref: assessments/mod-01-assessment.yml
 
-            # Exercise block — requires nbfoundry (stub included)
+            # Exercise block — `ready` requires learningfoundry[nbfoundry];
+            # `status: stub` renders a placeholder with no install needed.
+            # See "Authoring nbfoundry exercises" below for the full author flow.
             - type: exercise
               source: nbfoundry
               ref: exercises/mod-01-exercise.yml
+              status: stub
 
             # Visualization block — requires d3foundry (stub included)
             - type: visualization
@@ -662,6 +667,55 @@ questions:
 - **Refs resolve relative to `--base-dir`.** The `ref:` path is *not* relative to the lesson markdown or to `curriculum.yml`; it resolves under whatever directory `learningfoundry build --base-dir <path>` was given. The default `--base-dir` is the directory containing `curriculum.yml`.
 - **`learningfoundry[quizazz]` is an optional extra.** Plain `pip install learningfoundry` does not pull in quizazz; running `learningfoundry build` on a curriculum that references `source: quizazz` will fail with an `ImportError`. Install the extra explicitly.
 - **`<QuizBlock>` is a vendor component name** — preserved at the vendor boundary. A future "consistency rename" pass that tried to rename it to `<AssessmentBlock>` (learningfoundry's wrapper component) would break the integration silently. See the "Vendor terminology stops at the vendor boundary" note in [project-essentials.md](docs/specs/project-essentials.md).
+
+### Authoring nbfoundry exercises
+
+[nbfoundry](https://github.com/pointmatic/nbfoundry) is the exercise provider — scaffolded, model-training exercises that render inline in a lesson with code-scaffold sections, expected outputs, hints, and local-run instructions, plus a "Mark as Complete" control. In v1 the exercise is **informational**: the learner runs the code in their own local environment (JupyterLab, Marimo, VS Code) and marks it complete. In-browser execution and graded submission are deferred to future versions; the authored YAML does not change when they land.
+
+**What you need.** `pip install learningfoundry[nbfoundry]` installs the Python builder side (the [`nbfoundry` PyPI package](https://pypi.org/project/nbfoundry/)) so `learningfoundry build` can compile exercise YAML. Like `[quizazz]`, it is an optional extra — plain `pip install learningfoundry` does not pull it in, and building a curriculum with a `ready` exercise that references `source: nbfoundry` without the extra fails with an `ImportError` and an install hint.
+
+**Referencing an exercise.** Add an `exercise` content block to a lesson:
+
+```yaml
+content_blocks:
+  - type: exercise
+    source: nbfoundry
+    ref: exercises/mod-01/cnn-classifier.yml   # located under --base-dir
+    status: ready                              # "ready" (default) | "stub"
+    # id: cnn-classifier                       # optional; see below
+```
+
+- **`status: ready`** (the default) compiles the exercise through nbfoundry at build time. A typo'd `ref` fails the build **loud** rather than silently degrading to a placeholder.
+- **`status: stub`** renders the "nbfoundry integration pending" placeholder card — the explicit "not built yet" opt-in while you scaffold the curriculum. No nbfoundry call, no install needed for stub-only curricula.
+
+**How `id` works.** Every exercise has an `id` that is two things at once: the **build-output asset namespace** (`static/exercises/<id>/…`, where expected-output images and other assets are staged) and the **progress key** (`exerciseRef`) recorded in the in-browser database. When you omit `id:`, it is auto-derived from the `ref` filename **stem** (`exercises/mod-01/cnn-classifier.yml` → `cnn-classifier`). The `id` must be **unique across the whole curriculum** — not just within a module.
+
+**Organizing source freely vs. the flat output.** The `id` namespaces the *output*; it does **not** constrain where you organize *source* content. You can lay out exercise YAML and its assets however you like under `--base-dir` — nbfoundry locates them via the relative `ref` and the asset paths inside the compiled dict — and learningfoundry stages every referenced asset into the flat `static/exercises/<id>/<path>` tree:
+
+```
+# Source (organize however you like):           # Build output (flat, id-namespaced):
+exercises/mod-01/cnn-classifier.yml             static/exercises/cnn-classifier/loss-curve.png
+exercises/mod-01/assets/loss-curve.png          static/exercises/cnn-classifier/sample.csv
+exercises/shared/sample.csv
+```
+
+**The stem-collision case.** Because the auto-derived `id` is just the filename stem, two exercises whose `ref` files share a stem collide — even in different modules:
+
+```yaml
+# mod-01 lesson:  ref: exercises/mod-01/intro.yml   → id "intro"
+# mod-02 lesson:  ref: exercises/mod-02/intro.yml   → id "intro"   ❌ build error
+```
+
+This is a **loud build-time error**, not a silent overwrite (two exercises would otherwise share one asset URL + progress key). Fix it by setting an explicit `id:` on at least one:
+
+```yaml
+  - type: exercise
+    source: nbfoundry
+    ref: exercises/mod-02/intro.yml
+    id: mod-02-intro          # explicit, curriculum-unique
+```
+
+**Why a stable `id` matters.** Set an explicit `id:` when you expect to **reorganize source content** later. Because the `id` is both the asset URL namespace and the progress key, keeping it stable while you move or rename the underlying `ref` file preserves both the staged asset URLs *and* learners' recorded completion — whereas relying on the auto-derived stem means a rename silently changes the `id` and orphans prior progress.
 
 ### Assessments
 

@@ -53,7 +53,7 @@ learningfoundry is a PyPI package that turns a versioned YAML curriculum definit
 6. **Content locking/gating (v1)** — Post-assessment `pass_threshold` gates progression on subsequent items in the module flow (Phase J / Story J.v); the sequential-module rule consumes the same gate so the next module stays locked until the previous module's post-assessment is passed. `role: pre` is non-gating by convention (soft-gate). Cross-module assessment dependencies (e.g. M3 post gates M5 pre) and pre-assessment hard-gating remain out of scope.
 7. **Multi-curriculum dashboard** — No cross-curriculum analytics or management surface.
 8. **Mobile native wrappers** — Web-only delivery.
-9. **nbfoundry integration (v1)** — Marimo notebook generation is out of scope; placeholder slots in the frontend anticipate future integration.
+9. **nbfoundry integration (v1)** — Real `ready` exercises compile via `NbfoundryProvider` and render inline (manual-completion flavor: code-scaffold display + expected outputs + local-run instructions + "Mark as Complete"; Stories K.d–K.f). Out of scope for v1: in-browser Marimo-WASM execution (exercises run in the learner's local environment) and graded `submission` (typed-input scoring). `status: stub` blocks still render placeholder slots.
 10. **d3foundry integration (v1)** — D3.js visualization generation is out of scope; placeholder slots in the frontend anticipate future integration.
 11. **Progress export/import** — Progress is ephemeral and local to the browser; no export or sync mechanism in v1.
 12. **Direct LLM invocation** — learningfoundry does not call LLM APIs. Content generation is done externally; LLM orchestration will be handled by lmentry in a future version.
@@ -390,14 +390,15 @@ Consume assessment content produced by quizazz and render it in the SvelteKit fr
 Consume scaffolded model-training exercises produced by nbfoundry and render them in the SvelteKit frontend.
 
 **Behavior:**
-1. During content resolution, invoke nbfoundry to parse exercise YAML files referenced by `exercise` content blocks.
+1. During content resolution, invoke `NbfoundryProvider` to compile exercise YAML files referenced by `ready` `exercise` content blocks (Story K.d). A `stub` block renders a placeholder card; selection is the per-block `status` field, defaulting to `ready`.
 2. nbfoundry returns renderable exercise content (instructions, code scaffolding with insertion points, expected outputs). Exercise authoring details (data prep, training steps, evaluation) are fully delegated to nbfoundry.
-3. The SvelteKit frontend renders exercises inline with instructions and code display.
-4. Exercise completion status is written to the in-browser SQLite database.
+3. The SvelteKit frontend renders a `ready` exercise inline (manual-completion flavor, Story K.f): instructions; code-scaffold `sections` (read-only in v1 — the `editable` flag marks learner insertion points but is reserved for the Marimo-WASM future); `expected_outputs` (`image` via the runtime-composed `/exercises/<id>/<path>` URL with `alt` + lazy loading; `text`/`table` inline); collapsible hints; and local-run setup instructions from `environment`. The v1 exercise is informational — code is not executed in the browser; the learner runs it in a separate local environment and self-attests completion.
+4. A "Mark as Complete" control writes exercise completion `status` to the in-browser SQLite `exercise_status` table (keyed by the exercise `id`) and contributes to lesson-level block completion. Graded `submission` (typed inputs + scoring) is deferred to a future story.
 
 **Edge Cases:**
 - nbfoundry exercise file is malformed → Error surfaced with file path and nbfoundry's error message.
 - Exercise references a dataset not available locally → Error from nbfoundry surfaced to the user.
+- A `ready` exercise with a typo'd `ref` fails the build loud (fail-fast / OR-1) rather than silently degrading to a placeholder; `status: stub` is the explicit "not built yet" opt-in.
 
 ### FR-7: CLI Interface
 

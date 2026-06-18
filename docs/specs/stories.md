@@ -113,7 +113,7 @@ Feature → **minor** bump.
 - [x] Updated `docs/specs/tech-spec.md`: documented `static/exercises/<id>/` staging in the generator section (preserved set + step 3) and the `ResolvedCurriculum.assets` prose, and added the `id` field to the `ExerciseBlock` schema.
 - [x] `CHANGELOG.md` + version bump to v0.81.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
 
-### Story K.f: v0.82.0 — `ExerciseBlock` ready renderer (manual-completion) + real `ExerciseContent` types [Planned]
+### Story K.f: v0.82.0 — `ExerciseBlock` ready renderer (manual-completion) + real `ExerciseContent` types [Done]
 
 Third story of the bundle. Builds out the `ready`-state renderer that [ExerciseBlock.svelte](../../src/learningfoundry/sveltekit_template/src/lib/components/ExerciseBlock.svelte) currently stubs (it draws only instructions + hints today). Manual-completion flavor only — graded submission is deferred to `## Future`.
 
@@ -121,14 +121,15 @@ Feature → **minor** bump.
 
 **Tasks:**
 
-- [ ] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts` `ExerciseContent`: replace the `unknown[]` placeholders with real `sections` (title/description/code/editable) and `expected_outputs` (description/type/path|content/alt) shapes, plus `assets: string[]`. This is the Python-dict ↔ TS Hidden Coupling — keep it in lockstep with the compiled dict.
-- [ ] `ExerciseBlock.svelte` `ready` branch: render `sections` (code blocks, read-only in v1 — the `editable` flag is reserved for the WASM future), `expected_outputs` (text/table inline; `type: image` via runtime-composed `/exercises/${id}/${path}` with `alt` + `loading="lazy"`), and `hints`.
-- [ ] "Mark as Complete" control → fire the `complete` event `{ exerciseRef: id, status: "completed" }` → write `exercise_status` via the progress repo. (No scoring — `submission` is deferred.)
-- [ ] **Pin the open item:** confirm against the released nbfoundry whether the compiled dict carries a runnable-notebook location. If yes, surface it ("open `<relative-path>` and run locally"); if no, rely on the rendered `sections` + the learner's cloned curriculum repo. Record the resolution in this story.
-- [ ] `vitest` coverage: ready renderer draws sections/expected_outputs/hints; image outputs compose the `/exercises/<id>/<path>` URL; "Mark as Complete" fires the event and records `exercise_status`; stub status still renders the placeholder.
-- [ ] Update `docs/specs/features.md` FR-6 (nbfoundry integration) rendering behavior and `tech-spec.md` `ExerciseContent` types to match.
-- [ ] `README.md` — add an "Authoring nbfoundry exercises" section (author-facing) covering the end-to-end workflow: referencing an exercise (`source: nbfoundry`, `ref`, `status: stub|ready`), how `id` works (auto-derived from the `ref` stem, curriculum-wide unique), and **worked examples** of organizing content freely vs. the flat `static/exercises/<id>/` output — including the `exercise.yml`-stem collision case that forces an explicit `id`, and that a stable `id` keeps asset URLs + progress intact across source reorganization. (This is the author-facing home for the `id`-vs-source-layout guidance — instructive to the curriculum author, not an LLM must-know.)
-- [ ] `CHANGELOG.md` + version bump to v0.82.0 (developer-driven release step).
+- [x] **(carryover from K.e) Resolver injects `content["id"] = block.id`** into the resolved exercise content (both stub and ready) so the frontend has the `/exercises/<id>/<path>` namespace + `exerciseRef` progress key; K.d stub-equality test updated; `stub_exercise()` gained `assets: []` for type consistency.
+- [x] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts` `ExerciseContent`: replaced the `unknown[]` placeholders with real `ExerciseSection` (title/description/code/editable) and the `ExpectedOutput` discriminated union (`image`→path/alt, `text`/`table`→content) shapes, plus `assets: string[]`, `id: string`, and a typed `ExerciseEnvironment`. Python-dict ↔ TS Hidden Coupling kept in lockstep with the compiled dict.
+- [x] `ExerciseBlock.svelte` `ready` branch: renders `sections` (code blocks, read-only in v1 — the `editable` flag shows a "Your code here" badge but is reserved for the WASM future), `expected_outputs` (text/table inline; `type: image` via runtime-composed `/exercises/${content.id}/${path}` with `alt` + `loading="lazy"`), `hints`, and `environment` setup instructions.
+- [x] "Mark as Complete" control → fires `oncomplete` `{ exerciseRef: id, status: "completed" }` + a no-arg `onexercisecomplete` (wired through `ContentBlock` → block completion) → writes `exercise_status` via `progressRepo.updateExerciseStatus(id, 'complete')`. (No scoring — `submission` is deferred.)
+- [x] **Pin the open item — resolved: no runnable-notebook-location field in the v1 dict.** Per [consumer-dependency-spec.md](nbfoundry/consumer-dependency-spec.md) BR-1 + § "v1 Rendering Behavior", the Option-B (static) compiled dict carries no notebook path (`marimo_wasm_bundle` is the Option-A future field; "In v1 … execution happens externally"). The renderer therefore surfaces the code-scaffold `sections` + `environment.setup_instructions` and relies on the learner's cloned curriculum repo to run locally. (nbfoundry isn't installed in this env; the in-repo dependency-spec is the authoritative pin — option c.)
+- [x] `vitest` coverage (`ExerciseBlock.test.ts`, 7 tests): ready renderer draws sections/expected_outputs(text)/hints/environment; image outputs compose the `/exercises/<id>/<path>` URL with alt + lazy; "Mark as Complete" fires the event and records `exercise_status`; stub status still renders the placeholder (no sections, no complete button).
+- [x] Updated `docs/specs/features.md` FR-6 (nbfoundry integration) rendering behavior + the stale v1-limitation note, and `tech-spec.md` `ExerciseContent`/`ExpectedOutput` types to match (added `id`, `assets`, discriminated `ExpectedOutput`).
+- [x] `README.md` — added an "Authoring nbfoundry exercises" section (author-facing): referencing an exercise (`source: nbfoundry`, `ref`, `status: stub|ready`), how `id` works (auto-derived from the `ref` stem, curriculum-wide unique), worked source-vs-flat-output examples, the stem-collision case that forces an explicit `id`, and why a stable `id` keeps asset URLs + progress intact across source reorganization. Also added the `[nbfoundry]` install extra.
+- [x] `CHANGELOG.md` + version bump to v0.82.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
 
 ---
 

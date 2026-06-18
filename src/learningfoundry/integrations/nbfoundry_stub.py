@@ -33,6 +33,7 @@ def stub_exercise(ref_path: Path) -> dict:  # type: ignore[type-arg]
         ),
         "sections": [],
         "expected_outputs": [],
+        "assets": [],
         "hints": [],
         "environment": None,
     }

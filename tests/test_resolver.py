@@ -498,7 +498,10 @@ class TestExerciseStatusSwitch:
         )
         mock_ex.compile_exercise.assert_not_called()
         block = result.modules[0].lessons[0].content_blocks[0]
-        assert block.content == stub_exercise(Path("exercises/e.yml"))
+        # The resolver injects the curriculum-level `id` (Story K.f) so the
+        # frontend has the asset-URL namespace + progress key; otherwise the
+        # stub content is the shared placeholder.
+        assert block.content == {**stub_exercise(Path("exercises/e.yml")), "id": "e"}
 
     def test_stub_status_never_imports_nbfoundry_with_default_provider(
         self, tmp_path: Path
@@ -690,6 +693,63 @@ class TestExerciseAssetStaging:
         )
         assert len(result.assets) == 1
         assert result.assets[0].dest_relative == "exercises/e/fig.png"
+
+
+class TestExerciseIdInResolvedContent:
+    """Story K.f — the resolver injects the curriculum-level exercise `id`
+    into the resolved content dict (both stub and ready), so the frontend can
+    compose `/exercises/<id>/<path>` asset URLs and use `id` as the
+    `exerciseRef` progress key. `id` is authoritative (handles explicit-id
+    overrides nbfoundry's compiled dict doesn't know about)."""
+
+    def test_ready_content_carries_auto_derived_id(self, tmp_path: Path) -> None:
+        mock_ex = MagicMock()
+        mock_ex.compile_exercise.return_value = {"status": "ready", "title": "Ex"}
+        c = _curriculum_with_blocks(
+            [{"type": "exercise", "source": "nbfoundry", "ref": "exercises/e.yml"}]
+        )
+        result = resolve_curriculum(
+            c, tmp_path,
+            assessment_provider=MagicMock(),
+            exercise_provider=mock_ex,
+            visualization_provider=MagicMock(),
+        )
+        assert result.modules[0].lessons[0].content_blocks[0].content["id"] == "e"
+
+    def test_ready_content_carries_explicit_id(self, tmp_path: Path) -> None:
+        mock_ex = MagicMock()
+        mock_ex.compile_exercise.return_value = {"status": "ready"}
+        c = _curriculum_with_blocks(
+            [
+                {
+                    "type": "exercise",
+                    "source": "nbfoundry",
+                    "ref": "exercises/e.yml",
+                    "id": "custom",
+                }
+            ]
+        )
+        result = resolve_curriculum(
+            c, tmp_path,
+            assessment_provider=MagicMock(),
+            exercise_provider=mock_ex,
+            visualization_provider=MagicMock(),
+        )
+        assert result.modules[0].lessons[0].content_blocks[0].content["id"] == "custom"
+
+    def test_stub_content_carries_id(self, tmp_path: Path) -> None:
+        c = _curriculum_with_blocks(
+            [
+                {
+                    "type": "exercise",
+                    "source": "nbfoundry",
+                    "ref": "exercises/e.yml",
+                    "status": "stub",
+                }
+            ]
+        )
+        result = resolve_curriculum(c, tmp_path, assessment_provider=MagicMock())
+        assert result.modules[0].lessons[0].content_blocks[0].content["id"] == "e"
 
 
 class TestVisualizationBlockResolution:

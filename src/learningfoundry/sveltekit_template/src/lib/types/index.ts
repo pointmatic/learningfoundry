@@ -43,17 +43,44 @@ export interface AssessmentAnswer {
 	[key: string]: unknown;
 }
 
+// A single code/scaffold section of an exercise. `editable: true` marks a
+// learner insertion point; v1 renders all sections read-only (the flag is
+// reserved for the Marimo-WASM future). Hidden Coupling: mirrors the Python
+// compiled-exercise dict (nbfoundry BR-1) — keep in lockstep.
+export interface ExerciseSection {
+	title: string;
+	description: string;
+	code: string;
+	editable: boolean;
+}
+
+// Expected-output entries are a discriminated union on `type`. `image`
+// carries a relative `path` (staged at /exercises/<id>/<path>) + required
+// `alt`; `text` and `table` carry inline `content`.
+export type ExpectedOutput =
+	| { description: string; type: 'image'; path: string; alt: string }
+	| { description: string; type: 'text'; content: string }
+	| { description: string; type: 'table'; content: string };
+
+export interface ExerciseEnvironment {
+	python_version: string;
+	dependencies: string[];
+	setup_instructions: string;
+}
+
 export interface ExerciseContent {
 	type: 'exercise';
 	source: string;
 	ref: string;
+	id: string;
 	status: string;
 	title: string;
 	instructions: string;
-	sections: unknown[];
-	expected_outputs: unknown[];
-	hints: unknown[];
-	environment: string | null;
+	sections: ExerciseSection[];
+	expected_outputs: ExpectedOutput[];
+	assets: string[];
+	hints: string[];
+	environment: ExerciseEnvironment | null;
 }
 
 export interface VisualizationContent {

@@ -368,6 +368,12 @@ def _resolve_block(
                         dest_relative,
                         Asset(source=base_dir / rel, dest_relative=dest_relative),
                     )
+            # Surface the curriculum-level `id` to the frontend (Story K.f):
+            # it is the `/exercises/<id>/<path>` asset-URL namespace and the
+            # `exerciseRef` progress key. Authoritative over anything in the
+            # compiled dict — nbfoundry doesn't know our id (or an explicit
+            # author override).
+            content["id"] = block.id
             return ResolvedContentBlock(
                 type="exercise", source=block.source, ref=block.ref, content=content
             )

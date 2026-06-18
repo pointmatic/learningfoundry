@@ -1177,11 +1177,16 @@ export interface ExerciseContent {
   type: "exercise";
   source: string;
   ref: string;
+  id: string;                 // Story K.f — resolver-injected; the
+                              // /exercises/<id>/<path> URL namespace + the
+                              // `exerciseRef` progress key.
   status: "ready" | "stub";
   title: string;
   instructions: string;
   sections: ExerciseSection[];
   expected_outputs: ExpectedOutput[];
+  assets: string[];           // Story K.e — relative paths staged under
+                              // static/exercises/<id>/.
   hints: string[];
   environment: ExerciseEnvironment | null;
 }
@@ -1190,14 +1195,16 @@ export interface ExerciseSection {
   title: string;
   description: string;
   code: string;
-  editable: boolean;
+  editable: boolean;          // v1 renders read-only; reserved for WASM future
 }
 
-export interface ExpectedOutput {
-  description: string;
-  type: "image" | "text" | "table";
-  content: string;
-}
+// Discriminated union on `type` (Story K.f): `image` carries a relative
+// `path` (staged at /exercises/<id>/<path>) + required `alt`; `text` / `table`
+// carry inline `content`.
+export type ExpectedOutput =
+  | { description: string; type: "image"; path: string; alt: string }
+  | { description: string; type: "text"; content: string }
+  | { description: string; type: "table"; content: string };
 
 export interface ExerciseEnvironment {
   python_version: string;
