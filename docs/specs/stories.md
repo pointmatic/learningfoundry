@@ -200,18 +200,18 @@ The "what to launch" computation — no sockets, no subprocess, no pidfiles. A p
 - [x] `tests/test_launch.py` (9 tests): resolve happy path (`edit` + `run`); missing manifest → `ManifestNotFoundError`; unknown id → `UnknownExerciseError` listing available ids; malformed JSON / non-object manifest / entry-missing-field → `ManifestError`; `marimo_argv` exact argv per mode. **468 passed** (was 459; +9); ruff + mypy clean.
 - [x] No version bump (phase-bundled; rides K.j).
 
-### Story K.i.2: Runtime primitives — port-probe, pidfile, liveness/ownership [Planned]
+### Story K.i.2: Runtime primitives — port-probe, pidfile, liveness/ownership [Done]
 
 The OS-interaction layer, isolated and mockable: "is the port busy, is the marimo on it ours, and where do we record it." Unversioned (rides K.j).
 
 **Tasks:**
 
-- [ ] `launch.py` `port_in_use(port: int, host: str = "127.0.0.1") -> bool` — socket connect-probe.
-- [ ] `launch.py` pidfile layer: `PidfileEntry` dataclass; `pidfile_path(manifest_dir: Path, port: int) -> Path` (`.learningfoundry/launch-<port>.pid`); `write_pidfile` / `read_pidfile` / `remove_pidfile` (JSON; creates the parent dir).
-- [ ] `launch.py` `pid_alive(pid: int) -> bool` — `os.kill(pid, 0)` on POSIX, `ctypes`/`OpenProcess` on Windows (small, mockable).
-- [ ] `launch.py` `classify_port(manifest_dir: Path, port: int) -> Literal["free", "ours", "foreign"]` — combines pidfile + `pid_alive` + `port_in_use`; deletes a stale pidfile whose pid is dead.
-- [ ] `tests/test_launch.py`: pidfile round-trip + path layout; `port_in_use` true/false (mock socket); `classify_port` free/ours/foreign + stale-pidfile cleanup (mock `pid_alive`, `port_in_use`).
-- [ ] No version bump (phase-bundled; rides K.j).
+- [x] `launch.py` `port_in_use(port: int, host: str = "127.0.0.1") -> bool` — short-timeout `socket.create_connection` probe (connect→busy, `OSError`→free).
+- [x] `launch.py` pidfile layer: `PidfileEntry` frozen dataclass (`pid`, `exercise_id`, `port`, `mode`); `pidfile_path(manifest_dir, port)` → `.learningfoundry/launch-<port>.pid`; `write_pidfile` (mkdir parents, JSON) / `read_pidfile` (tolerant — missing **or** corrupt → `None`, never raises) / `remove_pidfile` (idempotent `unlink(missing_ok=True)`).
+- [x] `launch.py` `pid_alive(pid: int) -> bool` — `os.kill(pid, 0)` on POSIX (`ProcessLookupError`→dead, `PermissionError`→alive); `ctypes`/`OpenProcess` Windows branch (`# pragma: no cover`, smoke-only).
+- [x] `launch.py` `classify_port(manifest_dir, port) -> Literal["free", "ours", "foreign"]` — live pidfile→`ours`; else delete stale pidfile, then `port_in_use`→`foreign`/`free`.
+- [x] `tests/test_launch.py` (+12 tests): pidfile round-trip / path layout / parent-dir creation / missing+malformed→`None` / idempotent remove; `port_in_use` true/false (mock socket); `classify_port` ours/foreign/free + stale-pidfile cleanup (mock `pid_alive`, `port_in_use`). **480 passed** (was 468; +12); ruff + mypy clean.
+- [x] No version bump (phase-bundled; rides K.j).
 
 ### Story K.i.3: `learningfoundry launch <exercise-id>` command [Planned]
 
