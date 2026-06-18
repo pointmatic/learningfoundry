@@ -174,15 +174,65 @@ Build side, part 2 — produce the build artifacts. The resolver hands `notebook
 - [x] Updated `docs/specs/tech-spec.md`: `ExerciseBlock` schema (`mode`), the generator section (step 4 notebook+manifest write; `static/exercises` removed from preserved set; notebooks regenerated-not-preserved), and the `ResolvedCurriculum` prose (`exercises` field). The frontend `ExerciseContent` TS types stay Option-B-shaped — they're rewritten in **K.j**.
 - [ ] No version bump (phase-bundled; rides K.j).
 
-### Story K.i: `learningfoundry launch` / `stop` CLI (Launch Marimo) [Planned]
+### Story K.i: `learningfoundry launch` / `stop` CLI (Launch Marimo) — split into K.i.1–K.i.4
 
-The learner-side runtime that owns marimo's lifecycle — the piece that lets a static app drive a live notebook without the browser spawning processes. Cross-platform Python (a CLI subcommand, **not** a shell script — Windows has no bash). Unversioned (rides K.j). *Flesh fully at its gate.*
+**Split pre-implementation** (per [`_phase-letters.md`](../project-guide/templates/modes/_phase-letters.md) § "Sub-numbered stories" → *Pre-implementation split*): the bare `K.i` heading is dropped; its scope is delivered by **K.i.1–K.i.4** below. The learner-side runtime that owns marimo's lifecycle — a static app can't spawn or kill an OS process, so the lifecycle lives in a CLI the *learner* runs. Cross-platform Python (CLI subcommands, **not** a shell script — Windows has no bash). All four are unversioned (ride **K.j**'s v0.83.0 release).
 
-**Tasks (sketch):**
+**Decisions (locked):**
 
-- [ ] `src/learningfoundry/cli.py` `learningfoundry launch <exercise-id>`: resolve `id → notebook_path / mode / port` from the manifest; socket-probe the port; read/write a pidfile (e.g. `.learningfoundry/launch-<port>.pid`); if the port is held by a **launch-owned** marimo, prompt to kill/replace (never blind-kill foreign processes); spawn `marimo edit|run <path> --headless -p <port> --no-token` per `mode`.
-- [ ] `learningfoundry stop [<exercise-id>]`: tear down the launch-owned marimo via the pidfile.
-- [ ] `tests/`: id→path/mode resolution from the manifest; port-in-use → prompt/replace; pidfile lifecycle; correct marimo argv per `mode` (mock subprocess/socket); cross-platform path handling.
+- **Manifest location.** `launch`/`stop` read `exercises-manifest.json` from the **current directory** (the learner runs from inside the generated app's root), overridable with `--dir`. (Unlike `build`/`preview`, which default `-o dist` in the *author's* repo.)
+- **Pidfile.** `.learningfoundry/launch-<port>.pid` under the manifest dir; JSON `{pid, exercise_id, port, mode}`. **Keyed by port** — the port is the contended resource and the signal for "is this marimo launch-owned."
+- **marimo discovery.** `shutil.which("marimo")`; marimo is a **learner-runtime** dependency, never imported by learningfoundry. Missing → a clear install hint, no traceback.
+- **Detached spawn.** `subprocess.Popen(start_new_session=True)` (POSIX) / `CREATE_NEW_PROCESS_GROUP` (Windows) so marimo outlives the CLI; the command echoes the URL and returns (non-blocking).
+- **Conflict policy.** Classify the port `free | ours | foreign`. `free` → spawn; `ours` (a live launch-owned pidfile) → prompt to replace; `foreign` (port busy, no live launch pidfile) → refuse (never blind-kill a foreign process).
+
+**Out of scope (negotiable):** a `--port` override on `launch` — every exercise currently shares the default `2718` (resolver `_DEFAULT_MARIMO_PORT`), so two concurrent exercises collide; one-exercise-at-a-time is the v1 model, deferred. Real Windows process-liveness/kill is implemented behind small mockable helpers but only smoke-exercised here (CI is POSIX).
+
+### Story K.i.1: Launch-spec resolution + marimo argv (pure core) [Done]
+
+The "what to launch" computation — no sockets, no subprocess, no pidfiles. A pure module that reads the manifest and builds the marimo command. Unversioned (rides K.j).
+
+**Tasks:**
+
+- [x] `src/learningfoundry/launch.py` (new; copyright/license header): `LaunchSpec` frozen dataclass (`id`, `notebook_path`, `mode`, `port`) + `resolve_launch_spec(manifest_dir: Path, exercise_id: str) -> LaunchSpec` reading `exercises-manifest.json` (filename constant `MANIFEST_FILENAME`; required-field check against `_REQUIRED_FIELDS`).
+- [x] `src/learningfoundry/exceptions.py`: `LaunchError` base + `ManifestNotFoundError`, `UnknownExerciseError` (message lists the available ids, sorted), `ManifestError` (malformed JSON / not-an-object / entry missing a required field).
+- [x] `launch.py` `marimo_argv(spec: LaunchSpec) -> list[str]` → `["marimo", spec.mode, spec.notebook_path, "--headless", "-p", str(spec.port), "--no-token"]`.
+- [x] `tests/test_launch.py` (9 tests): resolve happy path (`edit` + `run`); missing manifest → `ManifestNotFoundError`; unknown id → `UnknownExerciseError` listing available ids; malformed JSON / non-object manifest / entry-missing-field → `ManifestError`; `marimo_argv` exact argv per mode. **468 passed** (was 459; +9); ruff + mypy clean.
+- [x] No version bump (phase-bundled; rides K.j).
+
+### Story K.i.2: Runtime primitives — port-probe, pidfile, liveness/ownership [Planned]
+
+The OS-interaction layer, isolated and mockable: "is the port busy, is the marimo on it ours, and where do we record it." Unversioned (rides K.j).
+
+**Tasks:**
+
+- [ ] `launch.py` `port_in_use(port: int, host: str = "127.0.0.1") -> bool` — socket connect-probe.
+- [ ] `launch.py` pidfile layer: `PidfileEntry` dataclass; `pidfile_path(manifest_dir: Path, port: int) -> Path` (`.learningfoundry/launch-<port>.pid`); `write_pidfile` / `read_pidfile` / `remove_pidfile` (JSON; creates the parent dir).
+- [ ] `launch.py` `pid_alive(pid: int) -> bool` — `os.kill(pid, 0)` on POSIX, `ctypes`/`OpenProcess` on Windows (small, mockable).
+- [ ] `launch.py` `classify_port(manifest_dir: Path, port: int) -> Literal["free", "ours", "foreign"]` — combines pidfile + `pid_alive` + `port_in_use`; deletes a stale pidfile whose pid is dead.
+- [ ] `tests/test_launch.py`: pidfile round-trip + path layout; `port_in_use` true/false (mock socket); `classify_port` free/ours/foreign + stale-pidfile cleanup (mock `pid_alive`, `port_in_use`).
+- [ ] No version bump (phase-bundled; rides K.j).
+
+### Story K.i.3: `learningfoundry launch <exercise-id>` command [Planned]
+
+The side-effecting verb — orchestrate K.i.1 + K.i.2, spawn marimo detached, honor the conflict policy. Unversioned (rides K.j).
+
+**Tasks:**
+
+- [ ] `cli.py` `launch` command: `exercise_id` arg, `--dir` (default `.`), `--log-level`. Flow: `resolve_launch_spec` → `shutil.which("marimo")` guard → `classify_port`: `free` spawn; `ours` confirm-replace (stop old → spawn); `foreign` refuse. Spawn detached `Popen(marimo_argv(spec))`, `write_pidfile`, echo `http://localhost:<port>`.
+- [ ] `cli.py` `EXIT_RUNTIME = 5`; map `LaunchError` subclasses to exit codes (unknown id / missing manifest → `EXIT_VALIDATION`; marimo-missing / port-foreign → `EXIT_RUNTIME`).
+- [ ] `tests/test_cli.py` (CliRunner; mock `Popen`/`which`/`classify_port`/socket): `free` → spawns with exact argv + writes pidfile; `foreign` → refuses (nonzero, no `Popen`); `ours` → `y` replaces / `N` aborts; marimo missing → install hint, no `Popen`; unknown id → K.i.1 error surfaced.
+- [ ] No version bump (phase-bundled; rides K.j).
+
+### Story K.i.4: `learningfoundry stop [<exercise-id>]` command [Planned]
+
+Teardown — kill the launch-owned marimo via its pidfile, never a foreign process. Unversioned (rides K.j).
+
+**Tasks:**
+
+- [ ] `launch.py` `terminate_pid(pid: int) -> None` — cross-platform (`os.kill(pid, SIGTERM)` POSIX / `taskkill`|ctypes Windows).
+- [ ] `cli.py` `stop` command: optional `exercise_id`, `--dir`. With id → resolve port → read pidfile → if live & ours `terminate_pid` + `remove_pidfile`; else clean stale / report "nothing running." Without id → iterate `.learningfoundry/launch-*.pid`, stop each launch-owned marimo.
+- [ ] `tests/test_cli.py`: stop-by-id terminates + removes pidfile (mock `os.kill`); stop-all iterates every pidfile; stop with no pidfile → success no-op; never touches a port with no launch pidfile.
 - [ ] No version bump (phase-bundled; rides K.j).
 
 ### Story K.j: v0.83.0 — `ExerciseBlock` banner (Open in a new window) + retire static renderer [Planned]

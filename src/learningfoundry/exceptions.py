@@ -43,3 +43,28 @@ class GenerationError(LearningFoundryError):
 class SchemaExtensionError(LearningFoundryError):
     """Project schema-extensions file is missing, malformed, or declares an
     unsupported field type / shape (Story J.h)."""
+
+
+class LaunchError(LearningFoundryError):
+    """Base for `learningfoundry launch` / `stop` runtime errors (Story K.i)."""
+
+
+class ManifestNotFoundError(LaunchError):
+    """The `exercises-manifest.json` sidecar was not found in the launch dir.
+
+    The learner runs `launch`/`stop` from inside the generated app's root,
+    where `build` writes the manifest; a missing file usually means the wrong
+    directory or an un-built app.
+    """
+
+
+class UnknownExerciseError(LaunchError):
+    """The requested exercise id is absent from the manifest.
+
+    The message lists the ids the learner can actually launch.
+    """
+
+
+class ManifestError(LaunchError):
+    """The `exercises-manifest.json` sidecar is malformed (bad JSON, not an
+    object, or an entry missing required fields)."""
