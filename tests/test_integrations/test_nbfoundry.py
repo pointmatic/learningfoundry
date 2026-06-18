@@ -16,19 +16,24 @@ from learningfoundry.integrations.protocols import ExerciseProvider
 _REF = Path("exercises/mod-01-exercise-01.yml")
 _BASE = Path("/curriculum")
 
-# A representative compiled-exercise dict nbfoundry's compile_exercise emits.
+# A representative compiled-exercise dict nbfoundry's compile_exercise emits
+# (Story K.g): banner metadata + the marimo notebook source as a string. No
+# sections/expected_outputs/submission — the notebook itself carries the
+# cells/outputs.
 _MOCK_EXERCISE = {
     "type": "exercise",
     "source": "nbfoundry",
     "ref": str(_REF),
-    "status": "ready",
     "title": "Train a tiny classifier",
-    "instructions": "<p>Build and train …</p>",
-    "sections": [],
-    "expected_outputs": [],
-    "hints": [],
-    "assets": [],
-    "environment": None,
+    "description": "<p>Build and train …</p>",
+    "hints": ["Start with nn.Conv2d."],
+    "mode": "edit",
+    "environment": {
+        "python_version": "3.12",
+        "dependencies": ["marimo", "torch"],
+        "setup_instructions": "pip install -r requirements.txt",
+    },
+    "notebook_source": "import marimo\napp = marimo.App()\n# ... cells ...",
 }
 
 
@@ -46,7 +51,8 @@ class TestNbfoundryProviderDelegation:
 
     def test_returns_compiled_dict_unchanged(self) -> None:
         # Unlike QuizazzProvider, there is no wire-format relabel — the
-        # nbfoundry dict passes through verbatim.
+        # nbfoundry dict passes through verbatim, including the
+        # `notebook_source` string the build side (K.h) stages.
         mock_compile = MagicMock(return_value=dict(_MOCK_EXERCISE))
         with patch.dict(
             "sys.modules",
@@ -56,6 +62,11 @@ class TestNbfoundryProviderDelegation:
 
         assert isinstance(result, dict)
         assert result["title"] == "Train a tiny classifier"
+        assert result["notebook_source"] == _MOCK_EXERCISE["notebook_source"]
+        assert result["mode"] == "edit"
+        # Static-render fields are gone from the contract.
+        assert "sections" not in result
+        assert "expected_outputs" not in result
 
     def test_passes_ref_and_base_dir(self) -> None:
         mock_compile = MagicMock(return_value={})

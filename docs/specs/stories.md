@@ -133,7 +133,73 @@ Feature → **minor** bump.
 
 ---
 
-## Subphase K-2: Assessment Scoring, Reporting, and Bug Fixes
+## Subphase K-2: Refactor NbFoundry Integration, Launch Marimo, Open in a New Window
+
+**Rendering approaches.** This subphase changes how nbfoundry exercises render. Three approaches were considered — full write-up in [consumer-dependency-spec.md § "Design Decision: Rendering Approach"](nbfoundry/consumer-dependency-spec.md). The story tasks below reference these by name:
+
+- **Option A — Marimo-WASM embed:** run the notebook in-browser via Pyodide. Out for v1 (PyTorch isn't available under Pyodide); revisit for non-GPU exercises.
+- **Option B — Static display** (shipped K.d–K.f, now retired): nbfoundry compiled the exercise to a static dict (`sections`/`expected_outputs`) that LF rendered read-only. It failed in practice — a model-building exercise rendered statically is just the notebook's *source code* in a `<pre>` block, with no executed cells, plots, or metrics.
+- **Option C — Locally-hosted live marimo + banner/launch** (this subphase): nbfoundry emits a runnable marimo `.py` + banner metadata; LF stages the notebook + an `exercises-manifest.json` sidecar; the learner runs `learningfoundry launch <id>` (a CLI that owns marimo's lifecycle — a static browser page can't spawn or kill a process) and the app shows a banner linking to the live notebook.
+
+**Phase-bundled release:** K.g–K.i run **unversioned**; the single **minor** bump (**v0.83.0**) lands on the last story, **K.j**.
+
+**Dependency / risk:** nbfoundry must implement the Option-C contract (return `notebook_source` + metadata; **codegen MUST be torch-free** — torch is a learner-runtime dep only). Until it ships, the provider is exercised against a mocked contract (as K.d mocked `compile_exercise`).
+
+---
+
+### Story K.g: Option C contract + `NbfoundryProvider` rewrite + `ExerciseBlock.mode` [Done]
+
+Build side, part 1 — define the new shape. Rewrites the nbfoundry dependency-spec to Option C, changes the provider's return shape (metadata + notebook source, no static-render fields), and adds the per-exercise `mode`. No staging yet (K.h). Unversioned (rides K.j).
+
+**Decisions (locked):** `mode` default = **`edit`** (author-overridable per exercise). The exercises manifest is a **sidecar `exercises-manifest.json`** (build output at the project root, not under `static/`) — keeps the CLI's `id → notebook_path/mode/port` read cheap and decoupled from the frontend's `curriculum.json`, and keeps the notebook's filesystem path out of the browser payload.
+
+**Tasks:**
+
+- [x] `docs/specs/nbfoundry/consumer-dependency-spec.md`: replaced the Option-B compile contract with **Option C**. Rewrote the "Design Decision" section (Option C is v1; Option B marked SUPERSEDED; Option A future/PyTorch-blocked) and **BR-1** — `compile_exercise(yaml_path, base_dir) -> {title, description, hints, mode, environment, notebook_source}`, dropped `sections`/`expected_outputs`/`submission`/`instructions`, added the explicit *codegen MUST NOT import torch/modelfoundry; torch is learner-runtime only* constraint. Added a consolidated superseded-section note pointing BR-4/BR-5/RR-1's static-render details at K.i/K.j.
+- [x] `src/learningfoundry/schema_v1.py` `ExerciseBlock`: added `mode: Literal["edit", "run"] = "edit"`. `id`/`status` unchanged.
+- [x] `src/learningfoundry/integrations/nbfoundry.py` `NbfoundryProvider.compile_exercise`: **no code change needed** — it was already a pure pass-through (K.d), so it carries the Option-C dict (metadata + `notebook_source`) verbatim. Lazy import + `ImportError` hint + `IntegrationError` wrap intact.
+- [x] `tests/`: `test_nbfoundry.py` `_MOCK_EXERCISE` updated to the Option-C shape + asserts `notebook_source`/`mode` pass through and `sections`/`expected_outputs` are absent; `test_schema_v1.py` covers `mode` default (`edit`) + explicit `run` + rejects unknown. 456 passed; ruff + mypy clean.
+- [x] No version bump (phase-bundled; rides K.j).
+
+### Story K.h: Notebook staging + exercises manifest (resolver + generator) [Planned]
+
+Build side, part 2 — produce the build artifacts. The resolver hands `notebook_source` to a runnable staging path keyed by `id` and emits a manifest entry; the generator writes the `.py` + manifest; the static `sections`/`expected_outputs` aggregation is retired. Unversioned (rides K.j).
+
+**Tasks:**
+
+- [ ] `src/learningfoundry/resolver.py` (`ready` exercise): (a) hand `notebook_source` to a **runnable staging path** keyed by `id` — **not** under `static/` (a `.py` the learner `marimo`-runs, e.g. `exercises/<id>/<id>.py` in the generated project); (b) emit an **exercises-manifest** entry `{id, notebook_path, mode, port}`; (c) keep injecting `content["id"]` + the banner metadata into the resolved content for K.j; (d) retire the `sections`/`expected_outputs` aggregation. Stub exercises stage no notebook.
+- [ ] `src/learningfoundry/generator.py`: write the notebook `.py` to its runnable location (preserved across rebuilds, **not** web-served `static/`); write the `exercises-manifest.json` sidecar (id → `notebook_path`/`mode`/`port`) at the project root.
+- [ ] **K.e asset-staging fate:** decide whether `static/exercises/<id>/` image staging survives (only if a banner/notebook references served images) or is retired with the static renderer. Record the decision.
+- [ ] `tests/`: resolver stages the notebook to the runnable path + emits the manifest entry + retains `id`/metadata; generator writes the `.py` + manifest + preserves them across a rebuild; stub stages nothing.
+- [ ] Update `docs/specs/tech-spec.md`: the exercise-dict shape change (metadata + notebook path + mode, no sections/expected_outputs), the notebook staging + manifest in the generator section.
+- [ ] No version bump (phase-bundled; rides K.j).
+
+### Story K.i: `learningfoundry launch` / `stop` CLI (Launch Marimo) [Planned]
+
+The learner-side runtime that owns marimo's lifecycle — the piece that lets a static app drive a live notebook without the browser spawning processes. Cross-platform Python (a CLI subcommand, **not** a shell script — Windows has no bash). Unversioned (rides K.j). *Flesh fully at its gate.*
+
+**Tasks (sketch):**
+
+- [ ] `src/learningfoundry/cli.py` `learningfoundry launch <exercise-id>`: resolve `id → notebook_path / mode / port` from the manifest; socket-probe the port; read/write a pidfile (e.g. `.learningfoundry/launch-<port>.pid`); if the port is held by a **launch-owned** marimo, prompt to kill/replace (never blind-kill foreign processes); spawn `marimo edit|run <path> --headless -p <port> --no-token` per `mode`.
+- [ ] `learningfoundry stop [<exercise-id>]`: tear down the launch-owned marimo via the pidfile.
+- [ ] `tests/`: id→path/mode resolution from the manifest; port-in-use → prompt/replace; pidfile lifecycle; correct marimo argv per `mode` (mock subprocess/socket); cross-platform path handling.
+- [ ] No version bump (phase-bundled; rides K.j).
+
+### Story K.j: v0.83.0 — `ExerciseBlock` banner (Open in a new window) + retire static renderer [Planned]
+
+Final story; owns the **v0.83.0** release for the whole subphase. The frontend `ready` renderer becomes the 4-state banner card (Copy CLI → Open Exercise → Mark Complete → done) and the static sections/expected_outputs renderer + dead `ExerciseContent` fields are removed. *Flesh fully at its gate.*
+
+**Tasks (sketch):**
+
+- [ ] `src/learningfoundry/sveltekit_template/src/lib/types/index.ts` `ExerciseContent`: replace `sections`/`expected_outputs` with the banner shape (title/description/hints/`launch_command`/`url`/mode/id); drop the now-dead fields.
+- [ ] `ExerciseBlock.svelte` `ready` branch → 4-state banner: **Copy CLI Command** (clipboard `learningfoundry launch <id>`, transient "Copied ✓") → **Open Exercise ↗** (new tab to `http://localhost:<port>`) → **Mark as Complete** (writes `exercise_status`, fires completion — reuses K.f wiring) → complete slate (derived on load from `exercise_status`). Command text stays visible/re-copyable. Stub still renders the placeholder.
+- [ ] `vitest`: 4-state flow; clipboard writes the exact `learningfoundry launch <id>` string; Open targets the right URL; Mark Complete records `exercise_status` + fires events; stub placeholder.
+- [ ] Update `docs/specs/features.md` FR-6 + `README.md` authoring section (the launch flow + `learningfoundry launch`/`stop`); `tech-spec.md` `ExerciseContent` banner shape.
+- [ ] `CHANGELOG.md` + **version bump to v0.83.0** in `pyproject.toml` and `src/learningfoundry/__init__.py` (the subphase release).
+
+---
+
+## Subphase K-3: Assessment Scoring, Reporting, and Bug Fixes
 
 - **`AssessmentScore` shape + `assessment_scores` table reconciliation — capture in `project-essentials.md` once J.u lands.** Story J.u's investigation task picks between "add `(module_id, assessment_id)` columns to the existing `assessment_scores` table" and "introduce a separate `module_assessment_scores` table." Whichever path lands, the rationale and the why-not of the rejected alternative belong in [project-essentials.md](project-essentials.md) under "Domain Conventions" alongside the existing "Assessment scores — aggregate only in learningfoundry" entry. Deferred from the J sub-phase project-essentials sweep because the choice isn't concrete yet; capture it as part of J.u's wrap-up or a follow-up cleanup story rather than letting it slip.
 - **Curriculum completion screen** — "Course Complete" celebration page reached after the last lesson's Finish

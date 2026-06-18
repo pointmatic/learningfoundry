@@ -148,6 +148,11 @@ class ExerciseBlock(StrictModel):
     # provider call, no nbfoundry import. The value space is kept identical
     # to the compiled-dict `status` and the TS type (Hidden Coupling).
     status: Literal["stub", "ready"] = "ready"
+    # How `learningfoundry launch` serves the marimo notebook (Story K.g):
+    # `edit` = editable notebook (learner writes code); `run` = read-only app
+    # view (run-and-observe). Author-set per exercise; default `edit`. Carried
+    # into the exercises manifest the launch CLI reads.
+    mode: Literal["edit", "run"] = "edit"
 
     @model_validator(mode="after")
     def autogen_id(self) -> Self:

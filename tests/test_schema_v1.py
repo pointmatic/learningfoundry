@@ -165,6 +165,36 @@ class TestContentBlockTypes:
                 }
             )
 
+    def test_exercise_block_mode_defaults_to_edit(self) -> None:
+        # Story K.g — `mode` selects how `learningfoundry launch` serves the
+        # notebook. Default `edit` (learner writes code).
+        block = ExerciseBlock.model_validate(
+            {"type": "exercise", "source": "nbfoundry", "ref": "exercises/e.yml"}
+        )
+        assert block.mode == "edit"
+
+    def test_exercise_block_mode_run_explicit(self) -> None:
+        block = ExerciseBlock.model_validate(
+            {
+                "type": "exercise",
+                "source": "nbfoundry",
+                "ref": "exercises/e.yml",
+                "mode": "run",
+            }
+        )
+        assert block.mode == "run"
+
+    def test_exercise_block_rejects_unknown_mode(self) -> None:
+        with pytest.raises(ValidationError):
+            ExerciseBlock.model_validate(
+                {
+                    "type": "exercise",
+                    "source": "nbfoundry",
+                    "ref": "exercises/e.yml",
+                    "mode": "headless",
+                }
+            )
+
 
 def _curriculum_def_with_exercises(specs: list[dict]) -> dict:  # type: ignore[type-arg]
     """Build a CurriculumDef payload with one exercise block per module
