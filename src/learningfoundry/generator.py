@@ -27,10 +27,9 @@ _TEMPLATE_DIR = Path(__file__).parent / "sveltekit_template"
 # rebuild — keeps `learningfoundry preview` snappy when only markdown
 # text changed and no new images were introduced.
 #
-# `static/exercises` is preserved for the same reason for nbfoundry exercise
-# assets (staged non-hashed under `static/exercises/<id>/<path>`, Story K.e),
-# so a rebuild that didn't touch a given exercise's assets leaves them in
-# place.
+# (Marimo exercise notebooks live at `exercises/<id>/<id>.py` — outside the
+# web root — and are regenerated every build by `_write_exercises`, so they
+# are intentionally NOT preserved here.)
 #
 # `static/sql-wasm.wasm` is preserved because it is gitignored and not
 # shipped in the template — `pipeline._ensure_sql_wasm` is the single
@@ -43,7 +42,6 @@ _PRESERVED_PATHS: tuple[str, ...] = (
     "build",
     ".svelte-kit",
     "static/content",
-    "static/exercises",
     "static/sql-wasm.wasm",
 )
 
@@ -103,6 +101,7 @@ def generate_app(
 
     _atomic_copy(src, output_dir)
     _copy_assets(resolved, output_dir)
+    _write_exercises(resolved, output_dir)
     _write_curriculum_json(resolved, output_dir)
 
     logger.info("Generated SvelteKit project at: %s", output_dir)
@@ -216,9 +215,10 @@ def _compute_total_duration_minutes(resolved: ResolvedCurriculum) -> int | None:
 def _write_curriculum_json(resolved: ResolvedCurriculum, output_dir: Path) -> None:
     """Serialize ResolvedCurriculum to output_dir/static/curriculum.json.
 
-    The ``assets`` list is intentionally stripped — it carries on-disk
-    ``Path`` objects (which are not JSON-serialisable) and is consumed only
-    by the generator's asset-copy step, never by the SvelteKit frontend.
+    The ``assets`` and ``exercises`` lists are intentionally stripped — they
+    carry build-output metadata (on-disk ``Path`` objects / notebook source)
+    consumed only by the generator's copy/write steps, never by the SvelteKit
+    frontend.
     """
     static_dir = output_dir / "static"
     static_dir.mkdir(parents=True, exist_ok=True)
@@ -227,6 +227,7 @@ def _write_curriculum_json(resolved: ResolvedCurriculum, output_dir: Path) -> No
     try:
         data = dataclasses.asdict(resolved)
         data.pop("assets", None)
+        data.pop("exercises", None)
         data["total_duration_minutes"] = _compute_total_duration_minutes(resolved)
         curriculum_json.write_text(
             json.dumps(data, indent=2, ensure_ascii=False) + "\n",
@@ -240,17 +241,61 @@ def _write_curriculum_json(resolved: ResolvedCurriculum, output_dir: Path) -> No
     logger.debug("Wrote curriculum.json (%d bytes)", curriculum_json.stat().st_size)
 
 
+def _write_exercises(resolved: ResolvedCurriculum, output_dir: Path) -> None:
+    """Write each ``ready`` exercise's marimo notebook to its runnable path and
+    emit the ``exercises-manifest.json`` sidecar at the project root.
+
+    Notebooks live **outside** ``static/`` — the learner runs them with
+    ``marimo`` (via ``learningfoundry launch``), they are not web-served. The
+    sidecar maps ``id → {notebook_path, mode, port}``; ``learningfoundry
+    launch`` reads it to serve the right notebook. Both are regenerated each
+    build (not preserved) — only the curriculum author runs ``build``; the
+    learner runs the cloned output, so their marimo edits are never clobbered.
+    """
+    if not resolved.exercises:
+        return
+
+    manifest: dict[str, dict[str, object]] = {}
+    for ex in resolved.exercises:
+        notebook = output_dir / ex.notebook_path
+        try:
+            notebook.parent.mkdir(parents=True, exist_ok=True)
+            notebook.write_text(ex.notebook_source, encoding="utf-8")
+        except OSError as exc:
+            raise GenerationError(
+                f"Failed to write exercise notebook `{notebook}`: {exc}"
+            ) from exc
+        manifest[ex.id] = {
+            "notebook_path": ex.notebook_path,
+            "mode": ex.mode,
+            "port": ex.port,
+        }
+
+    manifest_path = output_dir / "exercises-manifest.json"
+    try:
+        manifest_path.write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        raise GenerationError(
+            f"Failed to write exercises manifest to `{manifest_path}`: {exc}"
+        ) from exc
+
+    logger.info(
+        "Wrote %d exercise notebook(s) + manifest.", len(resolved.exercises)
+    )
+
+
 def _copy_assets(resolved: ResolvedCurriculum, output_dir: Path) -> None:
     """Copy each ``Asset`` to ``output_dir/static/<dest_relative>``.
 
     Idempotent: a destination file whose size matches the source is left
-    untouched. For content-hashed image paths
-    (``content/<sha256[:12]>/<basename>``) a matching size on a matching-hash
-    path implies matching content, so the skip is exact. For non-hashed
-    exercise paths (``exercises/<id>/<path>``, Story K.e) the size check is a
-    cheap heuristic — a same-size edit to a staged exercise asset would be
-    skipped; the `static/exercises` preservation across rebuilds plus the
-    stable `id` namespace make that an acceptable trade for fast rebuilds.
+    untouched. ``dest_relative`` is content-hashed
+    (``content/<sha256[:12]>/<basename>``), so a matching size on a
+    matching-hash path implies matching content — re-copying would be wasted
+    I/O. (Marimo exercise notebooks are written separately by
+    ``_write_exercises``, not copied here.)
     """
     if not resolved.assets:
         return

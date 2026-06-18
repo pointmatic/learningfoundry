@@ -678,58 +678,69 @@ class TestStaticContentPreserved:
         assert previous.read_bytes() == b"old-asset-bytes"
 
 
-class TestExerciseAssetCopy:
-    """Story K.e — exercise assets (non-hashed dest `exercises/<id>/<path>`)
-    are staged by the same copy loop as content-hashed image assets."""
+class TestExerciseNotebookWriting:
+    """Story K.h — the generator writes each `ready` exercise's marimo notebook
+    to its runnable path (outside `static/`) and emits the
+    `exercises-manifest.json` sidecar at the project root."""
 
-    BYTES = b"sample-exercise-asset-bytes"
-    DEST = "exercises/mod-01-exercise-01/data/sample.csv"
+    SRC = "import marimo\napp = marimo.App()\n# cells\n"
+    NB_PATH = "exercises/cnn-classifier/cnn-classifier.py"
 
-    def _resolved_with_exercise_asset(self, source: Path) -> ResolvedCurriculum:
-        from learningfoundry.asset_resolver import Asset
+    def _resolved_with_exercise(self) -> ResolvedCurriculum:
+        from learningfoundry.resolver import ExerciseArtifact
 
         resolved = _make_resolved()
-        resolved.assets = [Asset(source=source, dest_relative=self.DEST)]
+        resolved.exercises = [
+            ExerciseArtifact(
+                id="cnn-classifier",
+                notebook_source=self.SRC,
+                notebook_path=self.NB_PATH,
+                mode="edit",
+                port=2718,
+            )
+        ]
         return resolved
 
-    def test_exercise_asset_copied_into_static_exercises(
-        self, tmp_path: Path
-    ) -> None:
-        source = tmp_path / "src" / "sample.csv"
-        source.parent.mkdir()
-        source.write_bytes(self.BYTES)
-
+    def test_notebook_written_to_runnable_path(self, tmp_path: Path) -> None:
         out = tmp_path / "app"
-        generate_app(
-            self._resolved_with_exercise_asset(source),
-            out,
-            template_dir=TEMPLATE_DIR,
-        )
+        generate_app(self._resolved_with_exercise(), out, template_dir=TEMPLATE_DIR)
+        nb = out / self.NB_PATH
+        assert nb.is_file()
+        assert nb.read_text() == self.SRC
 
-        dest = out / "static" / self.DEST
-        assert dest.is_file()
-        assert dest.read_bytes() == self.BYTES
+    def test_notebook_not_under_static(self, tmp_path: Path) -> None:
+        # The learner runs it with marimo; it is not web-served.
+        out = tmp_path / "app"
+        generate_app(self._resolved_with_exercise(), out, template_dir=TEMPLATE_DIR)
+        assert not (out / "static" / "exercises").exists()
 
+    def test_manifest_written_at_project_root(self, tmp_path: Path) -> None:
+        out = tmp_path / "app"
+        generate_app(self._resolved_with_exercise(), out, template_dir=TEMPLATE_DIR)
+        manifest = json.loads((out / "exercises-manifest.json").read_text())
+        assert manifest == {
+            "cnn-classifier": {
+                "notebook_path": self.NB_PATH,
+                "mode": "edit",
+                "port": 2718,
+            }
+        }
 
-class TestStaticExercisesPreserved:
-    """`static/exercises/` must be in `_PRESERVED_PATHS` so previously-staged
-    exercise assets survive a `learningfoundry build` re-run (Story K.e)."""
+    def test_manifest_excludes_notebook_source(self, tmp_path: Path) -> None:
+        # The manifest is the launch index — the .py source lives in the file.
+        out = tmp_path / "app"
+        generate_app(self._resolved_with_exercise(), out, template_dir=TEMPLATE_DIR)
+        raw = (out / "exercises-manifest.json").read_text()
+        assert "notebook_source" not in raw
+        assert "import marimo" not in raw
 
-    def test_static_exercises_listed_in_preserved_paths(self) -> None:
-        from learningfoundry.generator import _PRESERVED_PATHS
-
-        assert "static/exercises" in _PRESERVED_PATHS
-
-    def test_existing_static_exercises_survives_rebuild(
-        self, tmp_path: Path
-    ) -> None:
+    def test_no_exercises_writes_no_manifest(self, tmp_path: Path) -> None:
         out = tmp_path / "app"
         generate_app(_make_resolved(), out, template_dir=TEMPLATE_DIR)
+        assert not (out / "exercises-manifest.json").exists()
 
-        previous = out / "static" / "exercises" / "ex-01" / "data.csv"
-        previous.parent.mkdir(parents=True)
-        previous.write_bytes(b"old-exercise-bytes")
-
-        generate_app(_make_resolved(), out, template_dir=TEMPLATE_DIR)
-        assert previous.is_file()
-        assert previous.read_bytes() == b"old-exercise-bytes"
+    def test_exercises_stripped_from_curriculum_json(self, tmp_path: Path) -> None:
+        out = tmp_path / "app"
+        generate_app(self._resolved_with_exercise(), out, template_dir=TEMPLATE_DIR)
+        data = json.loads((out / "static" / "curriculum.json").read_text())
+        assert "exercises" not in data

@@ -311,9 +311,11 @@ describe('Database — wasm-asset failure surfaces as WasmAssetMissingError', ()
 // from `dist/sql-wasm-browser.js`'s UMD wrapper because none of its CJS/AMD
 // branches run in pure browser ESM. Pre-guard, `Database.getDb()` rejects with
 // the opaque `TypeError: initSqlJsFn is not a function`, indistinguishable
-// from a generic init failure. The Option C guard surfaces it as a typed
-// CJS/ESM-interop error so the next time the `sql.js` dep drifts to a
-// browser-ESM-incompatible build, the failure is named.
+// from a generic init failure. `Database.getDb()`'s `CjsEsmInteropError`
+// guard (sql-js-wasm-robustness.md Pattern F — the import-time sibling of
+// Pattern A's `WasmAssetMissingError`) surfaces it as a typed CJS/ESM-interop
+// error so the next time the `sql.js` dep drifts to a browser-ESM-incompatible
+// build, the failure is named.
 // ---------------------------------------------------------------------------
 
 describe('Database — CJS/ESM interop guard for sql.js', () => {

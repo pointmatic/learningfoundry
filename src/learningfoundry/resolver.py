@@ -81,6 +81,30 @@ class ResolvedModule:
     lessons: list[ResolvedLesson] = field(default_factory=list)
 
 
+# Port the locally-launched marimo server listens on. One marimo runs at a
+# time (`learningfoundry launch`), so every exercise shares this port; it is
+# carried per-entry in the manifest to allow a future per-exercise override.
+_DEFAULT_MARIMO_PORT = 2718
+
+
+@dataclass(frozen=True)
+class ExerciseArtifact:
+    """A staged marimo notebook for a ``ready`` exercise.
+
+    The generator writes ``notebook_source`` to ``notebook_path`` (relative to
+    the generated project root — **never** under ``static/``, since the learner
+    runs it with ``marimo``, not the browser) and records the
+    ``id → notebook_path/mode/port`` mapping in ``exercises-manifest.json``,
+    which ``learningfoundry launch`` reads to serve the notebook.
+    """
+
+    id: str
+    notebook_source: str
+    notebook_path: str
+    mode: str
+    port: int
+
+
 @dataclass
 class ResolvedCurriculum:
     version: str
@@ -94,6 +118,11 @@ class ResolvedCurriculum:
     # ``static/`` and they are stripped before curriculum.json is written
     # (the SvelteKit frontend never sees them).
     assets: list[Asset] = field(default_factory=list)
+    # Marimo notebooks for ``ready`` exercises. Like ``assets``, this is
+    # build-output metadata: the generator writes each notebook to its runnable
+    # path and emits the ``exercises-manifest.json`` sidecar, and the list is
+    # stripped before curriculum.json is written.
+    exercises: list[ExerciseArtifact] = field(default_factory=list)
 
 
 def resolve_curriculum(
@@ -141,6 +170,9 @@ def resolve_curriculum(
     # on the content hash), so a single image referenced from N lessons is
     # copied exactly once into the generated project.
     assets_by_dest: dict[str, Asset] = {}
+    # Marimo notebooks for `ready` exercises, in resolution order. Exercise
+    # ids are curriculum-wide unique (schema), so no dedup is needed.
+    exercises: list[ExerciseArtifact] = []
     for module in curriculum.curriculum.modules:
         resolved_modules.append(
             _resolve_module(
@@ -150,6 +182,7 @@ def resolve_curriculum(
                 exercise_provider,
                 visualization_provider,
                 assets_by_dest,
+                exercises,
             )
         )
 
@@ -171,6 +204,7 @@ def resolve_curriculum(
         ),
         modules=resolved_modules,
         assets=list(assets_by_dest.values()),
+        exercises=exercises,
     )
 
 
@@ -181,6 +215,7 @@ def _resolve_module(
     exercise_provider: ExerciseProvider,
     visualization_provider: VisualizationProvider,
     assets_by_dest: dict[str, Asset],
+    exercises: list[ExerciseArtifact],
 ) -> ResolvedModule:
     resolved_lessons: list[ResolvedLesson] = []
     for lesson in module.lessons:
@@ -193,6 +228,7 @@ def _resolve_module(
                 exercise_provider,
                 visualization_provider,
                 assets_by_dest,
+                exercises,
             )
         )
 
@@ -297,6 +333,7 @@ def _resolve_lesson(
     exercise_provider: ExerciseProvider,
     visualization_provider: VisualizationProvider,
     assets_by_dest: dict[str, Asset],
+    exercises: list[ExerciseArtifact],
 ) -> ResolvedLesson:
     resolved_blocks: list[ResolvedContentBlock] = []
     for idx, block in enumerate(lesson.content_blocks):
@@ -310,6 +347,7 @@ def _resolve_lesson(
                 visualization_provider,
                 location,
                 assets_by_dest,
+                exercises,
             )
         )
     return ResolvedLesson(
@@ -331,6 +369,7 @@ def _resolve_block(
     visualization_provider: VisualizationProvider,
     location: str,
     assets_by_dest: dict[str, Asset],
+    exercises: list[ExerciseArtifact],
 ) -> ResolvedContentBlock:
     try:
         if isinstance(block, TextBlock):
@@ -356,24 +395,32 @@ def _resolve_block(
                 content = stub_exercise(Path(block.ref))
             else:
                 content = exercise_provider.compile_exercise(Path(block.ref), base_dir)
-                # Stage asset files the compiled exercise references (Story
-                # K.e). They travel as relative paths in `assets: list[str]`
-                # and land under the exercise's `id` namespace
-                # (`static/exercises/<id>/<path>`), deduped on `dest_relative`
-                # via the shared aggregator. `block.id` is guaranteed by the
+                # Stage the marimo notebook (Story K.h). Pull `notebook_source`
+                # out of the banner content — the browser never needs the .py;
+                # the generator writes it to a runnable path keyed by `id` and
+                # indexes it in the manifest. `block.id` is guaranteed by the
                 # schema's auto-gen validator.
-                for rel in content.get("assets") or []:
-                    dest_relative = f"exercises/{block.id}/{rel}"
-                    assets_by_dest.setdefault(
-                        dest_relative,
-                        Asset(source=base_dir / rel, dest_relative=dest_relative),
+                assert block.id is not None
+                notebook_source = content.pop("notebook_source")
+                exercises.append(
+                    ExerciseArtifact(
+                        id=block.id,
+                        notebook_source=notebook_source,
+                        notebook_path=f"exercises/{block.id}/{block.id}.py",
+                        mode=block.mode,
+                        port=_DEFAULT_MARIMO_PORT,
                     )
-            # Surface the curriculum-level `id` to the frontend (Story K.f):
-            # it is the `/exercises/<id>/<path>` asset-URL namespace and the
-            # `exerciseRef` progress key. Authoritative over anything in the
-            # compiled dict — nbfoundry doesn't know our id (or an explicit
-            # author override).
+                )
+                # The banner (Story K.j) composes `http://localhost:<port>`
+                # and shows the mode; surface both on the resolved content.
+                content["mode"] = block.mode
+                content["port"] = _DEFAULT_MARIMO_PORT
+            # Surface the curriculum-level `id` + `status` to the frontend
+            # (Story K.f): `id` is the `exerciseRef` progress key, `status`
+            # tells the banner stub-vs-ready. Authoritative over the compiled
+            # dict — nbfoundry doesn't know our id (or an explicit override).
             content["id"] = block.id
+            content["status"] = block.status
             return ResolvedContentBlock(
                 type="exercise", source=block.source, ref=block.ref, content=content
             )

@@ -18,8 +18,8 @@ _BASE = Path("/curriculum")
 
 # A representative compiled-exercise dict nbfoundry's compile_exercise emits
 # (Story K.g): banner metadata + the marimo notebook source as a string. No
-# sections/expected_outputs/submission — the notebook itself carries the
-# cells/outputs.
+# sections/expected_outputs/submission — the notebook carries the cells/outputs.
+# No `mode` — that is the curriculum author's ExerciseBlock field, not nbfoundry's.
 _MOCK_EXERCISE = {
     "type": "exercise",
     "source": "nbfoundry",
@@ -27,7 +27,6 @@ _MOCK_EXERCISE = {
     "title": "Train a tiny classifier",
     "description": "<p>Build and train …</p>",
     "hints": ["Start with nn.Conv2d."],
-    "mode": "edit",
     "environment": {
         "python_version": "3.12",
         "dependencies": ["marimo", "torch"],
@@ -63,10 +62,10 @@ class TestNbfoundryProviderDelegation:
         assert isinstance(result, dict)
         assert result["title"] == "Train a tiny classifier"
         assert result["notebook_source"] == _MOCK_EXERCISE["notebook_source"]
-        assert result["mode"] == "edit"
-        # Static-render fields are gone from the contract.
+        # Static-render fields and `mode` are not in nbfoundry's contract.
         assert "sections" not in result
         assert "expected_outputs" not in result
+        assert "mode" not in result
 
     def test_passes_ref_and_base_dir(self) -> None:
         mock_compile = MagicMock(return_value={})

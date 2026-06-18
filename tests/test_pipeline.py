@@ -23,7 +23,7 @@ def _stub_providers() -> tuple[MagicMock, MagicMock, MagicMock]:
     quiz = MagicMock()
     quiz.compile_assessment.return_value = {"quizName": "q", "questions": []}
     exercise = MagicMock()
-    exercise.compile_exercise.return_value = {"status": "stub"}
+    exercise.compile_exercise.return_value = {"notebook_source": "import marimo"}
     vis = MagicMock()
     vis.compile_visualization.return_value = {"status": "stub"}
     return quiz, exercise, vis

@@ -358,17 +358,18 @@ class ExerciseBlock(BaseModel):
     type: str = "exercise"
     source: str                     # "nbfoundry"
     ref: str                        # Path to nbfoundry exercise YAML
-    id: str | None = None           # Story K.e — build-output namespace
-                                    # (static/exercises/<id>/) + progress key.
-                                    # Auto-derived from the `ref` stem when
-                                    # omitted; unique CURRICULUM-WIDE (enforced
-                                    # on CurriculumDef); a stem collision fails
-                                    # loud so the author sets an explicit id.
-    status: Literal["stub", "ready"] = "ready"  # Story K.d — resolver-owned
-                                    # switch: "ready" compiles via
-                                    # NbfoundryProvider (fail-loud on bad ref);
-                                    # "stub" emits a placeholder, no provider
-                                    # call, no nbfoundry import.
+    id: str | None = None           # build-output namespace (exercises/<id>/)
+                                    # + `exerciseRef` progress key. Auto-derived
+                                    # from the `ref` stem when omitted; unique
+                                    # CURRICULUM-WIDE (enforced on CurriculumDef);
+                                    # a stem collision fails loud.
+    status: Literal["stub", "ready"] = "ready"  # resolver-owned switch:
+                                    # "ready" compiles via NbfoundryProvider
+                                    # (fail-loud on bad ref); "stub" emits a
+                                    # placeholder, no provider call/import.
+    mode: Literal["edit", "run"] = "edit"  # Story K.g — how `learningfoundry
+                                    # launch` serves the marimo notebook (edit =
+                                    # learner writes code; run = read-only app).
 
 class VisualizationBlock(BaseModel):
     type: str = "visualization"
@@ -913,21 +914,26 @@ def generate_app(
          - pnpm-lock.yaml
          - build
          - .svelte-kit
-         - static/content     (image assets copied by step 3)
-         - static/exercises   (nbfoundry exercise assets copied by step 3, Story K.e)
+         - static/content     (image assets copied by the asset-copy step)
          - static/sql-wasm.wasm
+       (Marimo exercise notebooks live at `exercises/<id>/<id>.py`, outside the
+       web root, and are regenerated every build — intentionally NOT preserved.)
     2. Write curriculum.json into output_dir/static/, containing the full
        resolved curriculum structure (modules, lessons, content blocks with
-       resolved content). The `assets` field on ResolvedCurriculum is
-       intentionally stripped — it carries on-disk Path objects (not JSON
-       serialisable) and is consumed only by the next step.
+       resolved content). The `assets` AND `exercises` fields on
+       ResolvedCurriculum are intentionally stripped — they carry build-output
+       metadata (Path objects / notebook source), consumed only by the
+       copy/write steps below.
     3. Copy each Asset record from ResolvedCurriculum.assets into
-       output_dir/static/<dest_relative>. Two dest_relative shapes flow
-       through the same loop: content-hashed image paths
-       (`content/<sha256[:12]>/<basename>`) and non-hashed exercise paths
-       (`exercises/<id>/<path>`, Story K.e). Idempotent: a destination file
-       whose size matches the source is left untouched — an exact identity
-       signal for hashed paths, a cheap heuristic for exercise paths.
+       output_dir/static/<dest_relative> (content-hashed image paths
+       `content/<sha256[:12]>/<basename>`). Idempotent: a destination file
+       whose size matches the source is left untouched.
+    4. Write each ExerciseArtifact from ResolvedCurriculum.exercises (Story
+       K.h): the marimo `notebook_source` to `output_dir/<notebook_path>`
+       (`exercises/<id>/<id>.py`, outside static/), and the
+       `exercises-manifest.json` sidecar at the project root mapping
+       `id → {notebook_path, mode, port}`. `learningfoundry launch` reads the
+       sidecar to serve the right notebook; the SvelteKit banner never sees it.
 
     If output_dir exists, the log message is INFO-level and notes which
     state directories are being preserved.
@@ -1014,7 +1020,10 @@ curriculum:
 
 The `ResolvedCurriculum` dataclass tree (see `resolver.py` above) is serialized to `curriculum.json` in the generated SvelteKit project for the frontend to consume.
 
-In addition to the module/lesson/content tree, `ResolvedCurriculum` carries an `assets: list[Asset]` field — the deduped (on `dest_relative`) union of two asset sources: every image asset referenced by any text block's markdown (`dest_relative = "content/<sha256[:12]>/<basename>"`), and every file a compiled `ready` exercise lists in its `assets: list[str]` (`dest_relative = "exercises/<id>/<path>"`, Story K.e). Each `Asset` is a `(source: Path, dest_relative: str)` pair. The list is consumed by `generator.generate_app()` to copy files into `output_dir/static/`; it is **stripped before serialisation to curriculum.json** because it carries `Path` objects (not JSON-serialisable) and the SvelteKit frontend only ever needs the rewritten URL (markdown) or the runtime-composed `/exercises/<id>/<path>` URL (K.f renderer) — never the original source path.
+In addition to the module/lesson/content tree, `ResolvedCurriculum` carries two build-output fields, both **stripped before serialisation to curriculum.json** (they hold `Path` objects / notebook source the SvelteKit frontend never needs):
+
+- `assets: list[Asset]` — image assets referenced by any text block's markdown, deduped on `dest_relative` (`content/<sha256[:12]>/<basename>`). Each `Asset` is a `(source: Path, dest_relative: str)` pair; `generator.generate_app()` copies them into `output_dir/static/`.
+- `exercises: list[ExerciseArtifact]` (Story K.h) — the marimo notebook for each `ready` exercise: `(id, notebook_source, notebook_path, mode, port)`. `generate_app()` writes each `notebook_source` to `output_dir/<notebook_path>` (`exercises/<id>/<id>.py`, outside `static/`) and emits the `exercises-manifest.json` sidecar that `learningfoundry launch` reads.
 
 ### curriculum.json (generated, consumed by SvelteKit)
 

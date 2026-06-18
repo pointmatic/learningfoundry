@@ -451,7 +451,10 @@ class TestAssessmentBlockResolution:
 class TestExerciseBlockResolution:
     def test_delegates_to_exercise_provider(self, tmp_path: Path) -> None:
         mock_ex = MagicMock()
-        mock_ex.compile_exercise.return_value = {"status": "stub", "title": "Ex"}
+        mock_ex.compile_exercise.return_value = {
+            "title": "Ex",
+            "notebook_source": "import marimo",
+        }
         c = _curriculum_with_blocks(
             [{"type": "exercise", "source": "nbfoundry", "ref": "exercises/e.yml"}]
         )
@@ -525,7 +528,10 @@ class TestExerciseStatusSwitch:
 
     def test_ready_status_invokes_provider(self, tmp_path: Path) -> None:
         mock_ex = MagicMock()
-        mock_ex.compile_exercise.return_value = {"status": "ready", "title": "Ex"}
+        mock_ex.compile_exercise.return_value = {
+            "title": "Ex",
+            "notebook_source": "import marimo",
+        }
         c = _curriculum_with_blocks(
             [
                 {
@@ -551,7 +557,7 @@ class TestExerciseStatusSwitch:
     def test_default_status_invokes_provider(self, tmp_path: Path) -> None:
         # No `status` key → defaults to `ready` → provider is called.
         mock_ex = MagicMock()
-        mock_ex.compile_exercise.return_value = {"status": "ready"}
+        mock_ex.compile_exercise.return_value = {"notebook_source": "import marimo"}
         c = _curriculum_with_blocks(
             [{"type": "exercise", "source": "nbfoundry", "ref": "exercises/e.yml"}]
         )
@@ -611,88 +617,94 @@ class TestExerciseStatusSwitch:
             resolve_curriculum(c, tmp_path, assessment_provider=MagicMock())
 
 
-class TestExerciseAssetStaging:
-    """Story K.e — a compiled `ready` exercise's `assets: list[str]` are
-    staged into `static/exercises/<id>/<path>` via the shared assets_by_dest
-    aggregator (deduped on `dest_relative`). Stub exercises carry no assets
-    and stage nothing."""
+class TestExerciseNotebookStaging:
+    """Story K.h — a `ready` exercise's marimo `notebook_source` is pulled out
+    of the banner content and recorded as an `ExerciseArtifact` (the generator
+    writes the `.py` + the manifest). Stub exercises stage no notebook."""
 
-    def _exercise(self, **extra: object) -> dict:  # type: ignore[type-arg]
-        block = {"type": "exercise", "source": "nbfoundry", "ref": "exercises/e.yml"}
-        block.update(extra)
-        return block
+    _SRC = "import marimo\napp = marimo.App()\n# cells"
 
-    def test_ready_exercise_assets_emit_namespaced_records(
-        self, tmp_path: Path
-    ) -> None:
-        mock_ex = MagicMock()
-        mock_ex.compile_exercise.return_value = {
-            "status": "ready",
-            "assets": ["data/img.png", "weights/model.pt"],
-        }
-        c = _curriculum_with_blocks([self._exercise(status="ready")])
-        result = resolve_curriculum(
-            c, tmp_path,
+    def _ready_provider(self) -> MagicMock:
+        m = MagicMock()
+        m.compile_exercise.return_value = {"title": "Ex", "notebook_source": self._SRC}
+        return m
+
+    def _resolve(self, block: dict, tmp_path: Path):  # type: ignore[type-arg, no-untyped-def]
+        return resolve_curriculum(
+            _curriculum_with_blocks([block]),
+            tmp_path,
             assessment_provider=MagicMock(),
-            exercise_provider=mock_ex,
+            exercise_provider=self._ready_provider(),
             visualization_provider=MagicMock(),
         )
-        by_dest = {a.dest_relative: a for a in result.assets}
-        assert set(by_dest) == {
-            "exercises/e/data/img.png",
-            "exercises/e/weights/model.pt",
-        }
-        assert by_dest["exercises/e/data/img.png"].source == tmp_path / "data/img.png"
 
-    def test_explicit_id_namespaces_assets(self, tmp_path: Path) -> None:
-        mock_ex = MagicMock()
-        mock_ex.compile_exercise.return_value = {
-            "status": "ready",
-            "assets": ["fig.png"],
-        }
-        c = _curriculum_with_blocks([self._exercise(id="custom", status="ready")])
-        result = resolve_curriculum(
-            c, tmp_path,
-            assessment_provider=MagicMock(),
-            exercise_provider=mock_ex,
-            visualization_provider=MagicMock(),
+    def test_ready_emits_exercise_artifact(self, tmp_path: Path) -> None:
+        result = self._resolve(
+            {"type": "exercise", "source": "nbfoundry", "ref": "exercises/e.yml"},
+            tmp_path,
         )
-        assert {a.dest_relative for a in result.assets} == {"exercises/custom/fig.png"}
+        assert len(result.exercises) == 1
+        art = result.exercises[0]
+        assert art.id == "e"
+        assert art.notebook_source == self._SRC
+        assert art.notebook_path == "exercises/e/e.py"
+        assert art.mode == "edit"
+        assert art.port == 2718
 
-    def test_ready_exercise_without_assets_stages_nothing(
-        self, tmp_path: Path
-    ) -> None:
-        mock_ex = MagicMock()
-        mock_ex.compile_exercise.return_value = {"status": "ready"}  # no `assets` key
-        c = _curriculum_with_blocks([self._exercise()])
-        result = resolve_curriculum(
-            c, tmp_path,
-            assessment_provider=MagicMock(),
-            exercise_provider=mock_ex,
-            visualization_provider=MagicMock(),
+    def test_explicit_id_and_mode_in_artifact(self, tmp_path: Path) -> None:
+        result = self._resolve(
+            {
+                "type": "exercise",
+                "source": "nbfoundry",
+                "ref": "exercises/e.yml",
+                "id": "custom",
+                "mode": "run",
+            },
+            tmp_path,
         )
-        assert result.assets == []
+        art = result.exercises[0]
+        assert art.id == "custom"
+        assert art.notebook_path == "exercises/custom/custom.py"
+        assert art.mode == "run"
 
-    def test_stub_exercise_stages_nothing(self, tmp_path: Path) -> None:
-        c = _curriculum_with_blocks([self._exercise(status="stub")])
+    def test_notebook_source_stripped_from_content(self, tmp_path: Path) -> None:
+        # The browser never needs the .py — it must not ride into curriculum.json.
+        result = self._resolve(
+            {"type": "exercise", "source": "nbfoundry", "ref": "exercises/e.yml"},
+            tmp_path,
+        )
+        content = result.modules[0].lessons[0].content_blocks[0].content
+        assert "notebook_source" not in content
+
+    def test_content_carries_banner_launch_fields(self, tmp_path: Path) -> None:
+        result = self._resolve(
+            {
+                "type": "exercise",
+                "source": "nbfoundry",
+                "ref": "exercises/e.yml",
+                "mode": "run",
+            },
+            tmp_path,
+        )
+        content = result.modules[0].lessons[0].content_blocks[0].content
+        assert content["id"] == "e"
+        assert content["status"] == "ready"
+        assert content["mode"] == "run"
+        assert content["port"] == 2718
+
+    def test_stub_stages_no_notebook(self, tmp_path: Path) -> None:
+        c = _curriculum_with_blocks(
+            [
+                {
+                    "type": "exercise",
+                    "source": "nbfoundry",
+                    "ref": "exercises/e.yml",
+                    "status": "stub",
+                }
+            ]
+        )
         result = resolve_curriculum(c, tmp_path, assessment_provider=MagicMock())
-        assert result.assets == []
-
-    def test_same_asset_listed_twice_is_deduped(self, tmp_path: Path) -> None:
-        mock_ex = MagicMock()
-        mock_ex.compile_exercise.return_value = {
-            "status": "ready",
-            "assets": ["fig.png", "fig.png"],
-        }
-        c = _curriculum_with_blocks([self._exercise(status="ready")])
-        result = resolve_curriculum(
-            c, tmp_path,
-            assessment_provider=MagicMock(),
-            exercise_provider=mock_ex,
-            visualization_provider=MagicMock(),
-        )
-        assert len(result.assets) == 1
-        assert result.assets[0].dest_relative == "exercises/e/fig.png"
+        assert result.exercises == []
 
 
 class TestExerciseIdInResolvedContent:
@@ -704,7 +716,10 @@ class TestExerciseIdInResolvedContent:
 
     def test_ready_content_carries_auto_derived_id(self, tmp_path: Path) -> None:
         mock_ex = MagicMock()
-        mock_ex.compile_exercise.return_value = {"status": "ready", "title": "Ex"}
+        mock_ex.compile_exercise.return_value = {
+            "title": "Ex",
+            "notebook_source": "import marimo",
+        }
         c = _curriculum_with_blocks(
             [{"type": "exercise", "source": "nbfoundry", "ref": "exercises/e.yml"}]
         )
@@ -718,7 +733,7 @@ class TestExerciseIdInResolvedContent:
 
     def test_ready_content_carries_explicit_id(self, tmp_path: Path) -> None:
         mock_ex = MagicMock()
-        mock_ex.compile_exercise.return_value = {"status": "ready"}
+        mock_ex.compile_exercise.return_value = {"notebook_source": "import marimo"}
         c = _curriculum_with_blocks(
             [
                 {
