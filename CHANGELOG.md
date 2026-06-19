@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.83.2] - 2026-06-18
+
+**Single-source the package version** (Story K.k) — build hygiene.
+
+### Changed
+
+- **`pyproject.toml` derives the version dynamically from `src/learningfoundry/__init__.py`** via Hatchling (`[project].dynamic = ["version"]` + `[tool.hatch.version]`). `__version__` is now the single source of truth; the version can no longer drift between the two files, and a release bumps **only** `__init__.py`. A new `tests/test_packaging.py` guards the wiring against a silent revert to a static `[project].version`.
+
 ## [0.83.1] - 2026-06-18
 
 **nbfoundry dependency floor pin** (Story K.j.3) — a bugfix patch after verifying the Option-C integration against the now-published real package.

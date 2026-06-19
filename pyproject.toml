@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "learningfoundry"
-version = "0.83.1"
+dynamic = ["version"]
 description = "A curriculum engine that turns a YAML curriculum definition into a deployable SvelteKit learning application."
 readme = "README.md"
 license = "Apache-2.0"
@@ -32,14 +32,14 @@ dependencies = [
 
 [project.optional-dependencies]
 quizazz = [
-    "quizazz>=0.1",
+    "quizazz>=1.4",
 ]
 nbfoundry = [
     # >=0.46.0 is the first release honoring the Option-C `compile_exercise`
     # contract (returns `notebook_source` + banner metadata; consumer-
     # dependency-spec BR-1). Pre-0.46 returns the retired Option-B dict, which
     # the resolver's `notebook_source` pop cannot consume (Story K.j.3).
-    "nbfoundry>=0.46.0",
+    "nbfoundry>=0.46",
 ]
 
 [project.urls]
@@ -50,6 +50,11 @@ Changelog = "https://github.com/pointmatic/learningfoundry/blob/main/CHANGELOG.m
 
 [project.scripts]
 learningfoundry = "learningfoundry.cli:main"
+
+# Single-source the package version from `__version__` in the package's
+# `__init__.py` (Story K.k). The default `regex` source reads `__version__`.
+[tool.hatch.version]
+path = "src/learningfoundry/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/learningfoundry"]

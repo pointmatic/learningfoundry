@@ -293,6 +293,17 @@ Post-implementation follow-up to the K-2 Option-C release. nbfoundry **0.46.0** 
 - [x] Floor `nbfoundry>=0.1` → `>=0.46.0` in `pyproject.toml`; updated the two spec references (consumer-dependency-spec § Package Distribution + tech-spec dependency table).
 - [x] `CHANGELOG.md` `[0.83.1]` + **version bump to v0.83.1**. Verified: `pyve test` → **503 passed** (498 + 5 live); ruff + `mypy src/` clean; CLI `--version` → `0.83.1`.
 
+### Story K.k: v0.83.2 — Dynamic `pyproject.toml` version from `__init__.py` (Hatchling) [Done]
+
+The package version was duplicated — `[project].version` in `pyproject.toml` **and** `__version__` in `src/learningfoundry/__init__.py` — and every release edited both. `pyproject.toml` now derives the version from `__init__.py` via Hatchling's dynamic-version source, so `__version__` is the single source of truth and the two cannot drift.
+
+**Tasks:**
+
+- [x] `pyproject.toml`: replaced `[project].version = "…"` with `dynamic = ["version"]`; added `[tool.hatch.version]` `path = "src/learningfoundry/__init__.py"` (Hatchling's default `regex` source reads `__version__`). `[tool.hatch.build.targets.*]` unaffected.
+- [x] `tests/test_packaging.py` (new, 4 tests, `tomllib`): `"version"` in `[project].dynamic`; **no** static `[project].version` key; `[tool.hatch.version].path == "src/learningfoundry/__init__.py"`; `learningfoundry.__version__` is a non-empty str.
+- [x] One-time real-build verification: `pyve env run pip install -e . --no-deps` → `Successfully installed learningfoundry-0.83.2`; `importlib.metadata.version("learningfoundry") == learningfoundry.__version__ == "0.83.2"` (Hatchling resolved it from `__init__.py`).
+- [x] `CHANGELOG.md` `[0.83.2]` + **version bump to v0.83.2** in `src/learningfoundry/__init__.py` **only** (pyproject is now dynamic — first release on the single-source bump). Verified: `pyve test` → **507 passed** (503 + 4); ruff + `mypy src/` clean; CLI `--version` → `0.83.2`; no static `version =` line in `pyproject.toml`.
+
 ---
 
 ## Subphase K-3: Assessment Scoring, Reporting, and Bug Fixes
