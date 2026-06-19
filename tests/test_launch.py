@@ -285,22 +285,49 @@ class TestSpawnDetached:
 
 
 class TestTerminatePid:
-    def test_signals_the_process_group(self) -> None:
-        # marimo is its own group leader (start_new_session=True); signalling
-        # the whole group reaps its multiprocessing children too.
+    def test_sigints_descendants_then_sigkills_whole_tree(self) -> None:
+        # Kernels (descendants) get a graceful SIGINT to release semaphores;
+        # then the whole tree (server + kernel) is force-killed.
         with (
-            patch("learningfoundry.launch.os.getpgid", return_value=4242) as getpgid,
-            patch("learningfoundry.launch.os.killpg") as killpg,
+            patch("learningfoundry.launch._descendants", return_value=[1001]),
+            patch("learningfoundry.launch.os.kill") as kill,
+            patch("learningfoundry.launch.time.sleep") as sleep,
+        ):
+            terminate_pid(4242, grace=2.0)
+        kill.assert_any_call(1001, signal.SIGINT)  # graceful kernel teardown
+        kill.assert_any_call(4242, signal.SIGKILL)  # force the server
+        kill.assert_any_call(1001, signal.SIGKILL)  # force the kernel
+        sleep.assert_called_once_with(2.0)  # the kernel-cleanup window
+
+    def test_no_grace_sleep_when_no_descendants(self) -> None:
+        with (
+            patch("learningfoundry.launch._descendants", return_value=[]),
+            patch("learningfoundry.launch.os.kill") as kill,
+            patch("learningfoundry.launch.time.sleep") as sleep,
         ):
             terminate_pid(4242)
-        getpgid.assert_called_once_with(4242)
-        killpg.assert_called_once_with(4242, signal.SIGTERM)
+        sleep.assert_not_called()
+        kill.assert_called_once_with(4242, signal.SIGKILL)
 
     def test_already_dead_is_noop(self) -> None:
-        with patch(
-            "learningfoundry.launch.os.getpgid", side_effect=ProcessLookupError
+        with (
+            patch("learningfoundry.launch._descendants", return_value=[]),
+            patch(
+                "learningfoundry.launch.os.kill", side_effect=ProcessLookupError
+            ),
         ):
             terminate_pid(4242)  # must not raise
+
+
+class TestDescendants:
+    def test_walks_the_ppid_tree(self) -> None:
+        from learningfoundry.launch import _descendants
+
+        # 200←100, 300←200 (grandchild), 400←1 (unrelated).
+        fake_ps = "  100     1\n  200   100\n  300   200\n  400     1\n"
+        with patch("learningfoundry.launch.subprocess.run") as run:
+            run.return_value.stdout = fake_ps
+            assert sorted(_descendants(100)) == [200, 300]
 
 
 # ---------------------------------------------------------------------------

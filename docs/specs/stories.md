@@ -319,6 +319,21 @@ Two bugs surfaced running `learningfoundry launch`/`stop` from a real curriculum
 - [x] `README.md` launch/stop section + `--dir` help (cli.py): "run from the project root (auto-detects `dist/`) or from inside the app"; dropped the "run from inside the generated app" framing.
 - [x] `CHANGELOG.md` `[0.83.3]` + **version bump to v0.83.3** (`__init__.py` only). Verified: `pyve test` → **513 passed** (507 + 6); ruff + `mypy src/` clean; CLI `--version` → `0.83.3`.
 
+### Story K.l.1: v0.83.4 — `stop` reaches marimo's isolated kernel (ppid-tree teardown) [Done]
+
+Post-implementation follow-up to K.l: the group-`SIGTERM` did **not** fix the hang. Root cause (confirmed against marimo 0.46-era source + live process-tree probing): marimo isolates each notebook **kernel** in its own process group with a **parent-poller**, so a signal sent to the server's group never reaches the kernel — orphaned, it notices the dead server only on its next poll and shuts down *late*, leaking its multiprocessing semaphores (the `parent_poller: Parent server appears to have exited` + `resource_tracker: leaked semaphore` messages *after* the prompt).
+
+**Empirical findings (live probe):** the kernel handles **SIGINT** gracefully (the signal marimo itself uses to stop kernels, releasing semaphores), but is a **ppid descendant** of the server even though it sits in its own process group. The marimo **server** ignores `SIGINT` and lingers ~8 s on `SIGTERM`, so no graceful signal stops it promptly — only `SIGKILL`.
+
+**Fix:** `terminate_pid` walks the **ppid tree** (reaching the kernel), `SIGINT`s the descendants (graceful kernel teardown → semaphores released), waits a brief grace window, then `SIGKILL`s the whole tree — snappy, and it kills the `resource_tracker` before it can emit a late warning.
+
+**Tasks:**
+
+- [x] `launch.py` `_descendants(pid)` (ppid-tree walk via `ps -Ao pid=,ppid=`) + `_signal(pid, sig)` (swallows `ProcessLookupError`); `terminate_pid(pid, *, grace=2.0)` → `SIGINT` each descendant → `sleep(grace)` if any → `SIGKILL` the whole tree (re-walked). Windows keeps `taskkill /F /T`.
+- [x] `tests/`: `TestTerminatePid` — SIGINT-descendants-then-SIGKILL-tree; no grace-sleep when no descendants; already-dead no-op. `TestDescendants` — ppid-tree walk parsing.
+- [x] Real-marimo verification (server-only, reproducible here): spawn → `terminate_pid` → **2.06 s**, 0 survivors, log clean (no late goodbye / leaked-semaphore / parent-poller). **Kernel-teardown confirmation needs a browser-connected session — flagged for developer retest.**
+- [x] `CHANGELOG.md` `[0.83.4]` + **version bump to v0.83.4**. Verified: `pyve test` → **515 passed** (513 + 2); ruff + `mypy src/` clean. (Supersedes K.l's group-`SIGTERM`.)
+
 ---
 
 ## Subphase K-3: Assessment Scoring, Reporting, and Bug Fixes

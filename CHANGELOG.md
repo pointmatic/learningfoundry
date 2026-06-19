@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.83.4] - 2026-06-18
+
+**`stop` teardown reaches marimo's isolated kernel** (Story K.l.1) — the follow-up that actually fixes the hang K.l (group-`SIGTERM`) only half-addressed.
+
+### Fixed
+
+- **`learningfoundry stop` no longer leaves a marimo kernel hanging.** marimo isolates each notebook **kernel** in its own process group with a parent-poller, so K.l's group-`SIGTERM` never reached it — the orphaned kernel noticed the dead server only on its next poll and shut down *late*, printing `parent_poller: Parent server appears to have exited` + `resource_tracker: leaked semaphore` warnings after the shell prompt returned. `terminate_pid` now walks the **ppid tree** (which reaches the kernel despite its separate group), sends the kernel a graceful `SIGINT` (the signal marimo's kernel handles — it releases its multiprocessing semaphores), waits a short window, then `SIGKILL`s the whole tree. The marimo server empirically ignores `SIGINT` and lingers several seconds on `SIGTERM`, so force-killing the tree (rather than waiting on it) keeps `stop` snappy (~2 s) and kills the `resource_tracker` before it can emit a late warning. Verified end-to-end against a real marimo server: prompt teardown, 0 survivors, no late messages.
+
 ## [0.83.3] - 2026-06-18
 
 **`learningfoundry launch`/`stop` fixes from first real-world use** (Story K.l).

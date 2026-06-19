@@ -21,6 +21,7 @@ import signal
 import socket
 import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
@@ -312,16 +313,63 @@ def spawn_detached(argv: list[str], cwd: Path) -> int:
     return proc.pid
 
 
-def terminate_pid(pid: int) -> None:
-    """Ask the launch-owned marimo at ``pid`` to terminate (idempotent).
+def _signal(pid: int, sig: int) -> None:
+    """`os.kill` that swallows "already gone"."""
+    try:
+        os.kill(pid, sig)
+    except ProcessLookupError:
+        pass
 
-    Signals the whole **process group**, not just ``pid``: ``launch`` spawns
-    marimo with ``start_new_session=True``, so marimo is its own group leader
-    and its multiprocessing children share the group. Killing only the parent
-    orphans those children, which then print marimo's goodbye banner and
-    ``resource_tracker`` leaked-semaphore warnings *after* the shell returns.
-    POSIX `SIGTERM`s the group (graceful); Windows uses ``taskkill /T`` (tree).
-    A process that has already exited is treated as success.
+
+def _descendants(pid: int) -> list[int]:
+    """All transitive child pids of ``pid`` (POSIX, via ``ps``).
+
+    Walks the ppid tree rather than the process *group* so it finds marimo's
+    notebook kernel even though marimo isolates it in its own process group —
+    the kernel is still a child here.
+    """
+    try:
+        out = subprocess.run(
+            ["ps", "-Ao", "pid=,ppid="],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout
+    except OSError:  # pragma: no cover - ps should always exist on POSIX
+        return []
+    children: dict[int, list[int]] = {}
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            children.setdefault(int(parts[1]), []).append(int(parts[0]))
+    result: list[int] = []
+    stack = [pid]
+    while stack:
+        for child in children.get(stack.pop(), []):
+            if child not in result:
+                result.append(child)
+                stack.append(child)
+    return result
+
+
+def terminate_pid(pid: int, *, grace: float = 2.0) -> None:
+    """Stop the launch-owned marimo at ``pid`` and all its descendants —
+    promptly and without the late goodbye / leaked-semaphore noise.
+
+    marimo isolates each notebook **kernel** in its own process group with a
+    parent-poller, so a signal sent to the server's process group never reaches
+    the kernel: orphaned, it notices the dead server only on its next poll and
+    shuts down *late*, leaking its multiprocessing semaphores (the hang this
+    fixes). Empirically the marimo **server** ignores ``SIGINT`` and lingers
+    several seconds on ``SIGTERM``, so no graceful signal stops it promptly.
+
+    Strategy: walk the ppid tree (which reaches the kernel despite its separate
+    group), ``SIGINT`` the descendants — the kernel handles SIGINT and releases
+    its semaphores — give them a brief ``grace`` window to do so, then
+    ``SIGKILL`` the whole tree. Force-killing the tree (rather than waiting on
+    the slow server) keeps ``stop`` snappy and kills the ``resource_tracker``
+    before it can emit a late leaked-semaphore warning. Windows uses
+    ``taskkill /T`` (tree). An already-exited process is treated as success.
     """
     if sys.platform == "win32":  # pragma: no cover - Windows only
         subprocess.run(
@@ -330,10 +378,14 @@ def terminate_pid(pid: int) -> None:
             capture_output=True,
         )
         return
-    try:
-        os.killpg(os.getpgid(pid), signal.SIGTERM)
-    except ProcessLookupError:
-        pass  # already gone — nothing to do
+
+    kids = _descendants(pid)
+    for child in kids:
+        _signal(child, signal.SIGINT)  # graceful kernel teardown
+    if kids:
+        time.sleep(grace)  # let kernels release their semaphores
+    for p in [pid, *_descendants(pid)]:
+        _signal(p, signal.SIGKILL)  # force the tree down — prompt and quiet
 
 
 def stop_launch_on_port(manifest_dir: Path, port: int) -> PidfileEntry | None:
