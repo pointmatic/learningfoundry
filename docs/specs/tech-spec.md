@@ -50,7 +50,7 @@ For requirements and behavior, see [`features.md`](features.md). For the impleme
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `quizazz` | `>=0.1` | Assessment YAML → JSON manifest compilation (first-party) |
-| `nbfoundry` | `>=0.1` | Exercise YAML → renderable exercise dict compilation (first-party) |
+| `nbfoundry` | `>=0.46.0` | Exercise YAML → runnable marimo notebook + banner metadata (Option C, BR-1; first-party) |
 
 Both integrations are optional extras (`learningfoundry[quizazz]`, `learningfoundry[nbfoundry]`); the provider's lazy import raises a `pip install learningfoundry[<extra>]` hint when the package is absent. Exercise selection is per-block via the `status` field (Story K.d): a `ready` block compiles through `NbfoundryProvider`; a `stub` block emits a placeholder via `stub_exercise` and never imports nbfoundry. `NbfoundryStub` is retained only as a test double / explicit "no-notebooks" injectable — it is no longer the default provider.
 

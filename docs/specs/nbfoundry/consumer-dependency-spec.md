@@ -444,7 +444,7 @@ Runtime (SvelteKit):
 | Concern | Value |
 |---------|-------|
 | **Python package** | `nbfoundry` on PyPI |
-| **LearningFoundry dependency** | Optional extra: `pip install learningfoundry[nbfoundry]` (`nbfoundry>=0.1`); the provider lazy-imports it and raises an install hint when absent |
+| **LearningFoundry dependency** | Optional extra: `pip install learningfoundry[nbfoundry]` (`nbfoundry>=0.46.0` — the first release honoring the Option-C BR-1 contract; pre-0.46 returns the retired Option-B dict); the provider lazy-imports it and raises an install hint when absent |
 | **Real provider** | `NbfoundryProvider` in `learningfoundry.integrations.nbfoundry` delegates to `nbfoundry.compile_exercise` — the default for `status: ready` blocks |
 | **Stub** | `stub_exercise()` factory + `NbfoundryStub` test-double in `learningfoundry.integrations.nbfoundry_stub`; the resolver emits the placeholder directly for `status: stub` blocks (no provider call, no nbfoundry import). `NbfoundryStub` is retained only as a test double / "no-notebooks" injectable |
 

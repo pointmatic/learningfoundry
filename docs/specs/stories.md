@@ -273,6 +273,26 @@ The release ceremony for the whole Subphase K-2 (K.g–K.j): docs reconciled to 
 - [x] `CHANGELOG.md` `[0.83.0]` entry covering the K.g–K.j subphase (Option C: contract + notebook staging + manifest + `launch`/`stop` CLI + banner renderer; Added/Changed/Removed/Notes/Verified).
 - [x] **Version bump to v0.83.0** in `pyproject.toml` + `src/learningfoundry/__init__.py`. Verified: `pyve test` → 498 passed; CLI `--version` → `0.83.0`; no stray `0.82.0`. (Frontend unchanged in this story — K.j.1's vitest 289 / svelte-check 0-0 stand.)
 
+### Story K.j.3: v0.83.1 — Integration spike: verify Option C against real nbfoundry 0.46.0; pin the floor [Done]
+
+Post-implementation follow-up to the K-2 Option-C release. nbfoundry **0.46.0** is published and honors the consumer-dependency-spec BR-1 contract. The integration had only ever been tested against a **mocked** `compile_exercise`; this **integration spike** installed the real package, exercised the contract end-to-end against a fixture, verified clean, then pinned the dependency floor and shipped the v0.83.1 patch.
+
+**Hazard fixed:** `nbfoundry>=0.1` could resolve a pre-0.46 nbfoundry returning the retired Option-B dict; the resolver's `content.pop("notebook_source")` ([resolver.py](../../src/learningfoundry/resolver.py)) then raises `KeyError: 'notebook_source'` on the first `ready` exercise. Floor → `>=0.46.0`.
+
+**Spike outcome — CLEAN.** Installing `nbfoundry==0.46.0` pulled `marimo` + light markdown/ASGI deps but **no torch / modelfoundry** (the contract's torch-free build-time codegen holds). Real `compile_exercise` returns exactly the Option-C dict: `{type, source, ref, title, description (HTML), hints (HTML), environment, notebook_source}` where `notebook_source` is a runnable `marimo.App()` module with `import torch` as *source text*; the retired Option-B fields are all absent. The end-to-end resolver→generator path stages the real notebook + manifest correctly.
+
+**Spike:**
+
+- [x] Installed `nbfoundry>=0.46.0` into the testenv; added to `requirements-dev.txt` (`importorskip`-gated test, so the mock-only suite still runs without it). Footprint: marimo + ASGI/markdown deps, **torch-free** at build time.
+- [x] Authored a minimal fixture exercise YAML: `tests/test_integrations/fixtures/sample-exercise.yml` (input schema = `title`/`description`/`sections[]`/`hints`/`environment`).
+- [x] `tests/test_integrations/test_nbfoundry_live.py` (`pytest.importorskip("nbfoundry")`): real `compile_exercise` → Option-C banner shape; `notebook_source` is a runnable `marimo.App()` module; retired fields absent.
+- [x] End-to-end: a `ready` block ref-ing the fixture through `resolve_curriculum` (real `NbfoundryProvider`) → `generate_app` → asserts notebook at `exercises/sample-exercise/sample-exercise.py` + correct manifest entry; banner content carries `id`/`status` but no `notebook_source`.
+
+**Production change (spike was clean):**
+
+- [x] Floor `nbfoundry>=0.1` → `>=0.46.0` in `pyproject.toml`; updated the two spec references (consumer-dependency-spec § Package Distribution + tech-spec dependency table).
+- [x] `CHANGELOG.md` `[0.83.1]` + **version bump to v0.83.1**. Verified: `pyve test` → **503 passed** (498 + 5 live); ruff + `mypy src/` clean; CLI `--version` → `0.83.1`.
+
 ---
 
 ## Subphase K-3: Assessment Scoring, Reporting, and Bug Fixes

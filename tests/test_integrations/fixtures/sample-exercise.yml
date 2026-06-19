@@ -1,0 +1,23 @@
+title: "Tiny Linear Model"
+description: |
+  Build a one-layer linear model and report its parameter count. The setup is
+  provided; you define the model.
+sections:
+  - title: "Setup"
+    description: "Imports are provided — review but do not modify."
+    code: |
+      import torch
+      import torch.nn as nn
+  - title: "Define the model"
+    description: "Create a single `nn.Linear` layer mapping 4 features to 1."
+    code: |
+      # YOUR CODE HERE
+hints:
+  - "Use nn.Linear(in_features, out_features)."
+  - "Count parameters with sum(p.numel() for p in model.parameters())."
+environment:
+  python_version: "3.12"
+  dependencies:
+    - marimo
+    - torch
+  setup_instructions: "pip install marimo torch"

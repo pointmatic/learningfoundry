@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.83.1] - 2026-06-18
+
+**nbfoundry dependency floor pin** (Story K.j.3) — a bugfix patch after verifying the Option-C integration against the now-published real package.
+
+### Fixed
+
+- **`[nbfoundry]` extra floor raised `>=0.1` → `>=0.46.0`.** `0.46.0` is the first nbfoundry release honoring the Option-C `compile_exercise` contract (returns `notebook_source` + banner metadata; consumer-dependency-spec BR-1). A pre-0.46 nbfoundry returns the retired Option-B dict, on which the resolver's `notebook_source` pop raises an opaque `KeyError: 'notebook_source'` at the first `ready` exercise — so the old floor could install a broken combination.
+
+### Added
+
+- **Live nbfoundry integration test** (`tests/test_integrations/test_nbfoundry_live.py`, `importorskip`-gated) — replaces mock-only coverage of the contract: real `nbfoundry.compile_exercise` returns the Option-C banner shape with a runnable `marimo.App()` `notebook_source` (and `import torch` as *source text*, never imported at build time), then flows resolver → generator into the staged `exercises/<id>/<id>.py` + `exercises-manifest.json`. `nbfoundry>=0.46.0` added to `requirements-dev.txt`.
+
+### Notes
+
+- **Integration spike outcome (clean).** Installing nbfoundry 0.46.0 pulls `marimo` + light markdown/ASGI deps but **no torch / modelfoundry** — confirming the contract's torch-free build-time codegen. The published package honors BR-1 end-to-end.
+
 ## [0.83.0] - 2026-06-18
 
 **Option C — live marimo exercises** (Subphase K-2, Stories K.g–K.j). The single release for the subphase: nbfoundry now compiles a `ready` exercise to a runnable **marimo notebook** instead of a static `sections`/`expected_outputs` dict (which rendered as inert source in a `<pre>` — no executed cells, plots, or metrics). learningfoundry stages the notebook + an `exercises-manifest.json` sidecar, ships a learner-side `launch`/`stop` CLI that owns the notebook's lifecycle, and the frontend `ready` renderer becomes a launch banner.

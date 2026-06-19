@@ -6,3 +6,8 @@ pytest-cov>=7.1.0
 ruff>=0.15.15
 mypy>=2.1.0
 types-PyYAML>=6.0.12.20260518
+
+# Real nbfoundry, for the live Option-C integration test
+# (tests/test_integrations/test_nbfoundry_live.py; importorskip-gated so the
+# rest of the suite still runs without it). Story K.j.3.
+nbfoundry>=0.46.0
