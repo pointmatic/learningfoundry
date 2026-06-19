@@ -25,6 +25,7 @@ from learningfoundry.launch import (
     read_pidfile,
     remove_pidfile,
     resolve_launch_spec,
+    resolve_manifest_dir,
     spawn_detached,
     stop_launch_on_port,
     terminate_pid,
@@ -284,16 +285,51 @@ class TestSpawnDetached:
 
 
 class TestTerminatePid:
-    def test_sends_sigterm(self) -> None:
-        with patch("learningfoundry.launch.os.kill") as kill:
+    def test_signals_the_process_group(self) -> None:
+        # marimo is its own group leader (start_new_session=True); signalling
+        # the whole group reaps its multiprocessing children too.
+        with (
+            patch("learningfoundry.launch.os.getpgid", return_value=4242) as getpgid,
+            patch("learningfoundry.launch.os.killpg") as killpg,
+        ):
             terminate_pid(4242)
-        kill.assert_called_once_with(4242, signal.SIGTERM)
+        getpgid.assert_called_once_with(4242)
+        killpg.assert_called_once_with(4242, signal.SIGTERM)
 
     def test_already_dead_is_noop(self) -> None:
         with patch(
-            "learningfoundry.launch.os.kill", side_effect=ProcessLookupError
+            "learningfoundry.launch.os.getpgid", side_effect=ProcessLookupError
         ):
             terminate_pid(4242)  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# resolve_manifest_dir (Story K.l)
+# ---------------------------------------------------------------------------
+
+
+class TestResolveManifestDir:
+    def _write_manifest(self, directory: Path) -> None:
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "exercises-manifest.json").write_text("{}", encoding="utf-8")
+
+    def test_returns_start_when_manifest_in_start(self, tmp_path: Path) -> None:
+        self._write_manifest(tmp_path)
+        assert resolve_manifest_dir(tmp_path) == tmp_path
+
+    def test_falls_back_to_dist_subdir(self, tmp_path: Path) -> None:
+        self._write_manifest(tmp_path / "dist")
+        assert resolve_manifest_dir(tmp_path) == tmp_path / "dist"
+
+    def test_prefers_start_over_dist(self, tmp_path: Path) -> None:
+        self._write_manifest(tmp_path)
+        self._write_manifest(tmp_path / "dist")
+        assert resolve_manifest_dir(tmp_path) == tmp_path
+
+    def test_returns_start_when_neither_exists(self, tmp_path: Path) -> None:
+        # Falls through to `start` so ManifestNotFoundError fires with the
+        # directory the user actually named.
+        assert resolve_manifest_dir(tmp_path) == tmp_path
 
 
 # ---------------------------------------------------------------------------

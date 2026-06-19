@@ -624,3 +624,52 @@ class TestStop:
         # A foreign process holding a port has no pidfile, so it is never
         # touched — stop acts solely through launch-owned pidfiles.
         terminate.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# launch/stop auto-detect dist/ (Story K.l) — learner runs from project root
+# ---------------------------------------------------------------------------
+
+
+class TestLaunchStopAutoDetectDist:
+    def test_launch_finds_manifest_under_dist(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        # Manifest lives in dist/, not the cwd the learner runs from.
+        dist = tmp_path / "dist"
+        dist.mkdir()
+        _write_launch_manifest(dist)
+        with (
+            patch(
+                "learningfoundry.cli.shutil.which",
+                return_value="/usr/local/bin/marimo",
+            ),
+            patch("learningfoundry.launch.classify_port", return_value="free"),
+            patch("learningfoundry.launch.subprocess.Popen") as popen,
+        ):
+            popen.return_value.pid = 12345
+            result = runner.invoke(
+                main, ["launch", "mnist-cnn", "--dir", str(tmp_path)]
+            )
+        assert result.exit_code == 0, result.output
+        # Pidfile written under dist/, proving the auto-detect resolved there.
+        assert (dist / ".learningfoundry" / "launch-2718.pid").exists()
+        assert not (tmp_path / ".learningfoundry").exists()
+
+    def test_stop_finds_manifest_under_dist(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        dist = tmp_path / "dist"
+        dist.mkdir()
+        _write_launch_manifest(dist)
+        pidfile = _write_pidfile(dist, 2718, 999, "mnist-cnn")
+        with (
+            patch("learningfoundry.launch.pid_alive", return_value=True),
+            patch("learningfoundry.launch.terminate_pid") as terminate,
+        ):
+            result = runner.invoke(
+                main, ["stop", "mnist-cnn", "--dir", str(tmp_path)]
+            )
+        assert result.exit_code == 0, result.output
+        terminate.assert_called_once_with(999)
+        assert not pidfile.exists()

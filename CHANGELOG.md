@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.83.3] - 2026-06-18
+
+**`learningfoundry launch`/`stop` fixes from first real-world use** (Story K.l).
+
+### Fixed
+
+- **`launch`/`stop` auto-detect the build in `dist/`.** The learner runs these from the curriculum project root, where `build` writes the app into `dist/` — so the manifest is at `dist/exercises-manifest.json` and the bare command previously failed (`No exercises-manifest.json found in .`), forcing `--dir dist` every time. The `--dir` value now resolves to `<dir>/exercises-manifest.json`, else `<dir>/dist/exercises-manifest.json`; an explicit `--dir` still overrides.
+- **`stop` no longer leaves marimo children hanging.** `terminate_pid` signalled only the parent marimo pid, orphaning its multiprocessing children — which printed marimo's goodbye banner + `resource_tracker` leaked-semaphore + `parent_poller` warnings *after* the shell prompt returned. It now `SIGTERM`s the whole process group (`os.killpg(os.getpgid(pid), …)`; marimo is its own group leader via `start_new_session=True`) so children shut down cleanly; Windows uses `taskkill /T` (tree-kill).
+
 ## [0.83.2] - 2026-06-18
 
 **Single-source the package version** (Story K.k) — build hygiene.

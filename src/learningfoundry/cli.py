@@ -286,8 +286,9 @@ _launch_dir_option = click.option(
     default=Path("."),
     show_default=True,
     help=(
-        "Directory holding `exercises-manifest.json` (the generated app's "
-        "root). Defaults to the current directory."
+        "Where to find `exercises-manifest.json`. Auto-detects "
+        "`<dir>/exercises-manifest.json`, else `<dir>/dist/...`. "
+        "Defaults to the current directory."
     ),
 )
 
@@ -301,6 +302,8 @@ def launch(exercise_id: str, launch_dir: Path, log_level: str) -> None:
     _setup_logging(level=log_level)
 
     from learningfoundry import launch as _launch
+
+    launch_dir = _launch.resolve_manifest_dir(launch_dir)
 
     try:
         spec = _launch.resolve_launch_spec(launch_dir, exercise_id)
@@ -361,6 +364,8 @@ def stop(exercise_id: str | None, launch_dir: Path, log_level: str) -> None:
     _setup_logging(level=log_level)
 
     from learningfoundry import launch as _launch
+
+    launch_dir = _launch.resolve_manifest_dir(launch_dir)
 
     if exercise_id is not None:
         try:

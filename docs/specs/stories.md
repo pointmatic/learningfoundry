@@ -304,6 +304,21 @@ The package version was duplicated — `[project].version` in `pyproject.toml` *
 - [x] One-time real-build verification: `pyve env run pip install -e . --no-deps` → `Successfully installed learningfoundry-0.83.2`; `importlib.metadata.version("learningfoundry") == learningfoundry.__version__ == "0.83.2"` (Hatchling resolved it from `__init__.py`).
 - [x] `CHANGELOG.md` `[0.83.2]` + **version bump to v0.83.2** in `src/learningfoundry/__init__.py` **only** (pyproject is now dynamic — first release on the single-source bump). Verified: `pyve test` → **507 passed** (503 + 4); ruff + `mypy src/` clean; CLI `--version` → `0.83.2`; no static `version =` line in `pyproject.toml`.
 
+### Story K.l: v0.83.3 — `launch`/`stop` fixes from first real-world use [Done]
+
+Two bugs surfaced running `learningfoundry launch`/`stop` from a real curriculum repo (run from the **project root** with the build in `dist/`, not from inside the app):
+
+1. **`--dir dist` always required.** `launch`/`stop` default `--dir .`, but the learner runs from the curriculum project root where the app builds into `dist/` — so the manifest is at `dist/exercises-manifest.json` and the bare command fails (`No exercises-manifest.json found in .`). Corrects the K.i assumption that the learner runs from inside the app root.
+2. **Hang / late warnings on `stop`.** `terminate_pid` sends `SIGTERM` to the parent marimo pid only; marimo's multiprocessing children are orphaned and print the goodbye banner + `resource_tracker` leaked-semaphore + `parent_poller` warnings *after* the shell prompt returns. Root cause: kill the parent, not the process group.
+
+**Tasks:**
+
+- [x] `launch.py` `resolve_manifest_dir(start: Path) -> Path` — `start` if it holds `exercises-manifest.json`, else `start/dist` if that does, else `start` (so `ManifestNotFoundError` still fires with the original dir). Wired into both `launch` and `stop` before resolving; pidfiles/cwd follow the resolved dir.
+- [x] `launch.py` `terminate_pid` → process-group kill: POSIX `os.killpg(os.getpgid(pid), SIGTERM)` (marimo is its own group leader via `start_new_session=True`; `ProcessLookupError` → no-op); Windows `taskkill /F /T /PID` (tree). Updated `TestTerminatePid` (mocks `os.killpg`/`os.getpgid`).
+- [x] `tests/`: `resolve_manifest_dir` (start / dist-fallback / prefers-start / neither); `terminate_pid` signals the group; CLI `launch`/`stop` auto-find `dist/` with no manifest at `--dir` (pidfile lands under `dist/`).
+- [x] `README.md` launch/stop section + `--dir` help (cli.py): "run from the project root (auto-detects `dist/`) or from inside the app"; dropped the "run from inside the generated app" framing.
+- [x] `CHANGELOG.md` `[0.83.3]` + **version bump to v0.83.3** (`__init__.py` only). Verified: `pyve test` → **513 passed** (507 + 6); ruff + `mypy src/` clean; CLI `--version` → `0.83.3`.
+
 ---
 
 ## Subphase K-3: Assessment Scoring, Reporting, and Bug Fixes

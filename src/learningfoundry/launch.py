@@ -58,6 +58,24 @@ class LaunchSpec:
     port: int
 
 
+def resolve_manifest_dir(start: Path) -> Path:
+    """Locate the directory that holds ``exercises-manifest.json``.
+
+    The learner typically runs ``launch``/``stop`` from the curriculum project
+    root, where ``build`` writes the app into ``dist/`` — so the manifest is at
+    ``dist/exercises-manifest.json``, not in the cwd. Prefer ``start`` itself
+    (running from inside the app), then fall back to ``start/dist``. If neither
+    holds the manifest, return ``start`` unchanged so the downstream
+    :class:`ManifestNotFoundError` names the directory the user actually gave.
+    """
+    if (start / MANIFEST_FILENAME).is_file():
+        return start
+    nested = start / "dist"
+    if (nested / MANIFEST_FILENAME).is_file():
+        return nested
+    return start
+
+
 def resolve_launch_spec(manifest_dir: Path, exercise_id: str) -> LaunchSpec:
     """Resolve an exercise id to its :class:`LaunchSpec` from the manifest.
 
@@ -295,20 +313,25 @@ def spawn_detached(argv: list[str], cwd: Path) -> int:
 
 
 def terminate_pid(pid: int) -> None:
-    """Ask the process ``pid`` to terminate (idempotent if already gone).
+    """Ask the launch-owned marimo at ``pid`` to terminate (idempotent).
 
-    POSIX sends ``SIGTERM`` (graceful); Windows shells out to ``taskkill``.
+    Signals the whole **process group**, not just ``pid``: ``launch`` spawns
+    marimo with ``start_new_session=True``, so marimo is its own group leader
+    and its multiprocessing children share the group. Killing only the parent
+    orphans those children, which then print marimo's goodbye banner and
+    ``resource_tracker`` leaked-semaphore warnings *after* the shell returns.
+    POSIX `SIGTERM`s the group (graceful); Windows uses ``taskkill /T`` (tree).
     A process that has already exited is treated as success.
     """
     if sys.platform == "win32":  # pragma: no cover - Windows only
         subprocess.run(
-            ["taskkill", "/F", "/PID", str(pid)],
+            ["taskkill", "/F", "/T", "/PID", str(pid)],
             check=False,
             capture_output=True,
         )
         return
     try:
-        os.kill(pid, signal.SIGTERM)
+        os.killpg(os.getpgid(pid), signal.SIGTERM)
     except ProcessLookupError:
         pass  # already gone — nothing to do
 

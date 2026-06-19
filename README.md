@@ -182,15 +182,16 @@ This serves the SvelteKit project from source via Vite's dev server; it does **n
 
 ### `learningfoundry launch` / `learningfoundry stop`
 
-Run a `ready` exercise's marimo notebook locally. These are **learner-side** commands — run from inside the generated app (where `build` writes `exercises-manifest.json`), not from the author's repo. The generated app is static and a browser page can't spawn a process, so the exercise's banner asks the learner to copy and run `learningfoundry launch <id>`.
+Run a `ready` exercise's marimo notebook locally. These are **learner-side** commands — run them from the curriculum project root (they auto-detect the build in `dist/`) or from inside the generated app itself. The generated app is static and a browser page can't spawn a process, so the exercise's banner asks the learner to copy and run `learningfoundry launch <id>`.
 
 ```
 Usage: learningfoundry launch [OPTIONS] EXERCISE_ID
        learningfoundry stop [OPTIONS] [EXERCISE_ID]
 
 Options:
-  --dir PATH              Directory holding exercises-manifest.json (the
-                          generated app's root).  [default: .]
+  --dir PATH              Where to find exercises-manifest.json. Auto-detects
+                          `<dir>/exercises-manifest.json`, else
+                          `<dir>/dist/exercises-manifest.json`.  [default: .]
   --log-level LEVEL       Logging verbosity.  [default: INFO]
   --help                  Show this message and exit.
 ```
