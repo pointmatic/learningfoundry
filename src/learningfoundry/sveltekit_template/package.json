@@ -12,34 +12,34 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@lucide/svelte": "^1.17.0",
+    "@lucide/svelte": "^1.21.0",
     "@pointmatic/quizazz": "^1.4.0",
-    "@sveltejs/kit": "^2.61.1",
+    "@sveltejs/kit": "^2.66.0",
     "katex": "^0.17.0",
-    "marked": "^18.0.0",
+    "marked": "^18.0.5",
     "marked-katex-extension": "^5.1.10",
     "sql.js": "^1.12.0",
-    "svelte": "^5.55.10"
+    "svelte": "^5.56.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0",
+    "@playwright/test": "^1.61.0",
     "@sveltejs/adapter-static": "^3.0.0",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
-    "@tailwindcss/typography": "^0.5.16",
-    "@tailwindcss/vite": "^4.3.0",
+    "@tailwindcss/typography": "^0.5.20",
+    "@tailwindcss/vite": "^4.3.1",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/svelte": "^5.2.0",
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.13.2",
     "@types/sql.js": "^1.4.11",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
-    "prettier": "^3.0.0",
-    "prettier-plugin-svelte": "^4.0.1",
-    "svelte-check": "^4.4.8",
-    "tailwindcss": "^4.3.0",
+    "prettier": "^3.8.4",
+    "prettier-plugin-svelte": "^4.1.1",
+    "svelte-check": "^4.6.0",
+    "tailwindcss": "^4.3.1",
     "typescript": "^6.0.3",
-    "vite": "^8.0.14",
-    "vitest": "^4.1.7"
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
   },
   "type": "module"
 }
