@@ -388,6 +388,51 @@ def terminate_pid(pid: int, *, grace: float = 2.0) -> None:
         _signal(p, signal.SIGKILL)  # force the tree down — prompt and quiet
 
 
+def port_holders(port: int) -> list[int]:
+    """Pids holding ``port`` (POSIX, via ``lsof -ti``).
+
+    Used by ``--force`` reclaim to find an abandoned marimo whose own pidfile
+    pid is dead — e.g. an orphaned kernel that outlived its server and still
+    holds the inherited listening-socket fd. Empty if ``lsof`` is unavailable.
+    """
+    try:
+        out = subprocess.run(
+            ["lsof", "-ti", f":{port}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout
+    except OSError:  # pragma: no cover - lsof missing (e.g. Windows)
+        return []
+    return [int(tok) for tok in out.split() if tok.isdigit()]
+
+
+def reclaim_port(port: int, *, grace: float = 2.0) -> list[int]:
+    """Force-free ``port`` by tearing down whatever holds it; return those pids.
+
+    Used by ``learningfoundry launch --force``. Like :func:`terminate_pid` it
+    ``SIGINT``s the holders **and their descendants** first (so an orphaned
+    marimo kernel releases its semaphores), waits a brief window, then
+    ``SIGKILL``s the set. Never invoked without the caller's explicit
+    ``--force`` opt-in — the default policy is to refuse a foreign port.
+    """
+    holders = port_holders(port)
+    if not holders:
+        return []
+    targets: set[int] = set(holders)
+    for holder in holders:
+        targets.update(_descendants(holder))
+    for p in targets:
+        _signal(p, signal.SIGINT)
+    time.sleep(grace)
+    final: set[int] = set(holders)
+    for holder in holders:
+        final.update(_descendants(holder))
+    for p in final:
+        _signal(p, signal.SIGKILL)
+    return holders
+
+
 def stop_launch_on_port(manifest_dir: Path, port: int) -> PidfileEntry | None:
     """Stop the launch-owned marimo recorded for ``port``, if any.
 

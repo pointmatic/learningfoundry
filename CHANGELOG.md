@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.84.0] - 2026-06-18
+
+**`learningfoundry launch --force` to reclaim a busy port** (Story K.l.2).
+
+### Added
+
+- **`learningfoundry launch --force`.** When a port is held by an abandoned marimo whose pidfile pid is dead — e.g. an orphaned kernel that outlived its server (a crash, an external `kill`, or a pre-v0.83.4 ungraceful stop) and still holds the inherited listening-socket fd — `classify_port` reports it `foreign` and `launch` refuses by default, leaving a manual `lsof | kill -9` (which leaks the kernel's semaphores). `--force` reclaims the port instead: it finds the holders (`lsof`), `SIGINT`s them and their descendants (so marimo kernels release their semaphores), then `SIGKILL`s the set, and launches. `--force` also replaces a running launch-owned exercise without the confirmation prompt. The default stays "never blind-kill a foreign process"; `--force` is the explicit opt-in. (v0.83.4 already stops learningfoundry from *creating* such orphans; this covers orphans from any other source.)
+
 ## [0.83.4] - 2026-06-18
 
 **`stop` teardown reaches marimo's isolated kernel** (Story K.l.1) — the follow-up that actually fixes the hang K.l (group-`SIGTERM`) only half-addressed.

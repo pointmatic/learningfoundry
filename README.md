@@ -192,11 +192,15 @@ Options:
   --dir PATH              Where to find exercises-manifest.json. Auto-detects
                           `<dir>/exercises-manifest.json`, else
                           `<dir>/dist/exercises-manifest.json`.  [default: .]
+  --force                 (launch) Reclaim the port if another process holds
+                          it, and replace a running exercise without prompting.
   --log-level LEVEL       Logging verbosity.  [default: INFO]
   --help                  Show this message and exit.
 ```
 
 `launch <id>` resolves the notebook path / `mode` / port from the manifest, checks the port, then spawns `marimo edit|run <notebook> --headless -p <port> --no-token` detached (so it outlives the CLI) and prints the local URL. If the port is already held by a **launch-owned** marimo it offers to replace it; a **foreign** process on the port is never killed. `stop <id>` tears down that exercise's notebook; bare `stop` stops every launch-owned notebook.
+
+`--force` is the escape hatch when a port is held by an abandoned marimo that `launch` can't recognize as its own — e.g. an orphaned kernel that outlived its server (from a crash or an external `kill`) and still holds the port. Instead of refusing (and leaving you to `lsof | kill -9` by hand, which leaks the kernel's semaphores), `learningfoundry launch <id> --force` gracefully tears down whatever holds the port — SIGINT first so marimo kernels release their semaphores, then a force-kill — and launches. It also replaces a running launch-owned exercise without the confirmation prompt.
 
 > **`marimo` is a learner-runtime dependency**, not a learningfoundry dependency — `launch` finds it on `PATH` (it is never imported by the build). Install it alongside the exercise's other run requirements (e.g. `pip install marimo torch`); the banner lists them. A missing `marimo` yields an install hint, not a traceback.
 

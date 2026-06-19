@@ -296,8 +296,19 @@ _launch_dir_option = click.option(
 @main.command()
 @click.argument("exercise_id")
 @_launch_dir_option
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help=(
+        "Reclaim the port if it is held by another process (terminates it), "
+        "and replace a running exercise without prompting."
+    ),
+)
 @_log_level_option
-def launch(exercise_id: str, launch_dir: Path, log_level: str) -> None:
+def launch(
+    exercise_id: str, launch_dir: Path, force: bool, log_level: str
+) -> None:
     """Launch an exercise's marimo notebook locally."""
     _setup_logging(level=log_level)
 
@@ -321,14 +332,19 @@ def launch(exercise_id: str, launch_dir: Path, log_level: str) -> None:
 
     status = _launch.classify_port(launch_dir, spec.port)
     if status == "foreign":
-        click.echo(
-            f"Port {spec.port} is in use by another process. Refusing to "
-            "kill it — free the port (or stop that process) and retry.",
-            err=True,
-        )
-        sys.exit(EXIT_RUNTIME)
+        if not force:
+            click.echo(
+                f"Port {spec.port} is in use by another process. Refusing to "
+                "kill it — free the port (or pass --force to reclaim it) and "
+                "retry.",
+                err=True,
+            )
+            sys.exit(EXIT_RUNTIME)
+        reclaimed = _launch.reclaim_port(spec.port)
+        pids = ", ".join(str(p) for p in reclaimed) or "none"
+        click.echo(f"Reclaimed port {spec.port} (stopped pid(s): {pids}).")
     if status == "ours":
-        if not click.confirm(
+        if not force and not click.confirm(
             f"An exercise is already running on port {spec.port}. Replace it?"
         ):
             click.echo("Left the running exercise in place.")

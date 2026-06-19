@@ -544,6 +544,78 @@ class TestLaunch:
         assert "nope" in result.output
         assert "mnist-cnn" in result.output
 
+    def test_foreign_refusal_mentions_force(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _write_launch_manifest(tmp_path)
+        with (
+            patch(
+                "learningfoundry.cli.shutil.which",
+                return_value="/usr/local/bin/marimo",
+            ),
+            patch(
+                "learningfoundry.launch.classify_port", return_value="foreign"
+            ),
+            patch("learningfoundry.launch.subprocess.Popen") as popen,
+        ):
+            result = runner.invoke(
+                main, ["launch", "mnist-cnn", "--dir", str(tmp_path)]
+            )
+        assert result.exit_code == EXIT_RUNTIME
+        assert "--force" in result.output
+        popen.assert_not_called()
+
+    def test_force_reclaims_foreign_port_and_spawns(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _write_launch_manifest(tmp_path)
+        with (
+            patch(
+                "learningfoundry.cli.shutil.which",
+                return_value="/usr/local/bin/marimo",
+            ),
+            patch(
+                "learningfoundry.launch.classify_port", return_value="foreign"
+            ),
+            patch(
+                "learningfoundry.launch.reclaim_port", return_value=[9945]
+            ) as reclaim,
+            patch("learningfoundry.launch.subprocess.Popen") as popen,
+        ):
+            popen.return_value.pid = 12345
+            result = runner.invoke(
+                main, ["launch", "mnist-cnn", "--dir", str(tmp_path), "--force"]
+            )
+        assert result.exit_code == 0, result.output
+        reclaim.assert_called_once_with(2718)
+        popen.assert_called_once()
+        assert (tmp_path / ".learningfoundry" / "launch-2718.pid").exists()
+        assert "9945" in result.output
+
+    def test_force_replaces_ours_without_prompt(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _write_launch_manifest(tmp_path)
+        _write_pidfile(tmp_path, 2718, 999, "mnist-cnn")
+        with (
+            patch(
+                "learningfoundry.cli.shutil.which",
+                return_value="/usr/local/bin/marimo",
+            ),
+            patch("learningfoundry.launch.classify_port", return_value="ours"),
+            patch("learningfoundry.launch.pid_alive", return_value=True),
+            patch("learningfoundry.launch.terminate_pid") as terminate,
+            patch("learningfoundry.launch.subprocess.Popen") as popen,
+        ):
+            popen.return_value.pid = 12345
+            # No stdin input — --force must not prompt.
+            result = runner.invoke(
+                main, ["launch", "mnist-cnn", "--dir", str(tmp_path), "--force"]
+            )
+        assert result.exit_code == 0, result.output
+        terminate.assert_called_once_with(999)
+        popen.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # stop (Story K.i.4)

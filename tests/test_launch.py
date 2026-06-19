@@ -21,8 +21,10 @@ from learningfoundry.launch import (
     launched_ports,
     marimo_argv,
     pidfile_path,
+    port_holders,
     port_in_use,
     read_pidfile,
+    reclaim_port,
     remove_pidfile,
     resolve_launch_spec,
     resolve_manifest_dir,
@@ -328,6 +330,51 @@ class TestDescendants:
         with patch("learningfoundry.launch.subprocess.run") as run:
             run.return_value.stdout = fake_ps
             assert sorted(_descendants(100)) == [200, 300]
+
+
+# ---------------------------------------------------------------------------
+# port_holders / reclaim_port (Story K.l.2)
+# ---------------------------------------------------------------------------
+
+
+class TestPortHolders:
+    def test_parses_lsof_pids(self) -> None:
+        with patch("learningfoundry.launch.subprocess.run") as run:
+            run.return_value.stdout = "9945\n11330\n"
+            assert port_holders(2718) == [9945, 11330]
+
+    def test_empty_when_nothing_holds_the_port(self) -> None:
+        with patch("learningfoundry.launch.subprocess.run") as run:
+            run.return_value.stdout = ""
+            assert port_holders(2718) == []
+
+
+class TestReclaimPort:
+    def test_sigints_then_sigkills_holders_and_returns_them(self) -> None:
+        with (
+            patch("learningfoundry.launch.port_holders", return_value=[9945]),
+            patch("learningfoundry.launch._descendants", return_value=[1001]),
+            patch("learningfoundry.launch.os.kill") as kill,
+            patch("learningfoundry.launch.time.sleep") as sleep,
+        ):
+            reclaimed = reclaim_port(2718, grace=2.0)
+        assert reclaimed == [9945]
+        # Holder + its descendant get a graceful SIGINT, then SIGKILL.
+        kill.assert_any_call(9945, signal.SIGINT)
+        kill.assert_any_call(1001, signal.SIGINT)
+        kill.assert_any_call(9945, signal.SIGKILL)
+        kill.assert_any_call(1001, signal.SIGKILL)
+        sleep.assert_called_once_with(2.0)
+
+    def test_noop_when_port_is_free(self) -> None:
+        with (
+            patch("learningfoundry.launch.port_holders", return_value=[]),
+            patch("learningfoundry.launch.os.kill") as kill,
+            patch("learningfoundry.launch.time.sleep") as sleep,
+        ):
+            assert reclaim_port(2718) == []
+        kill.assert_not_called()
+        sleep.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

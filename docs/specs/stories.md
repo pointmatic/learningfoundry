@@ -334,9 +334,16 @@ Post-implementation follow-up to K.l: the group-`SIGTERM` did **not** fix the ha
 - [x] Real-marimo verification (server-only, reproducible here): spawn → `terminate_pid` → **2.06 s**, 0 survivors, log clean (no late goodbye / leaked-semaphore / parent-poller). **Kernel-teardown confirmation needs a browser-connected session — flagged for developer retest.**
 - [x] `CHANGELOG.md` `[0.83.4]` + **version bump to v0.83.4**. Verified: `pyve test` → **515 passed** (513 + 2); ruff + `mypy src/` clean. (Supersedes K.l's group-`SIGTERM`.)
 
----
+### Story K.l.2: v0.84.0 — `learningfoundry launch --force` to reclaim a busy port [Done]
 
-## Subphase K-3: Assessment Scoring, Reporting, and Bug Fixes
+Follow-on to the K.l/K.l.1 launch/stop saga. When the marimo on a port can't be matched to a **live** pidfile — an orphaned kernel that outlived its server (from a crash, an external kill, or a pre-v0.83.4 ungraceful stop) holds the inherited LISTEN fd — `classify_port` returns `foreign` and `launch` refuses, forcing the learner into manual `lsof | kill -9` (ungraceful → leaked semaphores). Added an explicit **`--force`** opt-in that reclaims the port by *gracefully* tearing down whatever holds it (the clean K.l.1 path), then launches — preserving the default "never blind-kill a foreign process" stance. (K.l.1 already stops learningfoundry from *creating* such orphans; `--force` covers orphans from any other source.)
+
+**Tasks:**
+
+- [x] `launch.py` `port_holders(port) -> list[int]` (`lsof -ti :<port>`, POSIX; `[]` if lsof absent) + `reclaim_port(port, *, grace=2.0)` — `SIGINT` every holder + its descendants (kernels release their semaphores), `sleep(grace)`, then `SIGKILL` the set; returns the reclaimed holder pids.
+- [x] `cli.py` `launch --force`: on `foreign` → with `--force`, `reclaim_port` + echo the stopped pids, then spawn; without it, refuse (message now points at `--force`). On `ours` → `--force` skips the replace confirm.
+- [x] `tests/` (+7): `port_holders` parse / empty; `reclaim_port` SIGINT-then-SIGKILL set + free-port no-op; CLI `--force` reclaims a `foreign` port + spawns; no-`--force` `foreign` refuses + mentions `--force`; `--force` on `ours` skips the prompt (no stdin).
+- [x] `README.md` launch/stop documents `--force`. `CHANGELOG.md` `[0.84.0]` + **version bump to v0.84.0**. Verified: `pyve test` → **522 passed** (515 + 7); ruff + `mypy src/` clean; CLI `--version` → `0.84.0`.
 
 - **`AssessmentScore` shape + `assessment_scores` table reconciliation — capture in `project-essentials.md` once J.u lands.** Story J.u's investigation task picks between "add `(module_id, assessment_id)` columns to the existing `assessment_scores` table" and "introduce a separate `module_assessment_scores` table." Whichever path lands, the rationale and the why-not of the rejected alternative belong in [project-essentials.md](project-essentials.md) under "Domain Conventions" alongside the existing "Assessment scores — aggregate only in learningfoundry" entry. Deferred from the J sub-phase project-essentials sweep because the choice isn't concrete yet; capture it as part of J.u's wrap-up or a follow-up cleanup story rather than letting it slip.
 - **Curriculum completion screen** — "Course Complete" celebration page reached after the last lesson's Finish
