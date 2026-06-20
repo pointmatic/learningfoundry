@@ -364,6 +364,13 @@ Follow-on to the K.l/K.l.1 launch/stop saga. When the marimo on a port can't be 
 
 ---
 
+### Story K.o: v0.84.3 Update `pyproject.toml` to latest NbFoundry to hide NbFoundry-emitted section cell [Done]
+
+- [x] Update `pyproject.toml` to NbFoundry >= 0.47.2
+- [x] Bump version to 0.84.3
+
+---
+
 ## Future
 
 <!--
