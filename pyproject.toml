@@ -39,7 +39,8 @@ nbfoundry = [
     # contract (returns `notebook_source` + banner metadata; consumer-
     # dependency-spec BR-1). Pre-0.46 returns the retired Option-B dict, which
     # the resolver's `notebook_source` pop cannot consume (Story K.j.3).
-    "nbfoundry>=0.46",
+    # >=0.47.0 adds support for `hide_code` in the YAML blocks. 
+    "nbfoundry>=0.47",
 ]
 
 [project.urls]

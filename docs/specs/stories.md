@@ -348,6 +348,12 @@ Follow-on to the K.l/K.l.1 launch/stop saga. When the marimo on a port can't be 
 - **`AssessmentScore` shape + `assessment_scores` table reconciliation — capture in `project-essentials.md` once J.u lands.** Story J.u's investigation task picks between "add `(module_id, assessment_id)` columns to the existing `assessment_scores` table" and "introduce a separate `module_assessment_scores` table." Whichever path lands, the rationale and the why-not of the rejected alternative belong in [project-essentials.md](project-essentials.md) under "Domain Conventions" alongside the existing "Assessment scores — aggregate only in learningfoundry" entry. Deferred from the J sub-phase project-essentials sweep because the choice isn't concrete yet; capture it as part of J.u's wrap-up or a follow-up cleanup story rather than letting it slip.
 - **Curriculum completion screen** — "Course Complete" celebration page reached after the last lesson's Finish
 
+---
+
+### Story K.m: v0.84.1 Update `pyproject.toml` to latest NbFoundry to hide code blocks in YAML [Done]
+
+- [x] Update `pyproject.toml` to NbFoundry >= 0.47
+- [x] Bump version to 0.84.1
 
 ---
 
