@@ -357,6 +357,13 @@ Follow-on to the K.l/K.l.1 launch/stop saga. When the marimo on a port can't be 
 
 ---
 
+### Story K.n: v0.84.2 Update `pyproject.toml` to latest NbFoundry to hide NbFoundry-emitted header block [Done]
+
+- [x] Update `pyproject.toml` to NbFoundry >= 0.47.1
+- [x] Bump version to 0.84.2
+
+---
+
 ## Future
 
 <!--
