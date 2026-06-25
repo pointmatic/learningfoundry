@@ -37,6 +37,8 @@ In this phase we will complete unfinished work from previous phases and fix bugs
 - **nbfoundry real integration** — Replace `NbfoundryStub` with Marimo notebook generation when nbfoundry is published
 - **Cross-tab anti-clobber for the same `userId`.** Two tabs of the same browser, same user, can still last-writer-wins on the IDB blob — Web Locks `+` reload-on-write or BroadcastChannel-based leader election would solve it. Latent issue, distinct from this story; revisit when there's evidence of multi-tab learner workflows or sync work makes it forced. (Same scoping note as I.v.)
 
+---
+
 ### Story K.a: v0.79.3 — `learningfoundry preview` Hangs Silently on `pnpm install`, Then Reports an Empty Failure [Done]
 
 Debug-cycle story. Running `learningfoundry preview` against a `dist/` that needs dependencies printed `Installing Node dependencies in dist` and then produced no further output — an apparent silent hang. On Ctrl-C it reported `` Generation error: `pnpm install` failed in `dist`: `` with nothing after the colon.
@@ -58,6 +60,8 @@ Debug-cycle story. Running `learningfoundry preview` against a `dist/` that need
 - [x] `CHANGELOG.md`: v0.79.3 (summary of fixes).
 - [x] Bump version to v0.79.3 in `pyproject.toml` and `src/learningfoundry/__init__.py`. The `sveltekit_template/package.json` remains pinned at `0.0.1` (template, not a published package).
 
+---
+
 ### Story K.b: Fix stale `tech-spec.md` "WASM Binary Handling" doc [Done]
 
 Doc-accuracy fix, surfaced during Story K.a's spec-review pass. [tech-spec.md](tech-spec.md)'s "WASM Binary Handling" section still described the pre-Story-I.cc mechanism — wasm "copied … during `pnpm install` via a postinstall script" — and an outdated `locateFile` form. Both had drifted from the implemented code: the postinstall hook was replaced by `pipeline._ensure_sql_wasm` (runs every preview/build regardless of `DepState`; raises `GenerationError` if the source is missing), and the frontend uses `locateFile: () => '/sql-wasm.wasm'` ([database.ts:204](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts#L204)), not `(file) => \`/${file}\``. No version bump (doc-only; rides the next code release).
@@ -67,6 +71,8 @@ Doc-accuracy fix, surfaced during Story K.a's spec-review pass. [tech-spec.md](t
 - [x] `docs/specs/tech-spec.md` "WASM Binary Handling": replace the postinstall-script description with the `_ensure_sql_wasm` mechanism (every-build provisioning, content-stale size check, `GenerationError` on missing source, Story I.cc replacement note) and correct the `locateFile` form to `() => '/sql-wasm.wasm'`.
 - [x] Cross-checked against [pipeline.py `_ensure_sql_wasm`](../../src/learningfoundry/pipeline.py), [database.ts](../../src/learningfoundry/sveltekit_template/src/lib/db/database.ts), and the `project-essentials.md` "single owner of the asset" note — all three now agree.
 - [x] No code/test change — documentation only.
+
+---
 
 ### Story K.c: Promote sql.js robustness-patterns doc to active; archive the bug post-mortem [Done]
 
@@ -80,6 +86,8 @@ Doc-curation follow-up to K.b's link-rot finding. Two sql.js docs had inverted l
 - [x] Links verified: the two live references (`stories.md` Future item, `project-essentials.md` Story I.cc note) resolve to the restored path; no link edits needed after the rename.
 - [x] No code/test change — documentation only.
 - [x] **Follow-up (optional) — cross-link from the archived bug spec back to Pattern F.** A one-line "superseded by `sql-js-wasm-robustness.md` Pattern F" banner atop `.archive/bug-sql-js-browser-esm-spec.md` would orient anyone who lands on the post-mortem directly. Low value (archived, low traffic); deferred.
+
+---
 
 ### Story K.d: v0.80.0 — Real `NbfoundryProvider` + `[nbfoundry]` extra + `status` handling [Done]
 
@@ -98,6 +106,8 @@ Feature → **minor** bump per Version Cadence.
 - [x] Update `docs/specs/tech-spec.md` `ExerciseBlock` schema + `integrations/` listing to include `NbfoundryProvider` and the `status` field; kept `protocols.py` ↔ [consumer-dependency-spec.md](nbfoundry/consumer-dependency-spec.md) in sync (distribution table, versioning note, testing matrix).
 - [x] `CHANGELOG.md` + version bump to v0.80.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
 
+---
+
 ### Story K.e: v0.81.0 — Exercise `id` + asset staging into `static/exercises/<id>/` [Done]
 
 Second story of the bundle. Adds the explicit exercise `id` and the asset-staging pipeline step the integration needs. The `id` is the **build-output namespace** (`static/exercises/<id>/…`) and the progress key (`exerciseRef`) — it does **not** constrain where the author organizes source content (that stays free, located by the existing relative `ref`). Asset files referenced by a compiled exercise travel as relative paths in the dict's `assets: list[str]`; the pipeline copies them into the static output (per consumer-dependency-spec BR-5).
@@ -112,6 +122,8 @@ Feature → **minor** bump.
 - [x] `tests/`: resolver emits the expected `Asset` records for an exercise's `assets[]` (+ explicit-id namespacing + same-path dedup); generator copies them to `static/exercises/<id>/<path>` + preserves them across rebuild; `id` auto-derivation + curriculum-wide uniqueness (explicit-dup and stem-collision → parse error); stub exercises (and ready-without-assets) stage nothing.
 - [x] Updated `docs/specs/tech-spec.md`: documented `static/exercises/<id>/` staging in the generator section (preserved set + step 3) and the `ResolvedCurriculum.assets` prose, and added the `id` field to the `ExerciseBlock` schema.
 - [x] `CHANGELOG.md` + version bump to v0.81.0 in `pyproject.toml` and `src/learningfoundry/__init__.py`.
+
+---
 
 ### Story K.f: v0.82.0 — `ExerciseBlock` ready renderer (manual-completion) + real `ExerciseContent` types [Done]
 
@@ -161,6 +173,8 @@ Build side, part 1 — define the new shape. Rewrites the nbfoundry dependency-s
 - [x] `tests/`: `test_nbfoundry.py` `_MOCK_EXERCISE` updated to the Option-C shape + asserts `notebook_source`/`mode` pass through and `sections`/`expected_outputs` are absent; `test_schema_v1.py` covers `mode` default (`edit`) + explicit `run` + rejects unknown. 456 passed; ruff + mypy clean.
 - [x] No version bump (phase-bundled; rides K.j).
 
+---
+
 ### Story K.h: Notebook staging + exercises manifest (resolver + generator) [Done]
 
 Build side, part 2 — produce the build artifacts. The resolver hands `notebook_source` to a runnable staging path keyed by `id` and emits a manifest entry; the generator writes the `.py` + manifest; the static `sections`/`expected_outputs` aggregation is retired. Unversioned (rides K.j).
@@ -173,6 +187,8 @@ Build side, part 2 — produce the build artifacts. The resolver hands `notebook
 - [x] `tests/`: `test_resolver.py::TestExerciseNotebookStaging` (artifact fields, `notebook_source` stripped from content, banner launch fields, stub→none); `test_generator.py::TestExerciseNotebookWriting` (notebook written outside static/, manifest shape, manifest excludes source, no-exercise→no-manifest, `exercises` stripped from curriculum.json). Updated shared `_stub_providers` mocks + K.d/K.f exercise mocks to the Option-C `notebook_source` shape. 459 passed; ruff + mypy clean.
 - [x] Updated `docs/specs/tech-spec.md`: `ExerciseBlock` schema (`mode`), the generator section (step 4 notebook+manifest write; `static/exercises` removed from preserved set; notebooks regenerated-not-preserved), and the `ResolvedCurriculum` prose (`exercises` field). The frontend `ExerciseContent` TS types stay Option-B-shaped — they're rewritten in **K.j**.
 - [ ] No version bump (phase-bundled; rides K.j).
+
+---
 
 ### Story K.i: `learningfoundry launch` / `stop` CLI (Launch Marimo) — split into K.i.1–K.i.4
 
@@ -188,6 +204,8 @@ Build side, part 2 — produce the build artifacts. The resolver hands `notebook
 
 **Out of scope (negotiable):** a `--port` override on `launch` — every exercise currently shares the default `2718` (resolver `_DEFAULT_MARIMO_PORT`), so two concurrent exercises collide; one-exercise-at-a-time is the v1 model, deferred. Real Windows process-liveness/kill is implemented behind small mockable helpers but only smoke-exercised here (CI is POSIX).
 
+---
+
 ### Story K.i.1: Launch-spec resolution + marimo argv (pure core) [Done]
 
 The "what to launch" computation — no sockets, no subprocess, no pidfiles. A pure module that reads the manifest and builds the marimo command. Unversioned (rides K.j).
@@ -199,6 +217,8 @@ The "what to launch" computation — no sockets, no subprocess, no pidfiles. A p
 - [x] `launch.py` `marimo_argv(spec: LaunchSpec) -> list[str]` → `["marimo", spec.mode, spec.notebook_path, "--headless", "-p", str(spec.port), "--no-token"]`.
 - [x] `tests/test_launch.py` (9 tests): resolve happy path (`edit` + `run`); missing manifest → `ManifestNotFoundError`; unknown id → `UnknownExerciseError` listing available ids; malformed JSON / non-object manifest / entry-missing-field → `ManifestError`; `marimo_argv` exact argv per mode. **468 passed** (was 459; +9); ruff + mypy clean.
 - [x] No version bump (phase-bundled; rides K.j).
+
+---
 
 ### Story K.i.2: Runtime primitives — port-probe, pidfile, liveness/ownership [Done]
 
@@ -213,6 +233,8 @@ The OS-interaction layer, isolated and mockable: "is the port busy, is the marim
 - [x] `tests/test_launch.py` (+12 tests): pidfile round-trip / path layout / parent-dir creation / missing+malformed→`None` / idempotent remove; `port_in_use` true/false (mock socket); `classify_port` ours/foreign/free + stale-pidfile cleanup (mock `pid_alive`, `port_in_use`). **480 passed** (was 468; +12); ruff + mypy clean.
 - [x] No version bump (phase-bundled; rides K.j).
 
+---
+
 ### Story K.i.3: `learningfoundry launch <exercise-id>` command [Done]
 
 The side-effecting verb — orchestrate K.i.1 + K.i.2, spawn marimo detached, honor the conflict policy. Unversioned (rides K.j).
@@ -224,6 +246,8 @@ The side-effecting verb — orchestrate K.i.1 + K.i.2, spawn marimo detached, ho
 - [x] `cli.py` `EXIT_RUNTIME = 5`; `LaunchError` (unknown id / missing manifest / malformed manifest) → `EXIT_VALIDATION`; marimo-missing / port-foreign → `EXIT_RUNTIME`.
 - [x] `tests/test_cli.py` (CliRunner; mock `Popen`/`which`/`classify_port`) + `tests/test_launch.py` (`spawn_detached`/`terminate_pid` units): `free` → spawns exact argv + writes pidfile; `foreign` → refuses (`EXIT_RUNTIME`, no `Popen`); `ours` → `y` kills old + spawns / `n` aborts untouched; marimo missing → hint + no `Popen`; unknown id → K.i.1 error. **489 passed** (was 480; +9); ruff + mypy clean.
 - [x] No version bump (phase-bundled; rides K.j).
+
+---
 
 ### Story K.i.4: `learningfoundry stop [<exercise-id>]` command [Done]
 
@@ -237,6 +261,8 @@ Teardown — kill the launch-owned marimo via its pidfile, never a foreign proce
 - [x] `tests/test_cli.py` (4) + `tests/test_launch.py` (5): stop-by-id terminates + removes pidfile (mock `pid_alive`/`terminate_pid`); stop-all iterates every pidfile (`{999, 888}` killed); stop with no pidfile → success no-op; stop-all with no pidfiles touches nothing (foreign ports have no pidfile → never killed); `stop_launch_on_port` live/stale/absent; `launched_ports` parse + empty. **498 passed** (was 489; +9); ruff + mypy clean.
 - [x] No version bump (phase-bundled; rides K.j).
 
+---
+
 ### Story K.j: v0.83.0 — `ExerciseBlock` banner + retire static renderer — split into K.j.1–K.j.2
 
 **Split pre-implementation** (per [`_phase-letters.md`](../project-guide/templates/modes/_phase-letters.md) § "Sub-numbered stories" → *Pre-implementation split*): the bare `K.j` heading is dropped; the frontend feature lands in **K.j.1**, the subphase **v0.83.0** release in **K.j.2**. The split keeps K.j.1's cross-language implementation context focused and gives a clean release checkpoint; K.j.2 (last story) owns the bump.
@@ -247,6 +273,8 @@ Teardown — kill the launch-owned marimo via its pidfile, never a foreign proce
 
 - **`launch_command` / `url` are derived in the component** from `id` / `port`, not stored on the content — matches the resolver's "composes `http://localhost:<port>` from `port`" comment and keeps `curriculum.json` lean. The resolver already injects `id` / `status` / `mode` / `port` onto `ready` content (K.h).
 - **Two additions beyond the original sketch:** (a) `stub_exercise()` (Python) emits the same dead Option-B fields and must move to the banner shape with the TS type; (b) `progressRepo.getExerciseStatus` — a new **reader** the "complete slate derived on load" requirement needs (today only the writer `updateExerciseStatus` exists).
+
+---
 
 ### Story K.j.1: `ExerciseBlock` banner feature + retire static renderer [Done]
 
@@ -261,6 +289,8 @@ The frontend reconciliation to Option C — type + Python stub + a `getExerciseS
 - [x] `ExerciseBlock.test.ts` rewritten (7 tests): exact command shown; Copy writes `learningfoundry launch <id>` + "Copied"; Open href `http://localhost:2718` + `_blank`; description+hints; Mark Complete persists + fires both callbacks; complete-on-load slate; stub placeholder. **vitest 289** (was 285; +4 net), **svelte-check 0/0**; **pyve test 498**; ruff + mypy clean.
 - [x] No version bump (phase-bundled; rides K.j.2).
 
+---
+
 ### Story K.j.2: v0.83.0 — docs sweep + subphase release [Done]
 
 The release ceremony for the whole Subphase K-2 (K.g–K.j): docs reconciled to Option C, then the single **v0.83.0** bump. Owns the subphase release.
@@ -272,6 +302,8 @@ The release ceremony for the whole Subphase K-2 (K.g–K.j): docs reconciled to 
 - [x] `docs/specs/tech-spec.md`: `ExerciseContent` → banner shape (dropped `ExerciseSection`/`ExpectedOutput`); also reconciled the residual Option-B-stale spots (`compile_exercise` docstring, resolver exercise-block description re K.e asset-agg, `stub_exercise` example).
 - [x] `CHANGELOG.md` `[0.83.0]` entry covering the K.g–K.j subphase (Option C: contract + notebook staging + manifest + `launch`/`stop` CLI + banner renderer; Added/Changed/Removed/Notes/Verified).
 - [x] **Version bump to v0.83.0** in `pyproject.toml` + `src/learningfoundry/__init__.py`. Verified: `pyve test` → 498 passed; CLI `--version` → `0.83.0`; no stray `0.82.0`. (Frontend unchanged in this story — K.j.1's vitest 289 / svelte-check 0-0 stand.)
+
+---
 
 ### Story K.j.3: v0.83.1 — Integration spike: verify Option C against real nbfoundry 0.46.0; pin the floor [Done]
 
@@ -293,6 +325,8 @@ Post-implementation follow-up to the K-2 Option-C release. nbfoundry **0.46.0** 
 - [x] Floor `nbfoundry>=0.1` → `>=0.46.0` in `pyproject.toml`; updated the two spec references (consumer-dependency-spec § Package Distribution + tech-spec dependency table).
 - [x] `CHANGELOG.md` `[0.83.1]` + **version bump to v0.83.1**. Verified: `pyve test` → **503 passed** (498 + 5 live); ruff + `mypy src/` clean; CLI `--version` → `0.83.1`.
 
+---
+
 ### Story K.k: v0.83.2 — Dynamic `pyproject.toml` version from `__init__.py` (Hatchling) [Done]
 
 The package version was duplicated — `[project].version` in `pyproject.toml` **and** `__version__` in `src/learningfoundry/__init__.py` — and every release edited both. `pyproject.toml` now derives the version from `__init__.py` via Hatchling's dynamic-version source, so `__version__` is the single source of truth and the two cannot drift.
@@ -303,6 +337,8 @@ The package version was duplicated — `[project].version` in `pyproject.toml` *
 - [x] `tests/test_packaging.py` (new, 4 tests, `tomllib`): `"version"` in `[project].dynamic`; **no** static `[project].version` key; `[tool.hatch.version].path == "src/learningfoundry/__init__.py"`; `learningfoundry.__version__` is a non-empty str.
 - [x] One-time real-build verification: `pyve env run pip install -e . --no-deps` → `Successfully installed learningfoundry-0.83.2`; `importlib.metadata.version("learningfoundry") == learningfoundry.__version__ == "0.83.2"` (Hatchling resolved it from `__init__.py`).
 - [x] `CHANGELOG.md` `[0.83.2]` + **version bump to v0.83.2** in `src/learningfoundry/__init__.py` **only** (pyproject is now dynamic — first release on the single-source bump). Verified: `pyve test` → **507 passed** (503 + 4); ruff + `mypy src/` clean; CLI `--version` → `0.83.2`; no static `version =` line in `pyproject.toml`.
+
+---
 
 ### Story K.l: v0.83.3 — `launch`/`stop` fixes from first real-world use [Done]
 
@@ -319,6 +355,8 @@ Two bugs surfaced running `learningfoundry launch`/`stop` from a real curriculum
 - [x] `README.md` launch/stop section + `--dir` help (cli.py): "run from the project root (auto-detects `dist/`) or from inside the app"; dropped the "run from inside the generated app" framing.
 - [x] `CHANGELOG.md` `[0.83.3]` + **version bump to v0.83.3** (`__init__.py` only). Verified: `pyve test` → **513 passed** (507 + 6); ruff + `mypy src/` clean; CLI `--version` → `0.83.3`.
 
+---
+
 ### Story K.l.1: v0.83.4 — `stop` reaches marimo's isolated kernel (ppid-tree teardown) [Done]
 
 Post-implementation follow-up to K.l: the group-`SIGTERM` did **not** fix the hang. Root cause (confirmed against marimo 0.46-era source + live process-tree probing): marimo isolates each notebook **kernel** in its own process group with a **parent-poller**, so a signal sent to the server's group never reaches the kernel — orphaned, it notices the dead server only on its next poll and shuts down *late*, leaking its multiprocessing semaphores (the `parent_poller: Parent server appears to have exited` + `resource_tracker: leaked semaphore` messages *after* the prompt).
@@ -333,6 +371,8 @@ Post-implementation follow-up to K.l: the group-`SIGTERM` did **not** fix the ha
 - [x] `tests/`: `TestTerminatePid` — SIGINT-descendants-then-SIGKILL-tree; no grace-sleep when no descendants; already-dead no-op. `TestDescendants` — ppid-tree walk parsing.
 - [x] Real-marimo verification (server-only, reproducible here): spawn → `terminate_pid` → **2.06 s**, 0 survivors, log clean (no late goodbye / leaked-semaphore / parent-poller). **Kernel-teardown confirmation needs a browser-connected session — flagged for developer retest.**
 - [x] `CHANGELOG.md` `[0.83.4]` + **version bump to v0.83.4**. Verified: `pyve test` → **515 passed** (513 + 2); ruff + `mypy src/` clean. (Supersedes K.l's group-`SIGTERM`.)
+
+---
 
 ### Story K.l.2: v0.84.0 — `learningfoundry launch --force` to reclaim a busy port [Done]
 
@@ -368,6 +408,16 @@ Follow-on to the K.l/K.l.1 launch/stop saga. When the marimo on a port can't be 
 
 - [x] Update `pyproject.toml` to NbFoundry >= 0.47.2
 - [x] Bump version to 0.84.3
+
+---
+
+## Subphase K-3: Templated Recipe Rendering
+
+---
+
+### Story K.p: TBD
+
+- [ ] TBD
 
 ---
 

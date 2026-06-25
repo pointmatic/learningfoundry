@@ -1,0 +1,67 @@
+# Copyright (c) 2026 Michael Smith
+# SPDX-License-Identifier: Apache-2.0
+#
+# TEMPLATE — base recipe for `scripts/render_recipe.py`.
+# This is a complete, valid ModelFoundry recipe (every knob at its default), so
+# `modelfoundry validate models/resnet20.template.yaml` passes as-is. The 
+# exercise surfaces ONLY the parameters below as learner-visible Python
+# variables and renders a concrete recipe behind the scenes; everything else is
+# fixed. Mirrors `models/resnet20.yaml` (the canonical artifact wired into
+# tests + the report) — keep the two in sync until the LearningFoundry
+# templated-recipe feature lands (docs/specs/learningfoundry/recipe-template-spec.md).
+#
+# SURFACED PARAMETERS (override paths for render_recipe; defaults shown inline):
+#   Optimizer.learning_rate   0.001     LR for AdamW (dynamic regime)
+#   Optimizer.weight_decay    0.0001    AdamW weight decay
+#   Training.batch_size       64        mini-batch size
+#   Training.max_epochs       40        epoch budget
+#     COUPLING: Optimizer.schedule.T_max (40) is the cosine period, conventionally
+#     == max_epochs. If you change max_epochs substantially, also override
+#     Optimizer.schedule.T_max to match, or the LR won't fully anneal.
+
+schema_version: 1
+plugin: pytorch
+seed: 42
+
+Data:
+  recipe: recipes/cifar10-base.yaml
+  cache_root: ./cache          # project DR cache root (MF default is ./data)
+
+Architecture:
+  type: resnet20
+  num_classes: 10
+  in_channels: 3
+
+Loss:
+  op: cross_entropy            # logits in, softmax applied internally (report's logits teaching point)
+
+Optimizer:
+  op: adamw                     # dynamic/interactive regime (canonical_benchmark.md § learning narrative)
+  learning_rate: 0.001          # [SURFACED]
+  weight_decay: 0.0001          # [SURFACED]
+  schedule:
+    op: cosine
+    T_max: 40                  # cosine period — keep == Training.max_epochs (see COUPLING above)
+
+Training:
+  max_epochs: 40               # [SURFACED]
+  batch_size: 64               # [SURFACED]
+  num_workers: 0
+  device: cpu
+  precision: fp32
+  early_stopping:
+    monitor: val_loss
+    mode: min
+    patience: 5                # documented dynamic regime
+
+Evaluation:
+  splits: [test]
+  primary_metric: accuracy
+  metrics: [accuracy, confusion_matrix]
+
+OutputExpectations:
+  - metric: accuracy
+    split: test
+    op: gte
+    value: 0.2                 # catches a degenerate collapse (~0.16) while passing the legitimately
+                               # data-starved dynamic-regime result (~0.30 at 1,700 train)
